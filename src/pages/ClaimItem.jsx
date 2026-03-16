@@ -12,16 +12,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { base44 } from "@/api/base44Client";
+import { appClient } from "@/api/appClient";
 import { scoreClaimRisk } from "@/lib/ai-services";
 import PhotoUploader from "@/components/shared/PhotoUploader";
 import StatusBadge from "@/components/ui/StatusBadge";
-import {
-  CheckCircle2, Loader2, Shield, ArrowLeft, Package,
-  AlertTriangle, FileCheck
+import { Loader2, Shield, ArrowLeft, Package, FileCheck
 } from "lucide-react";
 
 export default function ClaimItem() {
@@ -42,7 +39,7 @@ export default function ClaimItem() {
   // Fetch the item being claimed
   const { data: item, isLoading: itemLoading } = useQuery({
     queryKey: ["claimItem", itemId],
-    queryFn: () => base44.entities.FoundItem.filter({ id: itemId }),
+    queryFn: () => appClient.entities.FoundItem.filter({ id: itemId }),
     enabled: !!itemId,
     select: (data) => data?.[0],
   });
@@ -67,7 +64,7 @@ export default function ClaimItem() {
       // Run AI risk scoring
       const riskResult = await scoreClaimRisk(form, item);
 
-      const claim = await base44.entities.Claim.create({
+      const claim = await appClient.entities.Claim.create({
         found_item_id: item.id,
         found_item_title: item.title,
         claimant_name: form.claimant_name,
@@ -83,7 +80,7 @@ export default function ClaimItem() {
       });
 
       // Update item status
-      await base44.entities.FoundItem.update(item.id, { status: "claimed" });
+      await appClient.entities.FoundItem.update(item.id, { status: "claimed" });
 
       return claim;
     },

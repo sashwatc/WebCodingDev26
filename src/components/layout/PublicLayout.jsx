@@ -10,11 +10,25 @@ import Navbar from "./Navbar";
 import Footer from "./Footer";
 
 export default function PublicLayout() {
+  const handleSkipToContent = (event) => {
+    event.preventDefault();
+    const main = document.getElementById("main-content");
+    if (!main) {
+      return;
+    }
+
+    main.focus();
+    main.scrollIntoView({ block: "start" });
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-[hsl(210,20%,98%)]">
+      <a href="#main-content" className="skip-link" onClick={handleSkipToContent}>
+        Skip to main content
+      </a>
       <Navbar />
       {/* Main content area with top padding for fixed navbar */}
-      <main className="flex-1 pt-16" id="main-content" role="main">
+      <main className="flex-1 pt-16" id="main-content" role="main" tabIndex={-1}>
         <Outlet />
       </main>
       <Footer />

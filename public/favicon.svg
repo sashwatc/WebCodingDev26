@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title desc">
+  <title id="title">FindBack AI</title>
+  <desc id="desc">Rounded square with a magnifying glass and star accent.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#183459" />
+      <stop offset="100%" stop-color="#0f766e" />
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="18" fill="url(#bg)" />
+  <circle cx="27" cy="27" r="12" fill="none" stroke="#ffffff" stroke-width="5" />
+  <path d="M35 35L46 46" stroke="#ffffff" stroke-linecap="round" stroke-width="5" />
+  <path d="M46 15l1.8 4.2L52 21l-4.2 1.8L46 27l-1.8-4.2L40 21l4.2-1.8L46 15z" fill="#fbbf24" />
+</svg>

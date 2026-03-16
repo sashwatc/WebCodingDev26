@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { useQuery } from "@tanstack/react-query";
-import { base44 } from "@/api/base44Client";
+import { appClient } from "@/api/appClient";
 import { CATEGORIES, LOCATIONS, COLORS } from "@/lib/constants";
 import ItemCard from "@/components/search/ItemCard";
 import {
@@ -30,7 +30,7 @@ export default function Search() {
   // Fetch all approved (and claimed/returned for browsing) found items
   const { data: allItems = [], isLoading } = useQuery({
     queryKey: ["searchFoundItems"],
-    queryFn: () => base44.entities.FoundItem.list("-created_date", 200),
+    queryFn: () => appClient.entities.FoundItem.list("-created_date", 200),
   });
 
   // Client-side filtering and search
@@ -175,7 +175,7 @@ export default function Search() {
           />
           {searchQuery && (
             <Badge className="absolute right-3 top-1/2 -translate-y-1/2 bg-teal-50 text-teal-700 text-[10px] gap-0.5">
-              <Sparkles className="w-2.5 h-2.5" /> AI Search
+              <Sparkles className="w-2.5 h-2.5" /> Smart Search
             </Badge>
           )}
         </div>
@@ -198,7 +198,7 @@ export default function Search() {
               <span className="hidden sm:inline">Filters</span>
             </Button>
           </SheetTrigger>
-          <SheetContent side="right" className="w-80">
+          <SheetContent side="right" className="w-full max-w-xs">
             <SheetHeader>
               <SheetTitle>Filter Items</SheetTitle>
             </SheetHeader>

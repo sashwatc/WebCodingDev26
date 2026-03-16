@@ -1,0 +1,9 @@
+{
+  "name": "FindBack AI",
+  "short_name": "FindBack",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f7f9fc",
+  "theme_color": "#183459",
+  "description": "Accessible school lost-and-found website built for FBLA."
+}

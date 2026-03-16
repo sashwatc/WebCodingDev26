@@ -6,52 +6,51 @@
 
 import React from "react";
 import { Link } from "react-router-dom";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { base44 } from "@/api/base44Client";
+import { appClient } from "@/api/appClient";
 import StatusBadge from "@/components/ui/StatusBadge";
 import { format } from "date-fns";
+import { useAuth } from "@/lib/AuthContext";
+import { useToast } from "@/components/ui/use-toast";
 import {
-  AlertTriangle, FileCheck, Bell, Eye, Package,
-  Brain, Clock, CheckCircle2, XCircle
+  AlertTriangle, FileCheck, Bell, Eye,
+  Brain
 } from "lucide-react";
 
 export default function UserDashboard() {
   const queryClient = useQueryClient();
-
-  const { data: user } = useQuery({
-    queryKey: ["currentUser"],
-    queryFn: () => base44.auth.me(),
-  });
+  const { user, navigateToLogin } = useAuth();
+  const { toast } = useToast();
 
   // Fetch user's lost reports
   const { data: lostReports = [], isLoading: lrLoading } = useQuery({
     queryKey: ["userLostReports", user?.email],
-    queryFn: () => base44.entities.LostReport.filter({ contact_email: user.email }),
+    queryFn: () => appClient.entities.LostReport.filter({ contact_email: user.email }),
     enabled: !!user?.email,
   });
 
   // Fetch user's claims
   const { data: claims = [], isLoading: clLoading } = useQuery({
     queryKey: ["userClaims", user?.email],
-    queryFn: () => base44.entities.Claim.filter({ claimant_email: user.email }),
+    queryFn: () => appClient.entities.Claim.filter({ claimant_email: user.email }),
     enabled: !!user?.email,
   });
 
   // Fetch user's notifications
   const { data: notifications = [], isLoading: notifLoading } = useQuery({
     queryKey: ["userNotifications", user?.email],
-    queryFn: () => base44.entities.Notification.filter({ user_email: user.email }, "-created_date", 20),
+    queryFn: () => appClient.entities.Notification.filter({ user_email: user.email }, "-created_date", 20),
     enabled: !!user?.email,
   });
 
   // Mark notification as read
   const markReadMutation = useMutation({
-    mutationFn: (id) => base44.entities.Notification.update(id, { is_read: true }),
+    mutationFn: (id) => appClient.entities.Notification.update(id, { is_read: true }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["userNotifications"] }),
   });
 
@@ -61,6 +60,38 @@ export default function UserDashboard() {
       <p className="text-sm text-slate-400">{message}</p>
     </div>
   );
+
+  if (!user) {
+    return (
+      <div className="max-w-xl mx-auto px-4 py-16">
+        <Card className="border-slate-200 shadow-sm">
+          <CardContent className="p-8 text-center">
+            <Bell className="w-10 h-10 text-slate-300 mx-auto mb-4" />
+            <h1 className="text-2xl font-bold text-slate-900 mb-2">Sign in to view your dashboard</h1>
+            <p className="text-slate-500 mb-6">
+              Sign in on this device to see your reports, claims, and notifications.
+            </p>
+            <Button
+              className="bg-[hsl(222,65%,18%)] text-white hover:bg-[hsl(222,65%,15%)]"
+              onClick={async () => {
+                try {
+                  await navigateToLogin();
+                } catch (error) {
+                  toast({
+                    title: "Sign in unavailable",
+                    description: error.message,
+                    variant: "destructive",
+                  });
+                }
+              }}
+            >
+              Sign In
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-10">
@@ -72,7 +103,7 @@ export default function UserDashboard() {
       </div>
 
       {/* Quick Stats */}
-      <div className="grid grid-cols-3 gap-4 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
         {[
           { label: "Lost Reports", value: lostReports.length, icon: AlertTriangle, color: "text-amber-600 bg-amber-50" },
           { label: "Active Claims", value: claims.filter(c => !["completed", "rejected"].includes(c.status)).length, icon: FileCheck, color: "text-blue-600 bg-blue-50" },

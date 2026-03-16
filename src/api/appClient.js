@@ -1,0 +1,855 @@
+const STORAGE_KEY = "findback-app-db";
+const AUTH_STORAGE_KEY = "findback-auth-user";
+const authListeners = new Set();
+
+const CATEGORY_LABELS = {
+  electronics: "electronics",
+  clothing: "clothing",
+  accessories: "accessories",
+  school_supplies: "school supplies",
+  sports_equipment: "sports equipment",
+  food_containers: "food containers",
+  keys_ids: "keys and ids",
+  bags_cases: "bags and cases",
+  personal_items: "personal items",
+  other: "other",
+};
+
+function createPlaceholderImage(label, colorA, colorB) {
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="640" height="480" viewBox="0 0 640 480">
+      <defs>
+        <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="${colorA}" />
+          <stop offset="100%" stop-color="${colorB}" />
+        </linearGradient>
+      </defs>
+      <rect width="640" height="480" rx="36" fill="url(#g)" />
+      <circle cx="540" cy="110" r="64" fill="rgba(255,255,255,0.12)" />
+      <circle cx="130" cy="360" r="88" fill="rgba(255,255,255,0.1)" />
+      <text x="50%" y="48%" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="34" font-weight="700">
+        ${label}
+      </text>
+      <text x="50%" y="58%" text-anchor="middle" fill="rgba(255,255,255,0.82)" font-family="Arial, sans-serif" font-size="18">
+        FindBack demo item
+      </text>
+    </svg>
+  `;
+
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+}
+
+function createSeedData() {
+  const now = Date.now();
+  const daysAgo = (days, hours = 10) => new Date(now - days * 24 * 60 * 60 * 1000 + hours * 60 * 60 * 1000).toISOString();
+
+  return {
+    FoundItem: [
+      {
+        id: "found_001",
+        title: "Black Hydro Flask Water Bottle",
+        category: "food_containers",
+        subcategory: "Water Bottle",
+        description: "Matte black Hydro Flask with Pleasant Valley sticker and blue silicone boot.",
+        ai_description: "A matte black Hydro Flask water bottle with a Pleasant Valley sticker and a blue silicone boot.",
+        color: "Black",
+        brand: "Hydro Flask",
+        date_found: "2026-03-11",
+        time_found: "12:15",
+        location_found: "Gymnasium",
+        storage_location: "Main Office shelf B2",
+        condition: "good",
+        photo_urls: [createPlaceholderImage("Hydro Flask", "#0f172a", "#0f766e")],
+        distinguishing_features: "Pleasant Valley athletics sticker and blue rubber base",
+        finder_name: "Coach Miller",
+        finder_email: "coach.miller@pleasantvalley.edu",
+        finder_role: "staff",
+        tags: ["water bottle", "hydro flask", "black", "gym"],
+        status: "approved",
+        priority: "medium",
+        item_code: "FB-2026-HF82",
+        is_flagged: false,
+        assigned_to: "front-office",
+        created_date: daysAgo(5),
+        updated_date: daysAgo(5),
+      },
+      {
+        id: "found_002",
+        title: "Apple AirPods Pro Case",
+        category: "electronics",
+        subcategory: "Earbuds",
+        description: "White AirPods Pro charging case with slight scratch on the lid.",
+        ai_description: "White Apple AirPods Pro charging case with a small scratch on the lid.",
+        color: "White",
+        brand: "Apple",
+        date_found: "2026-03-13",
+        time_found: "09:40",
+        location_found: "Library",
+        storage_location: "Main Office drawer E1",
+        condition: "good",
+        photo_urls: [createPlaceholderImage("AirPods Pro", "#e2e8f0", "#94a3b8")],
+        distinguishing_features: "Small scratch near hinge",
+        finder_name: "Library Desk",
+        finder_email: "library@pleasantvalley.edu",
+        finder_role: "staff",
+        tags: ["airpods", "apple", "earbuds", "white"],
+        status: "approved",
+        priority: "high",
+        item_code: "FB-2026-AP91",
+        is_flagged: false,
+        assigned_to: "front-office",
+        created_date: daysAgo(3),
+        updated_date: daysAgo(3),
+      },
+      {
+        id: "found_003",
+        title: "Blue JanSport Backpack",
+        category: "bags_cases",
+        subcategory: "Backpack",
+        description: "Royal blue JanSport backpack with math notebook and tennis keychain inside front pocket.",
+        ai_description: "Royal blue JanSport backpack with a math notebook and tennis keychain in the front pocket.",
+        color: "Blue",
+        brand: "JanSport",
+        date_found: "2026-03-09",
+        time_found: "15:05",
+        location_found: "Student Lounge",
+        storage_location: "Counselor office storage closet",
+        condition: "fair",
+        photo_urls: [createPlaceholderImage("JanSport Bag", "#1d4ed8", "#0f172a")],
+        distinguishing_features: "Green tennis racket keychain",
+        finder_name: "Jamie Lopez",
+        finder_email: "jamie.lopez@pleasantvalley.edu",
+        finder_role: "student",
+        tags: ["backpack", "jansport", "blue", "student lounge"],
+        status: "claimed",
+        priority: "medium",
+        item_code: "FB-2026-JS27",
+        is_flagged: false,
+        assigned_to: "counseling-office",
+        created_date: daysAgo(7),
+        updated_date: daysAgo(2),
+      },
+      {
+        id: "found_004",
+        title: "Silver Graphing Calculator",
+        category: "school_supplies",
+        subcategory: "Calculator",
+        description: "Texas Instruments graphing calculator with initials M.R. on back.",
+        ai_description: "Silver Texas Instruments graphing calculator with the initials M.R. written on the back.",
+        color: "Silver",
+        brand: "Texas Instruments",
+        date_found: "2026-03-08",
+        time_found: "11:00",
+        location_found: "Science Hall",
+        storage_location: "Science department office",
+        condition: "good",
+        photo_urls: [createPlaceholderImage("TI Calculator", "#64748b", "#334155")],
+        distinguishing_features: "Initials M.R. in black marker",
+        finder_name: "Mrs. Reynolds",
+        finder_email: "reynolds@pleasantvalley.edu",
+        finder_role: "staff",
+        tags: ["calculator", "ti", "silver", "science hall"],
+        status: "pending_review",
+        priority: "medium",
+        item_code: "FB-2026-TI44",
+        is_flagged: false,
+        assigned_to: "science-office",
+        created_date: daysAgo(8),
+        updated_date: daysAgo(8),
+      },
+      {
+        id: "found_005",
+        title: "Black Nike Hoodie",
+        category: "clothing",
+        subcategory: "Hoodie",
+        description: "Black Nike hoodie, medium size, with white swoosh on chest.",
+        ai_description: "Black Nike hoodie in medium size with a white swoosh logo on the chest.",
+        color: "Black",
+        brand: "Nike",
+        date_found: "2026-03-05",
+        time_found: "16:20",
+        location_found: "Football Field",
+        storage_location: "Athletics office rack 3",
+        condition: "good",
+        photo_urls: [createPlaceholderImage("Nike Hoodie", "#111827", "#52525b")],
+        distinguishing_features: "Name tag stitched inside collar",
+        finder_name: "Athletics Office",
+        finder_email: "athletics@pleasantvalley.edu",
+        finder_role: "staff",
+        tags: ["hoodie", "nike", "black", "football field"],
+        status: "returned",
+        priority: "low",
+        item_code: "FB-2026-NK58",
+        is_flagged: false,
+        assigned_to: "athletics-office",
+        created_date: daysAgo(11),
+        updated_date: daysAgo(1),
+      },
+    ],
+    LostReport: [
+      {
+        id: "lost_001",
+        item_type: "AirPods Pro case",
+        category: "electronics",
+        description: "White AirPods Pro case with a small scratch near the hinge.",
+        color: "White",
+        brand: "Apple",
+        last_seen_location: "Library",
+        date_lost: "2026-03-13",
+        photo_url: "",
+        contact_name: "Mia Rodriguez",
+        contact_email: "mia.rodriguez@pleasantvalley.edu",
+        student_id: "PV10294",
+        urgency: "high",
+        extra_notes: "Lost sometime before second period.",
+        status: "matched",
+        matched_items: [
+          {
+            found_item_id: "found_002",
+            confidence: 96,
+            reasons: ["brand match", "color match", "location match", "description overlap"],
+          },
+        ],
+        created_date: daysAgo(3, 8),
+        updated_date: daysAgo(3, 8),
+      },
+      {
+        id: "lost_002",
+        item_type: "Blue backpack",
+        category: "bags_cases",
+        description: "Royal blue backpack with tennis charm and school notebooks.",
+        color: "Blue",
+        brand: "JanSport",
+        last_seen_location: "Student Lounge",
+        date_lost: "2026-03-09",
+        photo_url: "",
+        contact_name: "Jordan Kim",
+        contact_email: "jordan.kim@pleasantvalley.edu",
+        student_id: "PV10811",
+        urgency: "medium",
+        extra_notes: "",
+        status: "matched",
+        matched_items: [
+          {
+            found_item_id: "found_003",
+            confidence: 91,
+            reasons: ["brand match", "color match", "location match", "unique feature match"],
+          },
+        ],
+        created_date: daysAgo(7, 7),
+        updated_date: daysAgo(6, 9),
+      },
+    ],
+    Claim: [
+      {
+        id: "claim_001",
+        found_item_id: "found_003",
+        found_item_title: "Blue JanSport Backpack",
+        claimant_name: "Jordan Kim",
+        claimant_email: "jordan.kim@pleasantvalley.edu",
+        student_id: "PV10811",
+        reason: "I lost my backpack in the student lounge after lunch and it has my notebooks in it.",
+        identifying_details: "There is a green tennis racket keychain clipped to the zipper.",
+        proof_photo_url: "",
+        pickup_availability: "After 3 PM",
+        status: "under_review",
+        admin_notes: "Strong match with submitted lost report.",
+        risk_score: 18,
+        risk_flags: ["strong identifying detail provided"],
+        created_date: daysAgo(2),
+        updated_date: daysAgo(1),
+      },
+    ],
+    Notification: [
+      {
+        id: "notif_001",
+        user_email: "mia.rodriguez@pleasantvalley.edu",
+        title: "Potential match found",
+        message: "We found an AirPods case that closely matches your report.",
+        type: "match_found",
+        is_read: false,
+        link: "/ItemDetails?id=found_002",
+        related_item_id: "found_002",
+        created_date: daysAgo(2),
+        updated_date: daysAgo(2),
+      },
+      {
+        id: "notif_002",
+        user_email: "jordan.kim@pleasantvalley.edu",
+        title: "Demo mode enabled",
+        message: "This standalone version uses in-browser sample data instead of a hosted backend.",
+        type: "system",
+        is_read: false,
+        link: "/Home",
+        related_item_id: "",
+        created_date: daysAgo(1),
+        updated_date: daysAgo(1),
+      },
+      {
+        id: "notif_003",
+        user_email: "jordan.kim@pleasantvalley.edu",
+        title: "Claim is under review",
+        message: "Your backpack claim is waiting for admin approval.",
+        type: "claim_update",
+        is_read: true,
+        link: "/UserDashboard",
+        related_item_id: "found_003",
+        created_date: daysAgo(1),
+        updated_date: daysAgo(1),
+      },
+    ],
+    AuditLog: [
+      {
+        id: "audit_001",
+        action: "Seeded local demo workspace",
+        entity_type: "system",
+        entity_id: "local-demo",
+        performed_by: "system",
+        details: "Initialized sample records for standalone development.",
+        previous_value: "",
+        new_value: "",
+        created_date: daysAgo(10),
+        updated_date: daysAgo(10),
+      },
+      {
+        id: "audit_002",
+        action: "Claim submitted",
+        entity_type: "claim",
+        entity_id: "claim_001",
+        performed_by: "jordan.kim@pleasantvalley.edu",
+        details: "Claim submitted for Blue JanSport Backpack.",
+        previous_value: "",
+        new_value: "",
+        created_date: daysAgo(2),
+        updated_date: daysAgo(2),
+      },
+    ],
+  };
+}
+
+function getStorage() {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  return window.localStorage;
+}
+
+function clone(value) {
+  return JSON.parse(JSON.stringify(value));
+}
+
+function readDb() {
+  const storage = getStorage();
+  if (!storage) {
+    return createSeedData();
+  }
+
+  const raw = storage.getItem(STORAGE_KEY);
+  if (!raw) {
+    const seeded = createSeedData();
+    storage.setItem(STORAGE_KEY, JSON.stringify(seeded));
+    return clone(seeded);
+  }
+
+  try {
+    return JSON.parse(raw);
+  } catch {
+    const seeded = createSeedData();
+    storage.setItem(STORAGE_KEY, JSON.stringify(seeded));
+    return clone(seeded);
+  }
+}
+
+function writeDb(db) {
+  const storage = getStorage();
+  if (!storage) {
+    return;
+  }
+
+  storage.setItem(STORAGE_KEY, JSON.stringify(db));
+}
+
+function readAuthUser() {
+  const storage = getStorage();
+  if (!storage) {
+    return null;
+  }
+
+  const raw = storage.getItem(AUTH_STORAGE_KEY);
+  if (!raw) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(raw);
+  } catch {
+    storage.removeItem(AUTH_STORAGE_KEY);
+    return null;
+  }
+}
+
+function writeAuthUser(user) {
+  const storage = getStorage();
+  if (!storage) {
+    return;
+  }
+
+  if (!user) {
+    storage.removeItem(AUTH_STORAGE_KEY);
+    return;
+  }
+
+  storage.setItem(AUTH_STORAGE_KEY, JSON.stringify(user));
+}
+
+function createId(prefix) {
+  return `${prefix}_${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function sortRecords(records, sort) {
+  if (!sort) {
+    return records;
+  }
+
+  const desc = sort.startsWith("-");
+  const field = desc ? sort.slice(1) : sort;
+
+  return [...records].sort((a, b) => {
+    const aValue = a[field] ?? "";
+    const bValue = b[field] ?? "";
+
+    if (aValue < bValue) {
+      return desc ? 1 : -1;
+    }
+    if (aValue > bValue) {
+      return desc ? -1 : 1;
+    }
+    return 0;
+  });
+}
+
+function matchRecord(record, filters = {}) {
+  return Object.entries(filters).every(([key, value]) => {
+    if (value === undefined || value === null || value === "") {
+      return true;
+    }
+
+    const recordValue = record[key];
+    if (Array.isArray(recordValue)) {
+      return recordValue.includes(value);
+    }
+
+    return recordValue === value;
+  });
+}
+
+function limitRecords(records, limit) {
+  if (!limit) {
+    return records;
+  }
+
+  return records.slice(0, limit);
+}
+
+function addNotification(db, notification) {
+  db.Notification.unshift({
+    id: createId("notif"),
+    type: "system",
+    is_read: false,
+    link: "",
+    related_item_id: "",
+    created_date: new Date().toISOString(),
+    updated_date: new Date().toISOString(),
+    ...notification,
+  });
+}
+
+function addAuditLog(db, log) {
+  db.AuditLog.unshift({
+    id: createId("audit"),
+    previous_value: "",
+    new_value: "",
+    created_date: new Date().toISOString(),
+    updated_date: new Date().toISOString(),
+    ...log,
+  });
+}
+
+function applyEntitySideEffects(entityName, operation, record, previousRecord, db) {
+  if (entityName === "Claim" && operation === "create") {
+    addNotification(db, {
+      user_email: record.claimant_email,
+      title: "Claim submitted",
+      message: `Your claim for ${record.found_item_title} has been submitted.`,
+      type: "claim_update",
+      link: "/UserDashboard",
+      related_item_id: record.found_item_id,
+    });
+
+    addAuditLog(db, {
+      action: "Claim submitted",
+      entity_type: "claim",
+      entity_id: record.id,
+      performed_by: record.claimant_email || "demo-user",
+      details: `Claim submitted for ${record.found_item_title}.`,
+    });
+  }
+
+  if (entityName === "Claim" && operation === "update" && record.status !== previousRecord?.status) {
+    addNotification(db, {
+      user_email: record.claimant_email,
+      title: "Claim updated",
+      message: `Your claim for ${record.found_item_title} is now ${record.status.replaceAll("_", " ")}.`,
+      type: "claim_update",
+      link: "/UserDashboard",
+      related_item_id: record.found_item_id,
+    });
+  }
+
+  if (
+    entityName === "LostReport" &&
+    operation === "update" &&
+    record.matched_items?.length &&
+    record.matched_items !== previousRecord?.matched_items
+  ) {
+    addNotification(db, {
+      user_email: record.contact_email,
+      title: "Potential match found",
+      message: `We found ${record.matched_items.length} possible match${record.matched_items.length > 1 ? "es" : ""} for your lost item report.`,
+      type: "match_found",
+      link: "/UserDashboard",
+    });
+  }
+
+  if (entityName === "FoundItem" && operation === "update" && record.status !== previousRecord?.status && record.finder_email) {
+    addNotification(db, {
+      user_email: record.finder_email,
+      title: "Found item updated",
+      message: `${record.title} is now marked as ${record.status.replaceAll("_", " ")}.`,
+      type: "item_approved",
+      link: `/ItemDetails?id=${record.id}`,
+      related_item_id: record.id,
+    });
+  }
+}
+
+function createEntityApi(entityName) {
+  return {
+    async list(sort, limit) {
+      const db = readDb();
+      const records = db[entityName] || [];
+      return clone(limitRecords(sortRecords(records, sort), limit));
+    },
+
+    async filter(filters = {}, sort, limit) {
+      const db = readDb();
+      const records = (db[entityName] || []).filter((record) => matchRecord(record, filters));
+      return clone(limitRecords(sortRecords(records, sort), limit));
+    },
+
+    async create(data) {
+      const db = readDb();
+      const now = new Date().toISOString();
+      const prefix = entityName.toLowerCase();
+      const record = {
+        id: createId(prefix),
+        created_date: now,
+        updated_date: now,
+        ...data,
+      };
+
+      db[entityName].unshift(record);
+      applyEntitySideEffects(entityName, "create", record, null, db);
+      writeDb(db);
+      return clone(record);
+    },
+
+    async update(id, updates) {
+      const db = readDb();
+      const records = db[entityName] || [];
+      const index = records.findIndex((record) => record.id === id);
+
+      if (index === -1) {
+        const error = new Error(`${entityName} ${id} not found`);
+        error.status = 404;
+        throw error;
+      }
+
+      const previousRecord = clone(records[index]);
+      const nextRecord = {
+        ...records[index],
+        ...updates,
+        updated_date: new Date().toISOString(),
+      };
+
+      records[index] = nextRecord;
+      applyEntitySideEffects(entityName, "update", nextRecord, previousRecord, db);
+      writeDb(db);
+      return clone(nextRecord);
+    },
+
+    async delete(id) {
+      const db = readDb();
+      const records = db[entityName] || [];
+      const index = records.findIndex((record) => record.id === id);
+
+      if (index === -1) {
+        return false;
+      }
+
+      records.splice(index, 1);
+      writeDb(db);
+      return true;
+    },
+  };
+}
+
+async function uploadFileLocally({ file }) {
+  if (typeof FileReader === "undefined") {
+    return { file_url: "" };
+  }
+
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve({ file_url: reader.result });
+    reader.onerror = () => reject(new Error("Failed to read file"));
+    reader.readAsDataURL(file);
+  });
+}
+
+function tokenize(text) {
+  return String(text || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .split(/\s+/)
+    .filter(Boolean);
+}
+
+function simpleTagResponse(prompt) {
+  const tokens = tokenize(prompt)
+    .filter((token) => token.length > 2)
+    .filter((token) => !["generate", "descriptive", "search", "tags", "found", "item", "school", "system", "return", "short", "lowercase", "title", "description", "category"].includes(token));
+
+  return {
+    tags: [...new Set(tokens)].slice(0, 6),
+  };
+}
+
+function simpleCleanupResponse(prompt) {
+  const match = prompt.match(/Original description: "([\s\S]*)"/);
+  const raw = match?.[1] || "";
+  const cleaned = raw
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/^./, (char) => char.toUpperCase());
+
+  return {
+    cleaned_description: cleaned,
+  };
+}
+
+function simpleSearchParse(prompt) {
+  const queryMatch = prompt.match(/Query: "([\s\S]*)"/);
+  const query = queryMatch?.[1] || "";
+  const keywords = tokenize(query);
+  const category = Object.entries(CATEGORY_LABELS).find(([, label]) => query.toLowerCase().includes(label))?.[0] || "";
+  const color = ["black", "white", "red", "blue", "green", "yellow", "orange", "purple", "pink", "brown", "gray", "silver", "gold"]
+    .find((value) => query.toLowerCase().includes(value)) || "";
+
+  return {
+    keywords: [...new Set(keywords)].slice(0, 8),
+    category,
+    color,
+    brand: "",
+    location: "",
+    date_hint: "",
+  };
+}
+
+function simpleDuplicateResponse() {
+  return {
+    is_duplicate: false,
+    duplicate_of_id: "",
+    confidence: 12,
+    reason: "Local mode uses lightweight duplicate detection heuristics.",
+  };
+}
+
+function simpleClaimRiskResponse(prompt) {
+  const detailPenalty = prompt.toLowerCase().includes("none provided") ? 22 : 0;
+  const proofPenalty = prompt.toLowerCase().includes("has proof photo: no") ? 14 : 0;
+  const risk = Math.min(85, 18 + detailPenalty + proofPenalty);
+  const flags = [];
+
+  if (detailPenalty) {
+    flags.push("missing identifying details");
+  }
+  if (proofPenalty) {
+    flags.push("no proof photo");
+  }
+  if (flags.length === 0) {
+    flags.push("sufficient detail provided");
+  }
+
+  return {
+    risk_score: risk,
+    risk_flags: flags,
+    summary: "Local demo risk analysis completed.",
+  };
+}
+
+function simpleMatchResponse() {
+  return { matches: [] };
+}
+
+function createInvokeLlmResponse(prompt) {
+  if (prompt.includes("Generate 3-6 descriptive search tags")) {
+    return simpleTagResponse(prompt);
+  }
+  if (prompt.includes("Rewrite this user-submitted item description")) {
+    return simpleCleanupResponse(prompt);
+  }
+  if (prompt.includes("Parse this natural language search query")) {
+    return simpleSearchParse(prompt);
+  }
+  if (prompt.includes("Check if this new found item submission might be a duplicate")) {
+    return simpleDuplicateResponse();
+  }
+  if (prompt.includes("Evaluate the risk level of this lost-and-found claim")) {
+    return simpleClaimRiskResponse(prompt);
+  }
+  if (prompt.includes("You are an AI matching engine")) {
+    return simpleMatchResponse();
+  }
+
+  return {};
+}
+
+function emitAuthChange(event, user) {
+  authListeners.forEach((listener) => {
+    listener(event, { user });
+  });
+}
+
+function ensureLocalUserNotification(user) {
+  if (!user?.email) {
+    return;
+  }
+
+  const db = readDb();
+  const alreadyExists = db.Notification.some(
+    (notification) =>
+      notification.user_email === user.email && notification.title === "Welcome to FindBack AI"
+  );
+
+  if (alreadyExists) {
+    return;
+  }
+
+  addNotification(db, {
+    user_email: user.email,
+    title: "Welcome to FindBack AI",
+    message: "Your browser-only account is ready. Reports, claims, and notifications now follow this email on this device.",
+    type: "system",
+    link: "/UserDashboard",
+  });
+
+  addAuditLog(db, {
+    action: "User signed in",
+    entity_type: "user",
+    entity_id: user.id,
+    performed_by: user.email,
+    details: "Local browser session started.",
+  });
+
+  writeDb(db);
+}
+
+function normalizeAuthUser({ full_name, email }) {
+  const normalizedEmail = String(email || "").trim().toLowerCase();
+  const normalizedName = String(full_name || "").trim();
+
+  if (!normalizedName) {
+    throw new Error("Full name is required.");
+  }
+
+  if (!normalizedEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+    throw new Error("Enter a valid email address.");
+  }
+
+  return {
+    id: readAuthUser()?.id || createId("user"),
+    full_name: normalizedName,
+    email: normalizedEmail,
+    role: "student",
+    avatar_url: "",
+  };
+}
+
+async function getCurrentAuthUser() {
+  return readAuthUser();
+}
+
+export function resetAppData() {
+  const storage = getStorage();
+  if (!storage) {
+    return;
+  }
+
+  storage.removeItem(STORAGE_KEY);
+}
+
+function createAppClient() {
+  return {
+    auth: {
+      async me() {
+        return getCurrentAuthUser();
+      },
+      async signIn(credentials) {
+        const user = normalizeAuthUser(credentials);
+        writeAuthUser(user);
+        ensureLocalUserNotification(user);
+        emitAuthChange("SIGNED_IN", user);
+        return clone(user);
+      },
+      async logout() {
+        writeAuthUser(null);
+        emitAuthChange("SIGNED_OUT", null);
+        return null;
+      },
+      async redirectToLogin() {
+        return null;
+      },
+      onAuthStateChange(callback) {
+        authListeners.add(callback);
+        return {
+          data: {
+            subscription: {
+              unsubscribe() {
+                authListeners.delete(callback);
+              },
+            },
+          },
+        };
+      },
+    },
+    entities: {
+      FoundItem: createEntityApi("FoundItem"),
+      LostReport: createEntityApi("LostReport"),
+      Claim: createEntityApi("Claim"),
+      Notification: createEntityApi("Notification"),
+      AuditLog: createEntityApi("AuditLog"),
+    },
+    integrations: {
+      Core: {
+        UploadFile: uploadFileLocally,
+        async InvokeLLM({ prompt }) {
+          return createInvokeLlmResponse(prompt);
+        },
+      },
+    },
+  };
+}
+
+export const appClient = createAppClient();

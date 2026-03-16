@@ -8,10 +8,13 @@ import { Toaster } from "@/components/ui/toaster"
 import { QueryClientProvider } from '@tanstack/react-query'
 import { queryClientInstance } from '@/lib/query-client'
 import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
+import { MotionConfig } from "framer-motion";
 import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 import { ModeProvider } from '@/lib/ModeContext';
+import SignInDialog from '@/components/auth/SignInDialog';
+import RouteEnhancements from '@/components/layout/RouteEnhancements';
 
 // Layout
 import PublicLayout from '@/components/layout/PublicLayout';
@@ -30,6 +33,8 @@ import FAQ from '@/pages/FAQ';
 import Privacy from '@/pages/Privacy';
 import Terms from '@/pages/Terms';
 import Accessibility from '@/pages/Accessibility';
+import Sources from '@/pages/Sources';
+import Documentation from '@/pages/Documentation';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -55,30 +60,35 @@ const AuthenticatedApp = () => {
   }
 
   return (
-    <Routes>
-      {/* Redirect root to Home */}
-      <Route path="/" element={<Navigate to="/Home" replace />} />
+    <>
+      <RouteEnhancements />
+      <Routes>
+        {/* Redirect root to Home */}
+        <Route path="/" element={<Navigate to="/Home" replace />} />
 
-      {/* Public pages with layout (Navbar + Footer) */}
-      <Route element={<PublicLayout />}>
-        <Route path="/Home" element={<Home />} />
-        <Route path="/Search" element={<Search />} />
-        <Route path="/ReportFound" element={<ReportFound />} />
-        <Route path="/ReportLost" element={<ReportLost />} />
-        <Route path="/ItemDetails" element={<ItemDetails />} />
-        <Route path="/ClaimItem" element={<ClaimItem />} />
-        <Route path="/UserDashboard" element={<UserDashboard />} />
-        <Route path="/AdminDashboard" element={<AdminDashboard />} />
-        <Route path="/About" element={<About />} />
-        <Route path="/FAQ" element={<FAQ />} />
-        <Route path="/Privacy" element={<Privacy />} />
-        <Route path="/Terms" element={<Terms />} />
-        <Route path="/Accessibility" element={<Accessibility />} />
-      </Route>
+        {/* Public pages with layout (Navbar + Footer) */}
+        <Route element={<PublicLayout />}>
+          <Route path="/Home" element={<Home />} />
+          <Route path="/Search" element={<Search />} />
+          <Route path="/ReportFound" element={<ReportFound />} />
+          <Route path="/ReportLost" element={<ReportLost />} />
+          <Route path="/ItemDetails" element={<ItemDetails />} />
+          <Route path="/ClaimItem" element={<ClaimItem />} />
+          <Route path="/UserDashboard" element={<UserDashboard />} />
+          <Route path="/AdminDashboard" element={<AdminDashboard />} />
+          <Route path="/About" element={<About />} />
+          <Route path="/FAQ" element={<FAQ />} />
+          <Route path="/Privacy" element={<Privacy />} />
+          <Route path="/Terms" element={<Terms />} />
+          <Route path="/Accessibility" element={<Accessibility />} />
+          <Route path="/Sources" element={<Sources />} />
+          <Route path="/Documentation" element={<Documentation />} />
+        </Route>
 
-      {/* 404 fallback */}
-      <Route path="*" element={<PageNotFound />} />
-    </Routes>
+        {/* 404 fallback */}
+        <Route path="*" element={<PageNotFound />} />
+      </Routes>
+    </>
   );
 };
 
@@ -87,9 +97,12 @@ function App() {
     <ModeProvider>
       <AuthProvider>
         <QueryClientProvider client={queryClientInstance}>
-          <Router>
-            <AuthenticatedApp />
-          </Router>
+          <MotionConfig reducedMotion="user">
+            <SignInDialog />
+            <Router>
+              <AuthenticatedApp />
+            </Router>
+          </MotionConfig>
           <Toaster />
         </QueryClientProvider>
       </AuthProvider>

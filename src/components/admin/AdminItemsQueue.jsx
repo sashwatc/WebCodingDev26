@@ -17,14 +17,14 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue
 } from "@/components/ui/select";
 import { useToast } from "@/components/ui/use-toast";
-import { base44 } from "@/api/base44Client";
+import { appClient } from "@/api/appClient";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import StatusBadge from "@/components/ui/StatusBadge";
 import { format } from "date-fns";
 import {
-  CheckCircle2, XCircle, Flag, Eye, Search,
-  Package, MoreHorizontal, Archive, Trash2, Pencil,
-  MessageSquare, Loader2
+  CheckCircle2, XCircle, Flag, Search,
+  Package, MoreHorizontal, Archive, Trash2,
+  MessageSquare
 } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
@@ -42,9 +42,9 @@ export default function AdminItemsQueue({ items, filterStatus = "all" }) {
   // Status update mutation
   const updateMutation = useMutation({
     mutationFn: async ({ id, data, action }) => {
-      await base44.entities.FoundItem.update(id, data);
+      await appClient.entities.FoundItem.update(id, data);
       // Log audit
-      await base44.entities.AuditLog.create({
+      await appClient.entities.AuditLog.create({
         action: action,
         entity_type: "found_item",
         entity_id: id,
@@ -60,8 +60,8 @@ export default function AdminItemsQueue({ items, filterStatus = "all" }) {
 
   const deleteMutation = useMutation({
     mutationFn: async (id) => {
-      await base44.entities.FoundItem.delete(id);
-      await base44.entities.AuditLog.create({
+      await appClient.entities.FoundItem.delete(id);
+      await appClient.entities.AuditLog.create({
         action: "Item deleted",
         entity_type: "found_item",
         entity_id: id,
@@ -215,7 +215,7 @@ export default function AdminItemsQueue({ items, filterStatus = "all" }) {
             <Button variant="outline" onClick={() => setNoteDialog(null)}>Cancel</Button>
             <Button onClick={async () => {
               if (noteDialog && adminNote.trim()) {
-                await base44.entities.AuditLog.create({
+                await appClient.entities.AuditLog.create({
                   action: "Admin note added",
                   entity_type: "found_item",
                   entity_id: noteDialog.id,

@@ -6,14 +6,14 @@
  */
 
 import React from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useQuery } from "@tanstack/react-query";
-import { base44 } from "@/api/base44Client";
+import { appClient } from "@/api/appClient";
 import AdminOverview from "@/components/admin/AdminOverview";
 import AdminItemsQueue from "@/components/admin/AdminItemsQueue";
 import AdminClaimsQueue from "@/components/admin/AdminClaimsQueue";
@@ -21,7 +21,7 @@ import StatusBadge from "@/components/ui/StatusBadge";
 import { format } from "date-fns";
 import {
   Shield, LayoutDashboard, Package, FileCheck,
-  AlertTriangle, ClipboardList, ArrowLeft, Lock
+  AlertTriangle, ClipboardList, Lock
 } from "lucide-react";
 import { useMode } from "@/lib/ModeContext";
 
@@ -32,25 +32,25 @@ export default function AdminDashboard() {
   // Fetch all data for admin
   const { data: foundItems = [], isLoading: fiLoading } = useQuery({
     queryKey: ["adminFoundItems"],
-    queryFn: () => base44.entities.FoundItem.list("-created_date", 500),
+    queryFn: () => appClient.entities.FoundItem.list("-created_date", 500),
     enabled: isAdminMode,
   });
 
   const { data: lostReports = [], isLoading: lrLoading } = useQuery({
     queryKey: ["adminLostReports"],
-    queryFn: () => base44.entities.LostReport.list("-created_date", 500),
+    queryFn: () => appClient.entities.LostReport.list("-created_date", 500),
     enabled: isAdminMode,
   });
 
   const { data: claims = [], isLoading: clLoading } = useQuery({
     queryKey: ["adminClaims"],
-    queryFn: () => base44.entities.Claim.list("-created_date", 500),
+    queryFn: () => appClient.entities.Claim.list("-created_date", 500),
     enabled: isAdminMode,
   });
 
   const { data: auditLogs = [] } = useQuery({
     queryKey: ["adminAuditLogs"],
-    queryFn: () => base44.entities.AuditLog.list("-created_date", 100),
+    queryFn: () => appClient.entities.AuditLog.list("-created_date", 100),
     enabled: isAdminMode,
   });
 
@@ -78,7 +78,7 @@ export default function AdminDashboard() {
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Header */}
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-8">
         <div>
           <div className="flex items-center gap-2 mb-1">
             <Shield className="w-6 h-6 text-[hsl(213,56%,24%)]" />
@@ -93,7 +93,7 @@ export default function AdminDashboard() {
 
       {isLoading ? (
         <div className="space-y-4">
-          <div className="grid grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {Array(4).fill(0).map((_, i) => <Skeleton key={i} className="h-24 rounded-lg" />)}
           </div>
           <Skeleton className="h-64 rounded-lg" />

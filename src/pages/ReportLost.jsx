@@ -6,7 +6,7 @@
 
 import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
@@ -15,14 +15,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/components/ui/use-toast";
-import { base44 } from "@/api/base44Client";
+import { appClient } from "@/api/appClient";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CATEGORIES, LOCATIONS, COLORS, URGENCY_LEVELS } from "@/lib/constants";
 import { findMatches } from "@/lib/ai-services";
 import PhotoUploader from "@/components/shared/PhotoUploader";
 import {
-  AlertTriangle, Loader2, Brain, CheckCircle2, ArrowRight,
-  Sparkles, Eye, MapPin, Calendar
+  AlertTriangle, Loader2, Brain, CheckCircle2,
+  Sparkles, Eye
 } from "lucide-react";
 
 export default function ReportLost() {
@@ -32,7 +32,6 @@ export default function ReportLost() {
 
   const [step, setStep] = useState(1); // 1=form, 2=ai-matching, 3=results
   const [matches, setMatches] = useState([]);
-  const [createdReport, setCreatedReport] = useState(null);
 
   const [form, setForm] = useState({
     item_type: "", category: "", description: "", color: "",
@@ -45,7 +44,7 @@ export default function ReportLost() {
   // Fetch found items for AI matching
   const { data: foundItems = [] } = useQuery({
     queryKey: ["foundItemsForMatching"],
-    queryFn: () => base44.entities.FoundItem.list("-created_date", 100),
+    queryFn: () => appClient.entities.FoundItem.list("-created_date", 100),
   });
 
   const updateField = (field, value) => {
@@ -67,7 +66,7 @@ export default function ReportLost() {
   const submitMutation = useMutation({
     mutationFn: async (data) => {
       // Step 1: Create the lost report
-      const report = await base44.entities.LostReport.create({
+      const report = await appClient.entities.LostReport.create({
         ...data,
         status: "open",
       });
@@ -78,7 +77,7 @@ export default function ReportLost() {
 
       // Step 3: Update report with matches
       if (aiMatches.length > 0) {
-        await base44.entities.LostReport.update(report.id, {
+        await appClient.entities.LostReport.update(report.id, {
           matched_items: aiMatches,
           status: "matched",
         });
@@ -86,9 +85,8 @@ export default function ReportLost() {
 
       return { report, matches: aiMatches };
     },
-    onSuccess: ({ report, matches: aiMatches }) => {
+    onSuccess: ({ matches: aiMatches }) => {
       queryClient.invalidateQueries({ queryKey: ["lostReports"] });
-      setCreatedReport(report);
       setMatches(aiMatches);
       setStep(3);
     },
@@ -114,9 +112,9 @@ export default function ReportLost() {
         <div className="w-16 h-16 mx-auto rounded-full bg-teal-50 flex items-center justify-center mb-6 animate-pulse">
           <Brain className="w-8 h-8 text-teal-600" />
         </div>
-        <h2 className="text-2xl font-bold text-slate-900 mb-2">AI is Analyzing Your Report</h2>
+        <h2 className="text-2xl font-bold text-slate-900 mb-2">Matching Your Report</h2>
         <p className="text-slate-500 mb-6">
-          Comparing your lost item against {foundItems.length} found items in our database...
+          Comparing your lost item against {foundItems.length} found items in the current data set...
         </p>
         <div className="max-w-xs mx-auto">
           <Progress value={66} className="h-2" />
@@ -136,7 +134,7 @@ export default function ReportLost() {
           </div>
           <h2 className="text-2xl font-bold text-slate-900 mb-2">Report Submitted</h2>
           <p className="text-slate-500">
-            Your lost item report is now active. Here's what our AI found:
+            Your lost item report is now active. Here are the strongest suggested matches:
           </p>
         </div>
 
@@ -215,7 +213,7 @@ export default function ReportLost() {
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-slate-900">Report a Lost Item</h1>
         <p className="mt-2 text-slate-500">
-          Describe what you lost and our AI will search for matches in the database.
+          Describe what you lost and the matching engine will look for the closest matches.
         </p>
       </div>
 

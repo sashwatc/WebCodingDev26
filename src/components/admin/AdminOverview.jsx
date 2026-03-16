@@ -5,20 +5,16 @@
 
 import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import {
-  Package, CheckCircle2, AlertTriangle, FileCheck,
-  Clock, TrendingUp, Users, BarChart3
+  Package, CheckCircle2, FileCheck,
+  Clock, TrendingUp, BarChart3
 } from "lucide-react";
 import { format } from "date-fns";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, PieChart, Pie, Cell
 } from "recharts";
-import StatusBadge from "@/components/ui/StatusBadge";
-import { CATEGORIES, getCategoryLabel } from "@/lib/constants";
-
-const CHART_COLORS = ["#0d9488", "#1e3a5f", "#f59e0b", "#ef4444", "#8b5cf6", "#10b981"];
+import { CATEGORIES } from "@/lib/constants";
 
 export default function AdminOverview({ foundItems, lostReports, claims, auditLogs }) {
   // Compute metrics
@@ -113,17 +109,19 @@ export default function AdminOverview({ foundItems, lostReports, claims, auditLo
           </CardHeader>
           <CardContent>
             {statusData.length > 0 ? (
-              <div className="flex items-center gap-4">
-                <ResponsiveContainer width="50%" height={180}>
-                  <PieChart>
-                    <Pie data={statusData} dataKey="value" cx="50%" cy="50%" outerRadius={70} innerRadius={40}>
-                      {statusData.map((entry, i) => (
-                        <Cell key={i} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                  </PieChart>
-                </ResponsiveContainer>
+              <div className="flex flex-col sm:flex-row items-center gap-4">
+                <div className="h-[180px] w-full sm:w-1/2">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie data={statusData} dataKey="value" cx="50%" cy="50%" outerRadius={70} innerRadius={40}>
+                        {statusData.map((entry, i) => (
+                          <Cell key={i} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
                 <div className="space-y-2">
                   {statusData.map((item, i) => (
                     <div key={i} className="flex items-center gap-2 text-sm">

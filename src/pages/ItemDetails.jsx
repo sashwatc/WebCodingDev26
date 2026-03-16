@@ -12,42 +12,38 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useQuery } from "@tanstack/react-query";
-import { base44 } from "@/api/base44Client";
+import { appClient } from "@/api/appClient";
 import StatusBadge from "@/components/ui/StatusBadge";
 import { getCategoryLabel } from "@/lib/constants";
 import { format } from "date-fns";
+import { useMode } from "@/lib/ModeContext";
 import {
   ArrowLeft, MapPin, Calendar, Clock, Tag, Package,
-  Shield, Printer, Share2, AlertTriangle, CheckCircle2,
-  Brain, Eye, ChevronLeft, ChevronRight
+  Shield, Printer, Share2, CheckCircle2,
+  Brain, ChevronLeft, ChevronRight
 } from "lucide-react";
 
 export default function ItemDetails() {
   const navigate = useNavigate();
+  const { isAdminMode } = useMode();
   const urlParams = new URLSearchParams(window.location.search);
   const itemId = urlParams.get("id");
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
 
   const { data: item, isLoading } = useQuery({
     queryKey: ["foundItem", itemId],
-    queryFn: () => base44.entities.FoundItem.filter({ id: itemId }),
+    queryFn: () => appClient.entities.FoundItem.filter({ id: itemId }),
     enabled: !!itemId,
     select: (data) => data?.[0],
   });
 
-  const { data: user } = useQuery({
-    queryKey: ["currentUser"],
-    queryFn: () => base44.auth.me(),
-    retry: false,
-  });
-
-  const isAdmin = user?.role === "admin";
+  const isAdmin = isAdminMode;
 
   // Fetch matching lost reports for this item
   const { data: matchingReports = [] } = useQuery({
     queryKey: ["matchesForItem", itemId],
     queryFn: async () => {
-      const reports = await base44.entities.LostReport.list();
+      const reports = await appClient.entities.LostReport.list();
       return reports.filter(r =>
         r.matched_items?.some(m => m.found_item_id === itemId)
       );
@@ -264,13 +260,13 @@ export default function ItemDetails() {
         </div>
       </div>
 
-      {/* Admin: AI Match Panel */}
+      {/* Admin: Match Panel */}
       {isAdmin && matchingReports.length > 0 && (
         <Card className="mt-8 border-l-4 border-l-purple-500">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
               <Brain className="w-5 h-5 text-purple-600" />
-              AI Match Suggestions (Admin View)
+              Match Suggestions (Admin View)
             </CardTitle>
           </CardHeader>
           <CardContent>

@@ -5,9 +5,8 @@
  */
 
 import React, { useState, useRef } from "react";
-import { Button } from "@/components/ui/button";
-import { Upload, X, Image as ImageIcon, Loader2 } from "lucide-react";
-import { base44 } from "@/api/base44Client";
+import { Upload, X, Loader2 } from "lucide-react";
+import { appClient } from "@/api/appClient";
 
 export default function PhotoUploader({ photos = [], onChange, maxPhotos = 3, label = "Upload Photos" }) {
   const [isDragging, setIsDragging] = useState(false);
@@ -25,7 +24,7 @@ export default function PhotoUploader({ photos = [], onChange, maxPhotos = 3, la
 
     for (const file of validFiles) {
       if (newPhotos.length >= maxPhotos) break;
-      const { file_url } = await base44.integrations.Core.UploadFile({ file });
+      const { file_url } = await appClient.integrations.Core.UploadFile({ file });
       newPhotos.push(file_url);
     }
 

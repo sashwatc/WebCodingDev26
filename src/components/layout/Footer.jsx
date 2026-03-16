@@ -5,7 +5,7 @@
 
 import React from "react";
 import { Link } from "react-router-dom";
-import { FileSearch, Mail, Phone, MapPin, ExternalLink, Heart } from "lucide-react";
+import { FileSearch, Mail, Phone, MapPin, Heart } from "lucide-react";
 
 export default function Footer() {
   return (
@@ -24,8 +24,8 @@ export default function Footer() {
               </div>
             </div>
             <p className="text-sm text-slate-400 leading-relaxed">
-              AI-powered lost & found platform for Pleasant Valley High School — helping students and staff 
-              reunite with their belongings quickly and securely.
+              Standalone lost-and-found platform for Pleasant Valley High School with searchable items,
+              guided claim workflows, accessibility support, and judging-ready documentation.
             </p>
             <div className="flex items-center gap-2 text-xs text-slate-500">
               <Heart className="w-3 h-3 text-red-400" />
@@ -43,6 +43,7 @@ export default function Footer() {
                 { to: "/ReportLost", label: "Report Lost Item" },
                 { to: "/FAQ", label: "FAQ & Help" },
                 { to: "/About", label: "About FindBack AI" },
+                { to: "/Documentation", label: "Project Documentation" },
               ].map(link => (
                 <li key={link.to}>
                   <Link to={link.to} className="text-sm text-slate-400 hover:text-white transition-colors">
@@ -80,6 +81,7 @@ export default function Footer() {
                 { to: "/Privacy", label: "Privacy Policy" },
                 { to: "/Terms", label: "Terms of Use" },
                 { to: "/Accessibility", label: "Accessibility Statement" },
+                { to: "/Sources", label: "Sources & Citations" },
               ].map(link => (
                 <li key={link.to}>
                   <Link to={link.to} className="text-sm text-slate-400 hover:text-white transition-colors">
@@ -96,7 +98,7 @@ export default function Footer() {
             © {new Date().getFullYear()} FindBack AI — Pleasant Valley High School · FBLA Website Coding & Development
           </p>
           <p className="text-xs text-slate-500">
-            All data is for demonstration purposes only.
+            This judging build stores data locally in the current browser for demo purposes.
           </p>
         </div>
       </div>

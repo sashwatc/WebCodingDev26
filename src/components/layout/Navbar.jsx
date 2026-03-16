@@ -7,26 +7,28 @@
 import React, { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import {
   Search, Menu, X, Bell, User, Shield, Home,
-  PlusCircle, FileSearch, AlertTriangle, LayoutDashboard,
-  Moon, Sun, ChevronDown
+  PlusCircle, FileSearch, AlertTriangle, LayoutDashboard, ChevronDown
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuTrigger, DropdownMenuSeparator
 } from "@/components/ui/dropdown-menu";
-import { base44 } from "@/api/base44Client";
+import { appClient } from "@/api/appClient";
 import { useQuery } from "@tanstack/react-query";
 import { useMode } from "@/lib/ModeContext";
+import { useAuth } from "@/lib/AuthContext";
+import { useToast } from "@/components/ui/use-toast";
 
 export default function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const location = useLocation();
   const { isAdminMode, setIsAdminMode } = useMode();
+  const { user, navigateToLogin, logout } = useAuth();
+  const { toast } = useToast();
 
   // Track scroll position for navbar background effect
   useEffect(() => {
@@ -38,17 +40,10 @@ export default function Navbar() {
   // Close mobile menu on route change
   useEffect(() => { setMobileOpen(false); }, [location.pathname]);
 
-  // Fetch unread notification count
-  const { data: user } = useQuery({
-    queryKey: ["currentUser"],
-    queryFn: () => base44.auth.me(),
-    retry: false,
-  });
-
   const { data: notifications = [] } = useQuery({
-    queryKey: ["navNotifications"],
-    queryFn: () => base44.entities.Notification.filter({ is_read: false }),
-    enabled: !!user,
+    queryKey: ["navNotifications", user?.email],
+    queryFn: () => appClient.entities.Notification.filter({ user_email: user.email, is_read: false }),
+    enabled: !!user?.email,
   });
 
   const isAdmin = isAdminMode;
@@ -60,6 +55,30 @@ export default function Navbar() {
     { to: "/ReportFound", label: "Report Found", icon: PlusCircle },
     { to: "/ReportLost", label: "Report Lost", icon: AlertTriangle },
   ];
+
+  const handleSignIn = async () => {
+    try {
+      await navigateToLogin();
+    } catch (error) {
+      toast({
+        title: "Sign in unavailable",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleSignOut = async () => {
+    try {
+      await logout();
+    } catch (error) {
+      toast({
+        title: "Sign out failed",
+        description: error.message || "Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
 
   return (
     <header
@@ -86,7 +105,7 @@ export default function Navbar() {
           {/* Desktop Navigation Links */}
           <div className="hidden md:flex items-center gap-1">
             {navLinks.map(({ to, label, icon: Icon }) => (
-              <Link key={to} to={to}>
+              <Link key={to} to={to} aria-current={isActive(to) ? "page" : undefined}>
                 <Button
                   variant={isActive(to) ? "secondary" : "ghost"}
                   size="sm"
@@ -109,6 +128,7 @@ export default function Navbar() {
             <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-1">
               <button
                 onClick={() => setIsAdminMode(false)}
+                aria-pressed={!isAdminMode}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
                   !isAdminMode
                     ? "bg-[hsl(222,65%,18%)] text-white shadow-sm"
@@ -120,6 +140,7 @@ export default function Navbar() {
               </button>
               <button
                 onClick={() => setIsAdminMode(true)}
+                aria-pressed={isAdminMode}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
                   isAdminMode
                     ? "bg-[hsl(222,65%,18%)] text-white shadow-sm"
@@ -180,11 +201,21 @@ export default function Navbar() {
                     </DropdownMenuItem>
                   )}
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => base44.auth.logout()} className="text-red-600">
+                  <DropdownMenuItem onClick={handleSignOut} className="text-red-600">
                     Sign Out
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
+            )}
+
+            {!user && (
+              <Button
+                size="sm"
+                className="hidden sm:flex bg-[hsl(222,65%,18%)] text-white hover:bg-[hsl(222,65%,15%)]"
+                onClick={handleSignIn}
+              >
+                Sign In
+              </Button>
             )}
 
             {/* Mobile Menu Toggle */}
@@ -213,7 +244,7 @@ export default function Navbar() {
           >
             <div className="px-4 py-3 space-y-1">
               {navLinks.map(({ to, label, icon: Icon }) => (
-                <Link key={to} to={to} className="block">
+                <Link key={to} to={to} className="block" aria-current={isActive(to) ? "page" : undefined}>
                   <div className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${
                     isActive(to) ? "bg-slate-100 text-slate-900" : "text-slate-600 hover:bg-slate-50"
                   }`}>
@@ -237,6 +268,25 @@ export default function Navbar() {
                     <span className="font-medium text-sm">Admin Dashboard</span>
                   </div>
                 </Link>
+              )}
+              {user ? (
+                <button
+                  type="button"
+                  onClick={handleSignOut}
+                  className="w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg text-red-600 hover:bg-red-50"
+                >
+                  <User className="w-4.5 h-4.5" />
+                  <span className="font-medium text-sm">Sign Out</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleSignIn}
+                  className="w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-700 hover:bg-slate-50"
+                >
+                  <User className="w-4.5 h-4.5" />
+                  <span className="font-medium text-sm">Sign In</span>
+                </button>
               )}
             </div>
           </motion.div>

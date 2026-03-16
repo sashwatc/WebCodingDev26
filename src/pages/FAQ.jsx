@@ -5,20 +5,49 @@
 import React from "react";
 import { Badge } from "@/components/ui/badge";
 import {
-  Accordion, AccordionContent, AccordionItem, AccordionTrigger
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
 } from "@/components/ui/accordion";
 
 const faqs = [
-  { q: "How do I report a found item?", a: "Click 'Report Found Item' in the navigation. Fill out the form with as much detail as possible including photos, location, and description. The item will be reviewed by an admin before being made public." },
-  { q: "How do I search for my lost item?", a: "Use the 'Search Items' page to browse all found items. You can filter by category, color, location, and date. You can also type natural language queries like 'black water bottle near gym'." },
-  { q: "What happens after I submit a lost item report?", a: "Our AI engine will automatically compare your report against all found items in our database and show you potential matches with confidence scores. You'll also be notified if new matches appear later." },
-  { q: "How does the AI matching work?", a: "FindBack AI analyzes multiple attributes including item category, color, brand, description keywords, date proximity, and location proximity to calculate a match confidence score." },
-  { q: "How do I claim an item?", a: "When you find your item in the search results, click 'View Details' and then 'Submit Claim'. You'll need to provide identifying details that only the true owner would know." },
-  { q: "What happens after I submit a claim?", a: "Your claim goes into the admin review queue. An administrator will verify your identity and the details you provided. You'll receive status updates throughout the process." },
-  { q: "Is my personal information safe?", a: "Yes. Contact information and storage locations are only visible to administrators. We follow school privacy guidelines and never share data with third parties." },
-  { q: "How long are items kept?", a: "Found items are kept for 30 days. After that, they may be archived or donated per school policy. High-value items may be kept longer." },
-  { q: "Can staff members use FindBack AI?", a: "Absolutely. Staff can report found items and access the system just like students. Administrators have additional privileges for managing the platform." },
-  { q: "What if I can't find my item?", a: "If your item isn't in the database yet, submit a lost item report. Our AI will continuously monitor new found items and notify you when a potential match appears." },
+  {
+    q: "How do I report a found item?",
+    a: "Open Report Found Item from the navigation and fill in as many details as possible. Photos, color, brand, location, and distinguishing marks make the item easier to review and search.",
+  },
+  {
+    q: "How do I search for something I lost?",
+    a: "Use the Search Items page to browse published items. You can filter by category, color, location, and status, or use descriptive text such as “black bottle near gym.”",
+  },
+  {
+    q: "What happens after I submit a lost-item report?",
+    a: "The matching engine compares your report with found items using category, brand, color, description overlap, date proximity, and location proximity. Strong matches appear with confidence indicators.",
+  },
+  {
+    q: "How do I claim an item?",
+    a: "Open the item details page and choose Submit Claim. You will be asked for identifying details that help prove ownership before an administrator reviews the request.",
+  },
+  {
+    q: "What can administrators see that students cannot?",
+    a: "Admin views can access storage locations, review queues, claim risk signals, and moderation tools. Public users only see the information needed to identify and claim an item.",
+  },
+  {
+    q: "Is this build connected to a live backend?",
+    a: "No. This judging build is intentionally self-contained. Records and sign-in state are stored in the current browser so the full experience can run locally without external services.",
+  },
+  {
+    q: "Is my information private?",
+    a: "The app is designed to collect only what is needed for a lost-and-found workflow. In this standalone build, submitted data stays on the current device rather than syncing to a hosted server.",
+  },
+  {
+    q: "Can staff members use FindBack AI too?",
+    a: "Yes. The workflow is designed for both students and staff, with an additional admin mode for review and moderation tasks.",
+  },
+  {
+    q: "What if there is no match yet?",
+    a: "You can still submit a lost-item report. The report stays available for comparison against future found-item submissions in the current data set.",
+  },
 ];
 
 export default function FAQ() {
@@ -27,12 +56,12 @@ export default function FAQ() {
       <div className="text-center mb-12">
         <Badge variant="outline" className="mb-3">Help Center</Badge>
         <h1 className="text-4xl font-bold text-slate-900 mb-3">Frequently Asked Questions</h1>
-        <p className="text-slate-500">Everything you need to know about FindBack AI.</p>
+        <p className="text-slate-500">Quick answers about reporting, searching, claims, privacy, and the judging build.</p>
       </div>
 
       <Accordion type="single" collapsible className="space-y-2">
-        {faqs.map((faq, i) => (
-          <AccordionItem key={i} value={`item-${i}`} className="bg-white rounded-lg border px-4">
+        {faqs.map((faq, index) => (
+          <AccordionItem key={faq.q} value={`item-${index}`} className="bg-white rounded-lg border px-4">
             <AccordionTrigger className="text-left font-medium text-slate-900 hover:no-underline">
               {faq.q}
             </AccordionTrigger>

@@ -13,13 +13,13 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter
 } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/use-toast";
-import { base44 } from "@/api/base44Client";
+import { appClient } from "@/api/appClient";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import StatusBadge from "@/components/ui/StatusBadge";
 import { format } from "date-fns";
 import {
   CheckCircle2, XCircle, Eye, AlertTriangle,
-  Search, Shield, MoreHorizontal, MessageSquare
+  Search, Shield, MoreHorizontal
 } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger
@@ -34,8 +34,8 @@ export default function AdminClaimsQueue({ claims }) {
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, data, action }) => {
-      await base44.entities.Claim.update(id, data);
-      await base44.entities.AuditLog.create({
+      await appClient.entities.Claim.update(id, data);
+      await appClient.entities.AuditLog.create({
         action,
         entity_type: "claim",
         entity_id: id,
@@ -180,7 +180,7 @@ export default function AdminClaimsQueue({ claims }) {
               )}
               {detailDialog.risk_score != null && (
                 <div className={`p-3 rounded-lg ${getRiskColor(detailDialog.risk_score)} border text-sm`}>
-                  <p className="font-semibold">AI Risk Score: {detailDialog.risk_score}/100</p>
+                  <p className="font-semibold">Risk Score: {detailDialog.risk_score}/100</p>
                   {detailDialog.risk_flags?.map((f, i) => <p key={i} className="text-xs mt-0.5">• {f}</p>)}
                 </div>
               )}
@@ -194,7 +194,7 @@ export default function AdminClaimsQueue({ claims }) {
             <Button variant="outline" onClick={() => setDetailDialog(null)}>Close</Button>
             <Button onClick={async () => {
               if (detailDialog) {
-                await base44.entities.Claim.update(detailDialog.id, { admin_notes: adminNotes });
+                await appClient.entities.Claim.update(detailDialog.id, { admin_notes: adminNotes });
                 setDetailDialog(null);
                 queryClient.invalidateQueries({ queryKey: ["adminClaims"] });
                 toast({ title: "Notes saved" });

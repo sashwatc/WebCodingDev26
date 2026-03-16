@@ -1,43 +1,62 @@
 /**
  * FindBack AI - Privacy Policy Page
  */
+
 import React from "react";
+import { Link } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
 import { Shield } from "lucide-react";
+
+const sections = [
+  {
+    title: "1. Information Stored in This Build",
+    body: "FindBack AI stores the information needed to demonstrate a lost-and-found workflow, such as names, email addresses, optional student IDs, item descriptions, photos, dates, and locations.",
+  },
+  {
+    title: "2. Where Data Is Stored",
+    body: "This standalone judging build stores records in the current browser using local storage. Data is not synced to a remote school server, and it is not shared across devices.",
+  },
+  {
+    title: "3. How Information Is Used",
+    body: "Information is used only to support the demo workflow: item reporting, searching, match scoring, claim review, and dashboard notifications within this local session.",
+  },
+  {
+    title: "4. FERPA-Informed Approach",
+    body: "The project is designed with FERPA guidance in mind by avoiding unnecessary educational record data and limiting information to what is useful for item recovery and ownership verification.",
+  },
+  {
+    title: "5. Data Retention in Demo Mode",
+    body: "Because data is stored locally, clearing browser storage or switching devices can remove access to the saved records on that device. This behavior is intentional for a portable judging build.",
+  },
+  {
+    title: "6. Contact and References",
+    body: "For privacy-related questions, contact lostandfound@school.edu. Official privacy references used for this page are listed on the Sources and Citations page.",
+  },
+];
 
 export default function Privacy() {
   return (
-    <div className="max-w-3xl mx-auto px-4 py-16">
+    <div className="max-w-4xl mx-auto px-4 py-16">
       <div className="text-center mb-10">
         <Badge variant="outline" className="mb-3"><Shield className="w-3 h-3 mr-1" />Privacy</Badge>
         <h1 className="text-4xl font-bold text-slate-900 mb-3">Privacy Policy</h1>
-        <p className="text-sm text-slate-400">Last updated: March 2026</p>
+        <p className="text-sm text-slate-400">Last updated: March 16, 2026</p>
       </div>
-      <div className="prose prose-slate max-w-none space-y-6 text-slate-600 leading-relaxed">
-        <section>
-          <h2 className="text-lg font-semibold text-slate-900">1. Information We Collect</h2>
-          <p>FindBack AI collects information necessary to facilitate the lost-and-found process, including: names, school email addresses, student IDs (optional), item descriptions, photos, and location data related to found items.</p>
-        </section>
-        <section>
-          <h2 className="text-lg font-semibold text-slate-900">2. How We Use Information</h2>
-          <p>All data collected is used exclusively for matching lost items with found items and facilitating the return process. We do not sell, trade, or share personal data with third parties.</p>
-        </section>
-        <section>
-          <h2 className="text-lg font-semibold text-slate-900">3. Data Protection</h2>
-          <p>Sensitive information such as storage locations and contact details are restricted to authorized administrators only. All data is stored securely using industry-standard encryption.</p>
-        </section>
-        <section>
-          <h2 className="text-lg font-semibold text-slate-900">4. Student Privacy (FERPA Compliance)</h2>
-          <p>FindBack AI is designed with FERPA guidelines in mind. Student educational records are not collected. Student IDs are optional and used solely for identity verification during the claim process.</p>
-        </section>
-        <section>
-          <h2 className="text-lg font-semibold text-slate-900">5. Data Retention</h2>
-          <p>Records are retained for the current school year and archived at the end of each term. Users may request deletion of their personal data by contacting the school administration.</p>
-        </section>
-        <section>
-          <h2 className="text-lg font-semibold text-slate-900">6. Contact</h2>
-          <p>For privacy-related questions, contact lostandfound@school.edu or visit the Main Office.</p>
-        </section>
+
+      <div className="space-y-4">
+        {sections.map((section) => (
+          <Card key={section.title} className="border-slate-200">
+            <CardContent className="p-6">
+              <h2 className="text-lg font-semibold text-slate-900 mb-2">{section.title}</h2>
+              <p className="text-sm text-slate-600 leading-relaxed">{section.body}</p>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      <div className="mt-6 text-sm text-slate-500">
+        See <Link to="/Sources" className="font-semibold text-[hsl(213,56%,24%)] hover:underline">Sources and Citations</Link> for the official privacy references used in this project.
       </div>
     </div>
   );

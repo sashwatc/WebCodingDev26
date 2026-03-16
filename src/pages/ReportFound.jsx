@@ -15,14 +15,13 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/use-toast";
-import { base44 } from "@/api/base44Client";
+import { appClient } from "@/api/appClient";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { CATEGORIES, LOCATIONS, COLORS, CONDITIONS, generateItemCode } from "@/lib/constants";
 import { generateTags, cleanupDescription } from "@/lib/ai-services";
 import PhotoUploader from "@/components/shared/PhotoUploader";
 import {
-  PlusCircle, Loader2, CheckCircle2, Sparkles, MapPin,
-  Calendar, Clock, User, Mail, Tag
+  PlusCircle, Loader2, CheckCircle2, Sparkles, MapPin, User, Tag
 } from "lucide-react";
 
 export default function ReportFound() {
@@ -81,7 +80,7 @@ export default function ReportFound() {
     const cleaned = await cleanupDescription(form.description);
     updateField("ai_description", cleaned);
     setAiProcessing(false);
-    toast({ title: "Description enhanced", description: "AI cleaned up your description." });
+    toast({ title: "Description enhanced", description: "A cleaner version of your description was suggested." });
   };
 
   // Submit mutation
@@ -97,7 +96,7 @@ export default function ReportFound() {
       if (!aiDesc && data.description) {
         aiDesc = await cleanupDescription(data.description);
       }
-      return base44.entities.FoundItem.create({
+      return appClient.entities.FoundItem.create({
         ...data,
         tags,
         ai_description: aiDesc,
@@ -198,7 +197,7 @@ export default function ReportFound() {
               {errors.description && <p className="text-xs text-red-500 mt-1">{errors.description}</p>}
               {form.description.length > 10 && (
                 <Button type="button" variant="ghost" size="sm" className="mt-1 text-teal-600 gap-1" onClick={handleCleanDescription} disabled={aiProcessing}>
-                  <Sparkles className="w-3.5 h-3.5" /> AI Enhance Description
+                  <Sparkles className="w-3.5 h-3.5" /> Enhance Description
                 </Button>
               )}
             </div>
@@ -240,7 +239,7 @@ export default function ReportFound() {
             {(form.title || form.description) && (
               <div className="bg-slate-50 rounded-lg p-4 space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-slate-700">AI-Generated Tags</span>
+                  <span className="text-sm font-medium text-slate-700">Suggested Tags</span>
                   <Button type="button" variant="outline" size="sm" className="gap-1 text-xs" onClick={handleGenerateTags} disabled={aiProcessing}>
                     {aiProcessing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
                     Generate Tags
@@ -334,7 +333,7 @@ export default function ReportFound() {
               <div className="flex items-start gap-2">
                 <Checkbox id="privacy" checked={form.privacy_consent} onCheckedChange={(v) => updateField("privacy_consent", v)} />
                 <label htmlFor="privacy" className="text-sm text-slate-600 leading-snug cursor-pointer">
-                  I consent to my contact information being stored securely and used only for the purpose of reuniting this item with its owner. *
+                  I consent to my contact information being stored in this demo build and used only for the purpose of reuniting this item with its owner. *
                 </label>
               </div>
               {errors.privacy_consent && <p className="text-xs text-red-500 ml-6">{errors.privacy_consent}</p>}
@@ -353,7 +352,7 @@ export default function ReportFound() {
         {/* Submit */}
         <Button type="submit" size="lg" disabled={isSubmitting} className="w-full bg-[hsl(213,56%,24%)] hover:bg-[hsl(213,56%,20%)] text-white gap-2 shadow-md">
           {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <PlusCircle className="w-5 h-5" />}
-          {isSubmitting ? "Submitting & Running AI Analysis..." : "Submit Found Item"}
+          {isSubmitting ? "Submitting and processing..." : "Submit Found Item"}
         </Button>
       </form>
     </div>
