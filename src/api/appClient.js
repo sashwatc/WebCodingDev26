@@ -571,8 +571,9 @@ function createEntityApi(entityName) {
       const index = records.findIndex((record) => record.id === id);
 
       if (index === -1) {
-        const error = new Error(`${entityName} ${id} not found`);
-        error.status = 404;
+        const error = Object.assign(new Error(`${entityName} ${id} not found`), {
+          status: 404,
+        });
         throw error;
       }
 
