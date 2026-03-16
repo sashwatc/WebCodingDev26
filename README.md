@@ -1,2 +1,2 @@
 # WebCodingDev26
-Sum FBLA shi or sum idk twin
+System.out.println("Wik swings that way");
