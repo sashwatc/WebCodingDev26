@@ -1,0 +1,108 @@
+{
+  "name": "LostReport",
+  "type": "object",
+  "properties": {
+    "item_type": {
+      "type": "string",
+      "description": "Type of lost item"
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "electronics",
+        "clothing",
+        "accessories",
+        "school_supplies",
+        "sports_equipment",
+        "food_containers",
+        "keys_ids",
+        "bags_cases",
+        "personal_items",
+        "other"
+      ],
+      "description": "Item category"
+    },
+    "description": {
+      "type": "string",
+      "description": "Description of the lost item"
+    },
+    "color": {
+      "type": "string"
+    },
+    "brand": {
+      "type": "string"
+    },
+    "last_seen_location": {
+      "type": "string"
+    },
+    "date_lost": {
+      "type": "string",
+      "format": "date"
+    },
+    "photo_url": {
+      "type": "string",
+      "description": "Reference photo URL"
+    },
+    "contact_name": {
+      "type": "string"
+    },
+    "contact_email": {
+      "type": "string"
+    },
+    "student_id": {
+      "type": "string"
+    },
+    "urgency": {
+      "type": "string",
+      "enum": [
+        "low",
+        "medium",
+        "high",
+        "critical"
+      ],
+      "default": "medium"
+    },
+    "extra_notes": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "open",
+        "matched",
+        "in_review",
+        "resolved",
+        "closed"
+      ],
+      "default": "open"
+    },
+    "matched_items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "found_item_id": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "reasons": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "description": "AI-suggested matches with confidence scores"
+    }
+  },
+  "required": [
+    "item_type",
+    "description",
+    "date_lost",
+    "contact_name",
+    "contact_email"
+  ]
+}

@@ -1,0 +1,43 @@
+{
+  "name": "AuditLog",
+  "type": "object",
+  "properties": {
+    "action": {
+      "type": "string",
+      "description": "Action performed"
+    },
+    "entity_type": {
+      "type": "string",
+      "enum": [
+        "found_item",
+        "lost_report",
+        "claim",
+        "user",
+        "system"
+      ],
+      "description": "Type of entity affected"
+    },
+    "entity_id": {
+      "type": "string"
+    },
+    "performed_by": {
+      "type": "string",
+      "description": "Email of user who performed action"
+    },
+    "details": {
+      "type": "string",
+      "description": "Additional details about the action"
+    },
+    "previous_value": {
+      "type": "string"
+    },
+    "new_value": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "action",
+    "entity_type",
+    "performed_by"
+  ]
+}

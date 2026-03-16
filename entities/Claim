@@ -1,0 +1,69 @@
+{
+  "name": "Claim",
+  "type": "object",
+  "properties": {
+    "found_item_id": {
+      "type": "string",
+      "description": "ID of the found item being claimed"
+    },
+    "found_item_title": {
+      "type": "string",
+      "description": "Title of the claimed item for quick reference"
+    },
+    "claimant_name": {
+      "type": "string"
+    },
+    "claimant_email": {
+      "type": "string"
+    },
+    "student_id": {
+      "type": "string"
+    },
+    "reason": {
+      "type": "string",
+      "description": "Why they believe it is theirs"
+    },
+    "identifying_details": {
+      "type": "string",
+      "description": "Details only the owner would know"
+    },
+    "proof_photo_url": {
+      "type": "string"
+    },
+    "pickup_availability": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "submitted",
+        "under_review",
+        "need_more_info",
+        "approved",
+        "rejected",
+        "completed"
+      ],
+      "default": "submitted"
+    },
+    "admin_notes": {
+      "type": "string"
+    },
+    "risk_score": {
+      "type": "number",
+      "description": "AI-generated risk score 0-100"
+    },
+    "risk_flags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "AI-generated risk flags"
+    }
+  },
+  "required": [
+    "found_item_id",
+    "claimant_name",
+    "claimant_email",
+    "reason"
+  ]
+}

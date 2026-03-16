@@ -1,0 +1,149 @@
+{
+  "name": "FoundItem",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string",
+      "description": "Title of the found item"
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "electronics",
+        "clothing",
+        "accessories",
+        "school_supplies",
+        "sports_equipment",
+        "food_containers",
+        "keys_ids",
+        "bags_cases",
+        "personal_items",
+        "other"
+      ],
+      "description": "Item category"
+    },
+    "subcategory": {
+      "type": "string",
+      "description": "More specific item type"
+    },
+    "description": {
+      "type": "string",
+      "description": "Detailed description of the item"
+    },
+    "ai_description": {
+      "type": "string",
+      "description": "AI-cleaned description"
+    },
+    "color": {
+      "type": "string",
+      "description": "Primary color of the item"
+    },
+    "brand": {
+      "type": "string",
+      "description": "Brand if visible"
+    },
+    "date_found": {
+      "type": "string",
+      "format": "date",
+      "description": "Date the item was found"
+    },
+    "time_found": {
+      "type": "string",
+      "description": "Approximate time found"
+    },
+    "location_found": {
+      "type": "string",
+      "description": "Where the item was found"
+    },
+    "storage_location": {
+      "type": "string",
+      "description": "Where the item is stored (admin-only)"
+    },
+    "condition": {
+      "type": "string",
+      "enum": [
+        "excellent",
+        "good",
+        "fair",
+        "damaged"
+      ],
+      "description": "Item condition"
+    },
+    "photo_urls": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Uploaded photo URLs"
+    },
+    "distinguishing_features": {
+      "type": "string",
+      "description": "Optional distinguishing features"
+    },
+    "finder_name": {
+      "type": "string",
+      "description": "Name of person who found it"
+    },
+    "finder_email": {
+      "type": "string",
+      "description": "Email of finder"
+    },
+    "finder_role": {
+      "type": "string",
+      "enum": [
+        "student",
+        "staff",
+        "admin"
+      ],
+      "description": "Role of the finder"
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "AI-generated tags"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending_review",
+        "approved",
+        "claimed",
+        "returned",
+        "archived"
+      ],
+      "default": "pending_review",
+      "description": "Current item status"
+    },
+    "priority": {
+      "type": "string",
+      "enum": [
+        "low",
+        "medium",
+        "high"
+      ],
+      "default": "medium"
+    },
+    "item_code": {
+      "type": "string",
+      "description": "Unique item identifier code"
+    },
+    "is_flagged": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether item is flagged as suspicious"
+    },
+    "assigned_to": {
+      "type": "string",
+      "description": "Admin/staff assigned to manage this item"
+    }
+  },
+  "required": [
+    "title",
+    "category",
+    "description",
+    "date_found",
+    "location_found"
+  ]
+}
