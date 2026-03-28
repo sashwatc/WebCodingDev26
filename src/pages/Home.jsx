@@ -1,6 +1,6 @@
 /**
  * FindBack AI - Home Page
- * Focuses on live system status and direct actions instead of presentation-heavy marketing.
+ * Centers the homepage around one primary action and moves secondary tools lower.
  */
 
 import React from "react";
@@ -17,11 +17,11 @@ import {
   AlertTriangle,
   CheckCircle2,
   ClipboardList,
-  FileCheck,
   LayoutDashboard,
   Package,
   PlusCircle,
   Search,
+  Shield,
 } from "lucide-react";
 
 export default function Home() {
@@ -55,99 +55,119 @@ export default function Home() {
   const openReports = lostReports.filter((report) => report.status === "open");
   const matchedReports = lostReports.filter((report) => report.matched_items?.length > 0);
   const recentApprovedItems = approvedItems.slice(0, 5);
-  const recentActivity = auditLogs.slice(0, 5);
+  const recentActivity = auditLogs.slice(0, 4);
   const isAdminWorkspace = isAdminUser && isAdminMode;
 
-  const stats = [
-    { label: "Available Items", value: approvedItems.length, helper: "currently searchable", icon: Package },
-    { label: "Pending Review", value: pendingItems.length, helper: "awaiting admin approval", icon: ClipboardList },
-    { label: "Active Claims", value: activeClaims.length, helper: "still in review", icon: FileCheck },
-    { label: "Returned Items", value: returnedItems.length, helper: "confirmed completed", icon: CheckCircle2 },
+  const publicStats = [
+    { label: "Available Items", value: approvedItems.length, helper: "approved public listings", icon: Package },
+    { label: "Matched Reports", value: matchedReports.length, helper: "reports with suggested matches", icon: Search },
+    { label: "Returned Items", value: returnedItems.length, helper: "completed handoffs", icon: CheckCircle2 },
   ];
+
+  const moreTools = [
+    user
+      ? {
+          to: "/UserDashboard",
+          title: "My dashboard",
+          description: "Track notifications, claim activity, and updates tied to your account.",
+          icon: LayoutDashboard,
+        }
+      : {
+          to: "/Documentation",
+          title: "Project documentation",
+          description: "Review the architecture, setup, sources, and accessibility decisions.",
+          icon: ClipboardList,
+        },
+    isAdminUser
+      ? {
+          to: "/AdminDashboard",
+          title: "Admin workspace",
+          description: isAdminWorkspace
+            ? "Review pending items, claims, and reports."
+            : "Switch to admin view when you need moderation tools.",
+          icon: Shield,
+        }
+      : null,
+  ].filter(Boolean);
 
   return (
     <div className="page-shell py-10">
       <section className="page-header">
         <span className="page-kicker">School Lost-and-Found System</span>
-        <h1 className="page-title">Report items, search records, and manage claims from one place.</h1>
+        <h1 className="page-title">Start by searching current found-item records.</h1>
         <p className="page-subtitle">
-          This build is organized around the actual workflow: submit a found item, expose only approved listings,
-          collect ownership claims, and keep admin review separate from the public search experience.
+          The homepage is designed around the most common student action first: search what is already available.
+          Reporting and admin tools stay accessible, but they are secondary to the main search workflow.
         </p>
       </section>
 
-      <section className="mb-8 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-        <Link to="/Search" className="block">
-          <div className="surface-card p-4">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-sm font-semibold text-slate-900">Search found items</p>
-                <p className="mt-1 text-sm text-slate-600">Browse approved public listings.</p>
-              </div>
-              <Search className="h-5 w-5 text-slate-500" />
+      <section className="mb-8 grid gap-4 lg:grid-cols-[minmax(0,1.3fr)_minmax(320px,0.7fr)]">
+        <div className="surface-card p-6">
+          <div className="flex flex-col gap-5">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Primary Action</p>
+              <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">
+                Search approved items before filing a new report.
+              </h2>
+              <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-600">
+                Search checks titles, descriptions, tags, brand, color, and found location across the approved public
+                inventory. If the item is already listed, students can go directly into the claim process.
+              </p>
             </div>
-          </div>
-        </Link>
 
-        <Link to="/ReportFound" className="block">
-          <div className="surface-card p-4">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-sm font-semibold text-slate-900">Report found item</p>
-                <p className="mt-1 text-sm text-slate-600">Create a new moderated record.</p>
-              </div>
-              <PlusCircle className="h-5 w-5 text-slate-500" />
+            <div className="flex flex-wrap gap-2">
+              <Badge variant="outline">{approvedItems.length} approved listings</Badge>
+              <Badge variant="outline">{matchedReports.length} reports already matched</Badge>
+              <Badge variant="outline">{returnedItems.length} returns completed</Badge>
             </div>
-          </div>
-        </Link>
 
-        <Link to="/ReportLost" className="block">
-          <div className="surface-card p-4">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-sm font-semibold text-slate-900">Report lost item</p>
-                <p className="mt-1 text-sm text-slate-600">Create a report and check matches.</p>
-              </div>
-              <AlertTriangle className="h-5 w-5 text-slate-500" />
+            <div className="flex flex-wrap gap-3">
+              <Link to="/Search">
+                <Button size="lg" className="gap-2">
+                  <Search className="h-4 w-4" />
+                  Search Found Items
+                </Button>
+              </Link>
+              <Link to="/ItemDetails?id=found_002">
+                <Button size="lg" variant="outline">View a sample item</Button>
+              </Link>
             </div>
           </div>
-        </Link>
+        </div>
 
-        <Link to={user ? "/UserDashboard" : "/Documentation"} className="block">
-          <div className="surface-card p-4">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-sm font-semibold text-slate-900">{user ? "My dashboard" : "Project documentation"}</p>
-                <p className="mt-1 text-sm text-slate-600">
-                  {user ? "Track notifications and claim history." : "Review setup, sources, and architecture."}
-                </p>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1">
+          <Link to="/ReportLost" className="block">
+            <div className="surface-card p-5">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold text-slate-900">Can&apos;t find it?</p>
+                  <p className="mt-1 text-sm text-slate-600">
+                    Submit a lost-item report and check suggested matches.
+                  </p>
+                </div>
+                <AlertTriangle className="h-5 w-5 text-slate-500" />
               </div>
-              <LayoutDashboard className="h-5 w-5 text-slate-500" />
             </div>
-          </div>
-        </Link>
+          </Link>
 
-        <Link to={isAdminUser ? "/AdminDashboard" : "/Documentation"} className="block">
-          <div className="surface-card p-4">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-sm font-semibold text-slate-900">{isAdminUser ? "Admin workspace" : "Documentation and rules"}</p>
-                <p className="mt-1 text-sm text-slate-600">
-                  {isAdminUser
-                    ? isAdminWorkspace
-                      ? "Review pending items and claims."
-                      : "Switch to admin view to moderate records."
-                    : "See how the prototype is structured."}
-                </p>
+          <Link to="/ReportFound" className="block">
+            <div className="surface-card p-5">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold text-slate-900">Found something?</p>
+                  <p className="mt-1 text-sm text-slate-600">
+                    Create a moderated record so the owner can search for it.
+                  </p>
+                </div>
+                <PlusCircle className="h-5 w-5 text-slate-500" />
               </div>
-              <ClipboardList className="h-5 w-5 text-slate-500" />
             </div>
-          </div>
-        </Link>
+          </Link>
+        </div>
       </section>
 
-      <section className="mb-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {stats.map((stat) => (
+      <section className="mb-8 grid gap-4 sm:grid-cols-3">
+        {publicStats.map((stat) => (
           <div key={stat.label} className="stat-panel">
             <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-md bg-slate-100 text-primary">
               <stat.icon className="h-4 w-4" />
@@ -161,9 +181,14 @@ export default function Home() {
 
       <section className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(280px,0.8fr)]">
         <div className="surface-card">
-          <div className="border-b px-5 py-4">
-            <h2 className="text-lg font-semibold text-slate-950">Recently approved items</h2>
-            <p className="mt-1 text-sm text-slate-600">These are visible on the public search page right now.</p>
+          <div className="flex items-center justify-between gap-4 border-b px-5 py-4">
+            <div>
+              <h2 className="text-lg font-semibold text-slate-950">Recently approved items</h2>
+              <p className="mt-1 text-sm text-slate-600">These are visible on the public search page right now.</p>
+            </div>
+            <Link to="/Search">
+              <Button variant="outline" size="sm">Open Search</Button>
+            </Link>
           </div>
 
           {recentApprovedItems.length > 0 ? (
@@ -197,50 +222,74 @@ export default function Home() {
         <div className="space-y-6">
           <div className="surface-card">
             <div className="border-b px-5 py-4">
-              <h2 className="text-lg font-semibold text-slate-950">Workflow status</h2>
-              <p className="mt-1 text-sm text-slate-600">Current workload across submissions, claims, and reports.</p>
+              <h2 className="text-lg font-semibold text-slate-950">More tools</h2>
+              <p className="mt-1 text-sm text-slate-600">
+                Lower-priority actions live here so the homepage can stay focused on search first.
+              </p>
             </div>
-            <div className="space-y-3 px-5 py-4">
-              <div className="flex items-center justify-between gap-4">
-                <span className="text-sm text-slate-700">Pending found-item submissions</span>
-                <span className="font-semibold text-slate-950">{pendingItems.length}</span>
-              </div>
-              <div className="flex items-center justify-between gap-4">
-                <span className="text-sm text-slate-700">Claims awaiting review</span>
-                <span className="font-semibold text-slate-950">{activeClaims.length}</span>
-              </div>
-              <div className="flex items-center justify-between gap-4">
-                <span className="text-sm text-slate-700">Open lost-item reports</span>
-                <span className="font-semibold text-slate-950">{openReports.length}</span>
-              </div>
-              <div className="flex items-center justify-between gap-4">
-                <span className="text-sm text-slate-700">Reports with suggested matches</span>
-                <span className="font-semibold text-slate-950">{matchedReports.length}</span>
-              </div>
+            <div className="divide-y">
+              {moreTools.map((tool) => (
+                <Link key={tool.title} to={tool.to} className="block px-5 py-4 hover:bg-slate-50">
+                  <div className="flex items-start gap-3">
+                    <div className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-md bg-slate-100 text-primary">
+                      <tool.icon className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-slate-900">{tool.title}</p>
+                      <p className="mt-1 text-sm leading-6 text-slate-600">{tool.description}</p>
+                    </div>
+                  </div>
+                </Link>
+              ))}
             </div>
           </div>
 
-          <div className="surface-card">
-            <div className="border-b px-5 py-4">
-              <h2 className="text-lg font-semibold text-slate-950">Recent activity</h2>
-              <p className="mt-1 text-sm text-slate-600">Latest changes recorded in the local demo workspace.</p>
-            </div>
-            {recentActivity.length > 0 ? (
-              <div className="divide-y">
-                {recentActivity.map((log) => (
-                  <div key={log.id} className="px-5 py-4">
-                    <p className="text-sm font-medium text-slate-900">{log.action}</p>
-                    <p className="mt-1 text-sm text-slate-600">{log.details}</p>
-                    <p className="mt-2 text-xs uppercase tracking-[0.14em] text-slate-500">
-                      {log.performed_by} • {log.created_date ? format(new Date(log.created_date), "MMM d, h:mm a") : "No date"}
-                    </p>
+          {isAdminWorkspace && (
+            <>
+              <div className="surface-card">
+                <div className="border-b px-5 py-4">
+                  <h2 className="text-lg font-semibold text-slate-950">Admin summary</h2>
+                  <p className="mt-1 text-sm text-slate-600">Moderation workload is shown only in admin mode.</p>
+                </div>
+                <div className="space-y-3 px-5 py-4">
+                  <div className="flex items-center justify-between gap-4">
+                    <span className="text-sm text-slate-700">Pending found-item submissions</span>
+                    <span className="font-semibold text-slate-950">{pendingItems.length}</span>
                   </div>
-                ))}
+                  <div className="flex items-center justify-between gap-4">
+                    <span className="text-sm text-slate-700">Claims awaiting review</span>
+                    <span className="font-semibold text-slate-950">{activeClaims.length}</span>
+                  </div>
+                  <div className="flex items-center justify-between gap-4">
+                    <span className="text-sm text-slate-700">Open lost-item reports</span>
+                    <span className="font-semibold text-slate-950">{openReports.length}</span>
+                  </div>
+                </div>
               </div>
-            ) : (
-              <div className="px-5 py-8 text-sm text-slate-500">No activity logged yet.</div>
-            )}
-          </div>
+
+              <div className="surface-card">
+                <div className="border-b px-5 py-4">
+                  <h2 className="text-lg font-semibold text-slate-950">Recent admin activity</h2>
+                  <p className="mt-1 text-sm text-slate-600">Latest changes recorded in the local demo workspace.</p>
+                </div>
+                {recentActivity.length > 0 ? (
+                  <div className="divide-y">
+                    {recentActivity.map((log) => (
+                      <div key={log.id} className="px-5 py-4">
+                        <p className="text-sm font-medium text-slate-900">{log.action}</p>
+                        <p className="mt-1 text-sm text-slate-600">{log.details}</p>
+                        <p className="mt-2 text-xs uppercase tracking-[0.14em] text-slate-500">
+                          {log.performed_by} • {log.created_date ? format(new Date(log.created_date), "MMM d, h:mm a") : "No date"}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="px-5 py-8 text-sm text-slate-500">No activity logged yet.</div>
+                )}
+              </div>
+            </>
+          )}
         </div>
       </section>
     </div>
