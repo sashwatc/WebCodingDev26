@@ -7,12 +7,13 @@
 import { Toaster } from "@/components/ui/toaster"
 import { QueryClientProvider } from '@tanstack/react-query'
 import { queryClientInstance } from '@/lib/query-client'
-import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
+import { HashRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
 import { MotionConfig } from "framer-motion";
 import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 import { ModeProvider } from '@/lib/ModeContext';
+import AdminRouteGuard from '@/components/auth/AdminRouteGuard';
 import SignInDialog from '@/components/auth/SignInDialog';
 import RouteEnhancements from '@/components/layout/RouteEnhancements';
 
@@ -75,7 +76,14 @@ const AuthenticatedApp = () => {
           <Route path="/ItemDetails" element={<ItemDetails />} />
           <Route path="/ClaimItem" element={<ClaimItem />} />
           <Route path="/UserDashboard" element={<UserDashboard />} />
-          <Route path="/AdminDashboard" element={<AdminDashboard />} />
+          <Route
+            path="/AdminDashboard"
+            element={(
+              <AdminRouteGuard>
+                <AdminDashboard />
+              </AdminRouteGuard>
+            )}
+          />
           <Route path="/About" element={<About />} />
           <Route path="/FAQ" element={<FAQ />} />
           <Route path="/Privacy" element={<Privacy />} />
@@ -99,7 +107,7 @@ function App() {
         <QueryClientProvider client={queryClientInstance}>
           <MotionConfig reducedMotion="user">
             <SignInDialog />
-            <Router>
+            <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
               <AuthenticatedApp />
             </Router>
           </MotionConfig>

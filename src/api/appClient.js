@@ -1,3 +1,5 @@
+import { getDemoRoleForEmail } from "@/lib/constants";
+
 const STORAGE_KEY = "findback-app-db";
 const AUTH_STORAGE_KEY = "findback-auth-user";
 const authListeners = new Set();
@@ -259,6 +261,30 @@ function createSeedData() {
         created_date: daysAgo(2),
         updated_date: daysAgo(1),
       },
+      {
+        id: "claim_002",
+        found_item_id: "found_005",
+        found_item_title: "Black Nike Hoodie",
+        claimant_name: "Sarah Chen",
+        claimant_email: "sarah.chen@pleasantvalley.edu",
+        student_id: "PV10422",
+        reason: "I left my hoodie by the football field after practice and it has my name tag inside the collar.",
+        identifying_details: "There is a stitched name tag inside the collar and a white swoosh on the front.",
+        proof_photo_url: "",
+        pickup_availability: "Lunch or after practice",
+        received_confirmed_at: daysAgo(1, 13),
+        status: "completed",
+        admin_notes: "Returned at athletics office and confirmed by claimant.",
+        risk_score: 12,
+        risk_flags: ["strong identifying detail provided"],
+        claimant_rating: 5,
+        claimant_review: "Pickup was quick and the staff made the return process really easy.",
+        review_status: "approved",
+        review_submitted_at: daysAgo(1, 14),
+        review_reviewed_at: daysAgo(1, 16),
+        created_date: daysAgo(9),
+        updated_date: daysAgo(1),
+      },
     ],
     Notification: [
       {
@@ -332,7 +358,11 @@ function getStorage() {
     return null;
   }
 
-  return window.localStorage;
+  try {
+    return window.localStorage;
+  } catch {
+    return null;
+  }
 }
 
 function clone(value) {
@@ -770,6 +800,7 @@ function ensureLocalUserNotification(user) {
 function normalizeAuthUser({ full_name, email }) {
   const normalizedEmail = String(email || "").trim().toLowerCase();
   const normalizedName = String(full_name || "").trim();
+  const previousUser = readAuthUser();
 
   if (!normalizedName) {
     throw new Error("Full name is required.");
@@ -780,10 +811,10 @@ function normalizeAuthUser({ full_name, email }) {
   }
 
   return {
-    id: readAuthUser()?.id || createId("user"),
+    id: previousUser?.email === normalizedEmail ? previousUser.id : createId("user"),
     full_name: normalizedName,
     email: normalizedEmail,
-    role: "student",
+    role: getDemoRoleForEmail(normalizedEmail),
     avatar_url: "",
   };
 }

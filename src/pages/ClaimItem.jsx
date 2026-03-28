@@ -4,39 +4,56 @@
  * and AI risk scoring on submission.
  */
 
-import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import React, { useEffect, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { appClient } from "@/api/appClient";
 import { scoreClaimRisk } from "@/lib/ai-services";
 import PhotoUploader from "@/components/shared/PhotoUploader";
 import StatusBadge from "@/components/ui/StatusBadge";
-import { Loader2, Shield, ArrowLeft, Package, FileCheck
+import { useAuth } from "@/lib/AuthContext";
+import {
+  Loader2,
+  Shield,
+  ArrowLeft,
+  Package,
+  FileCheck,
+  Search,
+  Clock3,
+  CheckCircle2,
 } from "lucide-react";
+
+const createInitialForm = (user) => ({
+  claimant_name: user?.full_name || "",
+  claimant_email: user?.email || "",
+  student_id: "",
+  reason: "",
+  identifying_details: "",
+  proof_photo_url: "",
+  pickup_availability: "",
+  truthful: false,
+});
 
 export default function ClaimItem() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const urlParams = new URLSearchParams(window.location.search);
+  const { user } = useAuth();
+  const urlParams = new URLSearchParams(location.search);
   const itemId = urlParams.get("id");
 
   const [submitted, setSubmitted] = useState(false);
-  const [form, setForm] = useState({
-    claimant_name: "", claimant_email: "", student_id: "",
-    reason: "", identifying_details: "", proof_photo_url: "",
-    pickup_availability: "", truthful: false,
-  });
+  const [form, setForm] = useState(() => createInitialForm(user));
   const [errors, setErrors] = useState({});
 
-  // Fetch the item being claimed
   const { data: item, isLoading: itemLoading } = useQuery({
     queryKey: ["claimItem", itemId],
     queryFn: () => appClient.entities.FoundItem.filter({ id: itemId }),
@@ -44,9 +61,18 @@ export default function ClaimItem() {
     select: (data) => data?.[0],
   });
 
+  useEffect(() => {
+    if (!user) return;
+    setForm((prev) => ({
+      ...prev,
+      claimant_name: prev.claimant_name || user.full_name || "",
+      claimant_email: prev.claimant_email || user.email || "",
+    }));
+  }, [user]);
+
   const updateField = (field, value) => {
-    setForm(prev => ({ ...prev, [field]: value }));
-    if (errors[field]) setErrors(prev => ({ ...prev, [field]: null }));
+    setForm((prev) => ({ ...prev, [field]: value }));
+    if (errors[field]) setErrors((prev) => ({ ...prev, [field]: null }));
   };
 
   const validate = () => {
@@ -61,7 +87,6 @@ export default function ClaimItem() {
 
   const submitMutation = useMutation({
     mutationFn: async () => {
-      // Run AI risk scoring
       const riskResult = await scoreClaimRisk(form, item);
 
       const claim = await appClient.entities.Claim.create({
@@ -79,13 +104,12 @@ export default function ClaimItem() {
         risk_flags: riskResult.risk_flags || [],
       });
 
-      // Update item status
       await appClient.entities.FoundItem.update(item.id, { status: "claimed" });
 
       return claim;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["claims"] });
+      queryClient.invalidateQueries();
       setSubmitted(true);
     },
     onError: () => {
@@ -93,28 +117,27 @@ export default function ClaimItem() {
     },
   });
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
+  const handleSubmit = (event) => {
+    event.preventDefault();
     if (!validate()) return;
     submitMutation.mutate();
   };
 
   if (submitted) {
     return (
-      <div className="max-w-lg mx-auto px-4 py-20 text-center">
-        <div className="w-16 h-16 mx-auto rounded-full bg-emerald-100 flex items-center justify-center mb-6">
-          <FileCheck className="w-8 h-8 text-emerald-600" />
-        </div>
-        <h1 className="text-2xl font-bold text-slate-900 mb-3">Claim Submitted!</h1>
-        <p className="text-slate-500 mb-2">
-          Your claim has been received and is now under review by our admin team.
-        </p>
-        <p className="text-sm text-slate-400 mb-8">
-          You'll receive an update once your claim has been processed.
-        </p>
-        <div className="flex flex-wrap justify-center gap-3">
-          <Button onClick={() => navigate("/UserDashboard")}>View My Claims</Button>
-          <Button variant="outline" onClick={() => navigate("/Search")}>Back to Search</Button>
+      <div className="page-shell max-w-2xl py-20">
+        <div className="surface-card px-8 py-14 text-center">
+          <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-50">
+            <FileCheck className="h-8 w-8 text-emerald-700" />
+          </div>
+          <h1 className="text-2xl font-semibold text-slate-950">Claim submitted for review.</h1>
+          <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-slate-600">
+            Your ownership details are now in the review queue. The admin team can verify the claim and the return will stay open until you confirm the item was received.
+          </p>
+          <div className="mt-8 flex flex-wrap justify-center gap-3">
+            <Button onClick={() => navigate("/UserDashboard")}>View My Claims</Button>
+            <Button variant="outline" onClick={() => navigate("/Search")}>Back to Search</Button>
+          </div>
         </div>
       </div>
     );
@@ -122,110 +145,219 @@ export default function ClaimItem() {
 
   if (itemLoading) {
     return (
-      <div className="flex items-center justify-center py-20">
-        <Loader2 className="w-6 h-6 animate-spin text-slate-400" />
+      <div className="page-shell py-20">
+        <div className="flex items-center justify-center">
+          <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
+        </div>
       </div>
     );
   }
 
   if (!item) {
     return (
-      <div className="max-w-lg mx-auto px-4 py-20 text-center">
-        <Package className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-        <h2 className="text-xl font-bold mb-2">Item Not Found</h2>
-        <Button onClick={() => navigate("/Search")}>Back to Search</Button>
+      <div className="page-shell max-w-2xl py-20">
+        <div className="surface-card px-8 py-14 text-center">
+          <Package className="mx-auto mb-4 h-12 w-12 text-slate-300" />
+          <h2 className="text-xl font-semibold text-slate-950">Item not found</h2>
+          <p className="mt-2 text-sm text-slate-500">This listing is no longer available or the link is invalid.</p>
+          <Button className="mt-6" onClick={() => navigate("/Search")}>Back to Search</Button>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-10">
-      <Button variant="ghost" size="sm" className="mb-4 gap-1 text-slate-500" onClick={() => navigate(-1)}>
-        <ArrowLeft className="w-4 h-4" /> Back
+    <div className="page-shell max-w-4xl py-10">
+      <Button
+        variant="ghost"
+        size="sm"
+        className="mb-5 gap-1 text-slate-500"
+        onClick={() => navigate(-1)}
+      >
+        <ArrowLeft className="h-4 w-4" />
+        Back
       </Button>
 
-      <h1 className="text-3xl font-bold text-slate-900 mb-2">Submit a Claim</h1>
-      <p className="text-slate-500 mb-6">Verify that this item belongs to you.</p>
+      <div className="page-header">
+        <span className="page-kicker">Claim Item</span>
+        <h1 className="page-title">Verify that this item belongs to you.</h1>
+        <p className="page-subtitle">
+          Share details that only the owner would know. Claims are reviewed before the return is marked complete.
+        </p>
+      </div>
 
-      {/* Item Preview */}
-      <Card className="mb-6 bg-slate-50 border-slate-200">
-        <CardContent className="p-4 flex items-center gap-4">
-          {item.photo_urls?.[0] ? (
-            <img src={item.photo_urls[0]} alt={item.title} className="w-16 h-16 rounded-lg object-cover" />
-          ) : (
-            <div className="w-16 h-16 rounded-lg bg-slate-200 flex items-center justify-center">
-              <Package className="w-6 h-6 text-slate-400" />
+      <div className="mb-6 grid gap-4 lg:grid-cols-[minmax(0,1fr)_260px]">
+        <div className="surface-card p-5">
+          <div className="flex items-start gap-4">
+            {item.photo_urls?.[0] ? (
+              <img
+                src={item.photo_urls[0]}
+                alt={item.title}
+                className="h-20 w-20 rounded-[18px] object-cover"
+              />
+            ) : (
+              <div className="flex h-20 w-20 items-center justify-center rounded-[18px] bg-slate-100">
+                <Package className="h-7 w-7 text-slate-400" />
+              </div>
+            )}
+
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="text-lg font-semibold text-slate-950">{item.title}</h2>
+                <StatusBadge status={item.status} />
+              </div>
+              <p className="mt-1 text-sm text-slate-600">
+                {item.location_found || "Location unknown"} • {item.date_found || "Date unavailable"}
+              </p>
+              <p className="mt-3 line-clamp-2 text-sm leading-6 text-slate-600">
+                {item.ai_description || item.description}
+              </p>
             </div>
-          )}
-          <div>
-            <h3 className="font-semibold text-slate-900">{item.title}</h3>
-            <p className="text-sm text-slate-500">{item.location_found} • {item.date_found}</p>
           </div>
-          <StatusBadge status={item.status} className="ml-auto" />
-        </CardContent>
-      </Card>
+        </div>
 
-      <form onSubmit={handleSubmit} className="space-y-6" noValidate>
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Your Information</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid sm:grid-cols-2 gap-4">
+        <div className="soft-panel p-5">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Review flow</p>
+          <div className="mt-4 space-y-3 text-sm text-slate-600">
+            <div className="flex items-start gap-3">
+              <Search className="mt-0.5 h-4 w-4 text-primary" />
+              <span>Admins compare your details against the item record.</span>
+            </div>
+            <div className="flex items-start gap-3">
+              <Clock3 className="mt-0.5 h-4 w-4 text-primary" />
+              <span>Pickup timing can be coordinated after approval.</span>
+            </div>
+            <div className="flex items-start gap-3">
+              <CheckCircle2 className="mt-0.5 h-4 w-4 text-primary" />
+              <span>The claim closes only after you confirm receipt.</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <form onSubmit={handleSubmit} noValidate>
+        <div className="form-shell">
+          <section>
+            <div className="space-y-2">
+              <h2 className="text-lg font-semibold text-slate-950">Your information</h2>
+              <p className="text-sm text-slate-600">
+                These details let staff reach you and confirm identity during pickup.
+              </p>
+            </div>
+
+            {user && (
+              <div className="soft-panel flex flex-wrap items-center gap-2 px-4 py-3 text-sm text-slate-700">
+                <Badge variant="secondary" className="bg-slate-200 text-slate-700">Signed in</Badge>
+                Submitting as {user.full_name} ({user.email})
+              </div>
+            )}
+
+            <div className="grid gap-4 sm:grid-cols-2">
               <div>
                 <Label htmlFor="c_name">Full Name *</Label>
-                <Input id="c_name" value={form.claimant_name} onChange={(e) => updateField("claimant_name", e.target.value)} className={errors.claimant_name ? "border-red-400" : ""} />
-                {errors.claimant_name && <p className="text-xs text-red-500 mt-1">{errors.claimant_name}</p>}
+                <Input
+                  id="c_name"
+                  value={form.claimant_name}
+                  onChange={(event) => updateField("claimant_name", event.target.value)}
+                  className={errors.claimant_name ? "border-red-400" : ""}
+                />
+                {errors.claimant_name && <p className="mt-1 text-xs text-red-500">{errors.claimant_name}</p>}
               </div>
               <div>
                 <Label htmlFor="c_email">Email *</Label>
-                <Input id="c_email" type="email" value={form.claimant_email} onChange={(e) => updateField("claimant_email", e.target.value)} className={errors.claimant_email ? "border-red-400" : ""} />
-                {errors.claimant_email && <p className="text-xs text-red-500 mt-1">{errors.claimant_email}</p>}
+                <Input
+                  id="c_email"
+                  type="email"
+                  value={form.claimant_email}
+                  onChange={(event) => updateField("claimant_email", event.target.value)}
+                  className={errors.claimant_email ? "border-red-400" : ""}
+                />
+                {errors.claimant_email && <p className="mt-1 text-xs text-red-500">{errors.claimant_email}</p>}
               </div>
             </div>
+
             <div>
               <Label htmlFor="c_sid">Student ID</Label>
-              <Input id="c_sid" placeholder="Helps verify your identity" value={form.student_id} onChange={(e) => updateField("student_id", e.target.value)} />
+              <Input
+                id="c_sid"
+                placeholder="Optional, but useful for verification"
+                value={form.student_id}
+                onChange={(event) => updateField("student_id", event.target.value)}
+              />
             </div>
-          </CardContent>
-        </Card>
+          </section>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Ownership Verification</CardTitle>
-            <CardDescription>Provide details that only the true owner would know.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
+          <section>
+            <div className="space-y-2">
+              <h2 className="text-lg font-semibold text-slate-950">Ownership verification</h2>
+              <p className="text-sm text-slate-600">
+                Provide details that would not normally appear in the public listing.
+              </p>
+            </div>
+
             <div>
               <Label htmlFor="c_reason">Why do you believe this is yours? *</Label>
-              <Textarea id="c_reason" rows={3} placeholder="Describe when and where you lost it, what it looks like..." value={form.reason} onChange={(e) => updateField("reason", e.target.value)} className={errors.reason ? "border-red-400" : ""} />
-              {errors.reason && <p className="text-xs text-red-500 mt-1">{errors.reason}</p>}
+              <Textarea
+                id="c_reason"
+                rows={4}
+                placeholder="Describe when you lost it, where you last saw it, and what makes you confident it is yours."
+                value={form.reason}
+                onChange={(event) => updateField("reason", event.target.value)}
+                className={errors.reason ? "border-red-400" : ""}
+              />
+              {errors.reason && <p className="mt-1 text-xs text-red-500">{errors.reason}</p>}
             </div>
-            <div>
-              <Label htmlFor="c_details">Identifying Details Only You Would Know</Label>
-              <Textarea id="c_details" rows={3} placeholder="Scratches, stickers, contents, lock combo, wallpaper, etc." value={form.identifying_details} onChange={(e) => updateField("identifying_details", e.target.value)} />
-            </div>
-            <PhotoUploader photos={form.proof_photo_url ? [form.proof_photo_url] : []} onChange={(urls) => updateField("proof_photo_url", urls[0] || "")} maxPhotos={1} label="Proof Photo (optional)" />
-            <div>
-              <Label htmlFor="c_pickup">Pickup Availability</Label>
-              <Input id="c_pickup" placeholder="e.g. After school Mon-Wed, lunch period" value={form.pickup_availability} onChange={(e) => updateField("pickup_availability", e.target.value)} />
-            </div>
-          </CardContent>
-        </Card>
 
-        {/* Truthful Confirmation */}
-        <div className="flex items-start gap-2 p-4 bg-amber-50 border border-amber-200 rounded-lg">
-          <Checkbox id="truthful" checked={form.truthful} onCheckedChange={(v) => updateField("truthful", v)} />
-          <label htmlFor="truthful" className="text-sm text-amber-800 leading-snug cursor-pointer">
-            I confirm that all information provided is truthful and accurate. I understand that submitting false claims may result in disciplinary action. *
-          </label>
+            <div>
+              <Label htmlFor="c_details">Identifying details only you would know</Label>
+              <Textarea
+                id="c_details"
+                rows={4}
+                placeholder="Scratches, stickers, lock code format, wallpaper, contents, or anything not obvious from the outside."
+                value={form.identifying_details}
+                onChange={(event) => updateField("identifying_details", event.target.value)}
+              />
+            </div>
+
+            <PhotoUploader
+              photos={form.proof_photo_url ? [form.proof_photo_url] : []}
+              onChange={(urls) => updateField("proof_photo_url", urls[0] || "")}
+              maxPhotos={1}
+              label="Supporting photo (optional)"
+            />
+
+            <div>
+              <Label htmlFor="c_pickup">Pickup availability</Label>
+              <Input
+                id="c_pickup"
+                placeholder="Example: lunch period, after school Monday-Wednesday"
+                value={form.pickup_availability}
+                onChange={(event) => updateField("pickup_availability", event.target.value)}
+              />
+            </div>
+          </section>
+
+          <section className="space-y-5">
+            <div className="rounded-[18px] border border-amber-200 bg-amber-50 px-4 py-4">
+              <div className="flex items-start gap-3">
+                <Checkbox
+                  id="truthful"
+                  checked={form.truthful}
+                  onCheckedChange={(value) => updateField("truthful", value)}
+                />
+                <label htmlFor="truthful" className="text-sm leading-6 text-amber-900">
+                  I confirm that the information provided is truthful and accurate. I understand that false claims may lead to disciplinary action. *
+                </label>
+              </div>
+            </div>
+            {errors.truthful && <p className="text-xs text-red-500">{errors.truthful}</p>}
+
+            <Button type="submit" size="lg" disabled={submitMutation.isPending} className="w-full gap-2">
+              {submitMutation.isPending ? <Loader2 className="h-5 w-5 animate-spin" /> : <Shield className="h-5 w-5" />}
+              {submitMutation.isPending ? "Verifying and submitting..." : "Submit Claim"}
+            </Button>
+          </section>
         </div>
-        {errors.truthful && <p className="text-xs text-red-500">{errors.truthful}</p>}
-
-        <Button type="submit" size="lg" disabled={submitMutation.isPending} className="w-full bg-[hsl(213,56%,24%)] hover:bg-[hsl(213,56%,20%)] text-white gap-2 shadow-md">
-          {submitMutation.isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Shield className="w-5 h-5" />}
-          {submitMutation.isPending ? "Verifying & Submitting..." : "Submit Claim"}
-        </Button>
       </form>
     </div>
   );

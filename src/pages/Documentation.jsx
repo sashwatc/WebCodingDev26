@@ -91,6 +91,9 @@ export default function Documentation() {
               <p>
                 The application logic, page layouts, workflows, seeded data, and copy were customized for the lost-and-found scenario rather than assembled from a website theme.
               </p>
+              <p>
+                Restricted moderation tools are available only through the demo admin account in this standalone build, so the admin workflow can be demonstrated without exposing private views to every user.
+              </p>
             </CardContent>
           </Card>
 
@@ -101,7 +104,14 @@ export default function Documentation() {
             <CardContent className="space-y-2 text-sm text-slate-600">
               <p><code className="rounded bg-slate-100 px-2 py-1">npm install</code></p>
               <p><code className="rounded bg-slate-100 px-2 py-1">npm run dev</code></p>
-              <p>Open <code className="rounded bg-slate-100 px-2 py-1">http://localhost:5173</code>.</p>
+              <p>Open <code className="rounded bg-slate-100 px-2 py-1">http://localhost:4173</code>.</p>
+              <p>
+                For the standard Vite dev server with hot reload, use{" "}
+                <code className="rounded bg-slate-100 px-2 py-1">npm run dev:vite</code> and open{" "}
+                <code className="rounded bg-slate-100 px-2 py-1">http://localhost:5173</code>.
+              </p>
+              <p>Student demo: <code className="rounded bg-slate-100 px-2 py-1">Jordan Kim</code> / <code className="rounded bg-slate-100 px-2 py-1">jordan.kim@pleasantvalley.edu</code></p>
+              <p>Admin demo: <code className="rounded bg-slate-100 px-2 py-1">Avery Patel</code> / <code className="rounded bg-slate-100 px-2 py-1">avery.patel@pleasantvalley.edu</code></p>
             </CardContent>
           </Card>
 

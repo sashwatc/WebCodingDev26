@@ -4,13 +4,14 @@
  * AI match suggestions, and notification updates.
  */
 
-import React from "react";
+import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Textarea } from "@/components/ui/textarea";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { appClient } from "@/api/appClient";
 import StatusBadge from "@/components/ui/StatusBadge";
@@ -19,13 +20,14 @@ import { useAuth } from "@/lib/AuthContext";
 import { useToast } from "@/components/ui/use-toast";
 import {
   AlertTriangle, FileCheck, Bell, Eye,
-  Brain
+  Brain, CheckCircle2, Loader2, Star
 } from "lucide-react";
 
 export default function UserDashboard() {
   const queryClient = useQueryClient();
   const { user, navigateToLogin } = useAuth();
   const { toast } = useToast();
+  const [reviewDrafts, setReviewDrafts] = useState({});
 
   // Fetch user's lost reports
   const { data: lostReports = [], isLoading: lrLoading } = useQuery({
@@ -51,7 +53,43 @@ export default function UserDashboard() {
   // Mark notification as read
   const markReadMutation = useMutation({
     mutationFn: (id) => appClient.entities.Notification.update(id, { is_read: true }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["userNotifications"] }),
+    onSuccess: () => queryClient.invalidateQueries(),
+  });
+
+  const confirmReceivedMutation = useMutation({
+    mutationFn: async (claim) => {
+      await appClient.entities.Claim.update(claim.id, {
+        status: "completed",
+        received_confirmed_at: new Date().toISOString(),
+      });
+      await appClient.entities.FoundItem.update(claim.found_item_id, { status: "returned" });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries();
+      toast({
+        title: "Return confirmed",
+        description: "The claim has been marked complete and the item is now recorded as returned.",
+      });
+    },
+  });
+
+  const submitReviewMutation = useMutation({
+    mutationFn: async ({ claimId, rating, review }) => {
+      await appClient.entities.Claim.update(claimId, {
+        claimant_rating: rating,
+        claimant_review: review.trim(),
+        review_status: "pending",
+        review_submitted_at: new Date().toISOString(),
+        review_reviewed_at: "",
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries();
+      toast({
+        title: "Rating submitted",
+        description: "Your rating is now waiting for admin approval.",
+      });
+    },
   });
 
   const EmptyState = ({ icon: Icon, message }) => (
@@ -190,6 +228,148 @@ export default function UserDashboard() {
                         {claim.admin_notes && (
                           <div className="mt-2 text-xs bg-blue-50 text-blue-700 p-2 rounded">
                             Admin note: {claim.admin_notes}
+                          </div>
+                        )}
+
+                        {claim.status === "approved" && !claim.received_confirmed_at && (
+                          <div className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 p-3">
+                            <p className="text-sm font-medium text-emerald-900">Have you received this item back?</p>
+                            <p className="mt-1 text-xs text-emerald-700">
+                              Confirm the return once the item is back in your hands so the record can be closed properly.
+                            </p>
+                            <Button
+                              size="sm"
+                              className="mt-3 bg-emerald-600 text-white hover:bg-emerald-700"
+                              disabled={confirmReceivedMutation.isPending}
+                              onClick={() => confirmReceivedMutation.mutate(claim)}
+                            >
+                              {confirmReceivedMutation.isPending ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                              ) : (
+                                <CheckCircle2 className="w-4 h-4" />
+                              )}
+                              Confirm I Received It
+                            </Button>
+                          </div>
+                        )}
+
+                        {claim.received_confirmed_at && (
+                          <p className="mt-3 text-xs text-emerald-700">
+                            Confirmed received on {format(new Date(claim.received_confirmed_at), "MMM d, yyyy")}
+                          </p>
+                        )}
+
+                        {(claim.status === "completed" || claim.received_confirmed_at) && (
+                          <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3">
+                            <div className="flex items-center justify-between gap-3">
+                              <div>
+                                <p className="text-sm font-semibold text-slate-900">Leave a rating</p>
+                                <p className="text-xs text-slate-500">
+                                  Ratings are reviewed by an admin before they appear publicly.
+                                </p>
+                              </div>
+                              {claim.review_status && (
+                                <Badge
+                                  className={
+                                    claim.review_status === "approved"
+                                      ? "bg-emerald-100 text-emerald-700"
+                                      : claim.review_status === "rejected"
+                                        ? "bg-red-100 text-red-700"
+                                        : "bg-amber-100 text-amber-700"
+                                  }
+                                >
+                                  Review {claim.review_status}
+                                </Badge>
+                              )}
+                            </div>
+
+                            <div className="mt-3 flex gap-1">
+                              {Array.from({ length: 5 }).map((_, index) => {
+                                const draft = reviewDrafts[claim.id] || {
+                                  rating: claim.claimant_rating || 0,
+                                  review: claim.claimant_review || "",
+                                };
+                                const filled = index < draft.rating;
+                                return (
+                                  <button
+                                    key={index}
+                                    type="button"
+                                    className="rounded-md p-1 transition hover:bg-amber-100"
+                                    aria-label={`Rate ${index + 1} stars`}
+                                    disabled={claim.review_status === "pending" || claim.review_status === "approved"}
+                                    onClick={() =>
+                                      setReviewDrafts((prev) => ({
+                                        ...prev,
+                                        [claim.id]: {
+                                          rating: index + 1,
+                                          review: prev[claim.id]?.review ?? claim.claimant_review ?? "",
+                                        },
+                                      }))
+                                    }
+                                  >
+                                    <Star className={`w-5 h-5 ${filled ? "fill-amber-400 text-amber-400" : "text-slate-300"}`} />
+                                  </button>
+                                );
+                              })}
+                            </div>
+
+                            <Textarea
+                              rows={3}
+                              className="mt-3 bg-white"
+                              placeholder="Optional note about the return experience"
+                              disabled={claim.review_status === "pending" || claim.review_status === "approved"}
+                              value={(reviewDrafts[claim.id]?.review ?? claim.claimant_review ?? "")}
+                              onChange={(event) =>
+                                setReviewDrafts((prev) => ({
+                                  ...prev,
+                                  [claim.id]: {
+                                    rating: prev[claim.id]?.rating ?? claim.claimant_rating ?? 0,
+                                    review: event.target.value,
+                                  },
+                                }))
+                              }
+                            />
+
+                            {claim.review_status === "approved" && claim.claimant_review && (
+                              <p className="mt-2 text-xs text-emerald-700">
+                                Your approved review is now visible on the item page.
+                              </p>
+                            )}
+                            {claim.review_status === "pending" && (
+                              <p className="mt-2 text-xs text-amber-700">
+                                Your rating is waiting for admin approval.
+                              </p>
+                            )}
+                            {claim.review_status === "rejected" && (
+                              <p className="mt-2 text-xs text-red-700">
+                                Your last rating was not approved. Update it below and resubmit.
+                              </p>
+                            )}
+
+                            {claim.review_status !== "pending" && (claim.review_status !== "approved" || !claim.claimant_rating) && (
+                              <Button
+                                size="sm"
+                                className="mt-3"
+                                disabled={
+                                  submitReviewMutation.isPending ||
+                                  ((reviewDrafts[claim.id]?.rating ?? claim.claimant_rating ?? 0) < 1)
+                                }
+                                onClick={() =>
+                                  submitReviewMutation.mutate({
+                                    claimId: claim.id,
+                                    rating: reviewDrafts[claim.id]?.rating ?? claim.claimant_rating ?? 0,
+                                    review: reviewDrafts[claim.id]?.review ?? claim.claimant_review ?? "",
+                                  })
+                                }
+                              >
+                                {submitReviewMutation.isPending ? (
+                                  <Loader2 className="w-4 h-4 animate-spin" />
+                                ) : (
+                                  <Star className="w-4 h-4" />
+                                )}
+                                Submit Rating
+                              </Button>
+                            )}
                           </div>
                         )}
                       </div>

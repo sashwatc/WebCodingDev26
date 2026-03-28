@@ -5,7 +5,7 @@
  */
 
 import React, { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, Link, useLocation } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -16,17 +16,20 @@ import { appClient } from "@/api/appClient";
 import StatusBadge from "@/components/ui/StatusBadge";
 import { getCategoryLabel } from "@/lib/constants";
 import { format } from "date-fns";
+import { useAuth } from "@/lib/AuthContext";
 import { useMode } from "@/lib/ModeContext";
 import {
   ArrowLeft, MapPin, Calendar, Clock, Tag, Package,
   Shield, Printer, Share2, CheckCircle2,
-  Brain, ChevronLeft, ChevronRight
+  Brain, ChevronLeft, ChevronRight, Star
 } from "lucide-react";
 
 export default function ItemDetails() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const { isAdminUser } = useAuth();
   const { isAdminMode } = useMode();
-  const urlParams = new URLSearchParams(window.location.search);
+  const urlParams = new URLSearchParams(location.search);
   const itemId = urlParams.get("id");
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
 
@@ -37,7 +40,13 @@ export default function ItemDetails() {
     select: (data) => data?.[0],
   });
 
-  const isAdmin = isAdminMode;
+  const isAdmin = isAdminUser && isAdminMode;
+
+  const { data: itemClaims = [] } = useQuery({
+    queryKey: ["itemReviews", itemId],
+    queryFn: () => appClient.entities.Claim.filter({ found_item_id: itemId }, "-review_reviewed_at", 20),
+    enabled: !!itemId,
+  });
 
   // Fetch matching lost reports for this item
   const { data: matchingReports = [] } = useQuery({
@@ -79,6 +88,10 @@ export default function ItemDetails() {
   }
 
   const photos = item.photo_urls || [];
+  const approvedReviews = itemClaims.filter((claim) => claim.review_status === "approved" && claim.claimant_rating);
+  const averageRating = approvedReviews.length
+    ? (approvedReviews.reduce((sum, claim) => sum + claim.claimant_rating, 0) / approvedReviews.length).toFixed(1)
+    : null;
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-8">
@@ -215,6 +228,50 @@ export default function ItemDetails() {
               {item.tags.map((tag, i) => (
                 <Badge key={i} variant="outline" className="text-xs">{tag}</Badge>
               ))}
+            </div>
+          )}
+
+          {approvedReviews.length > 0 && (
+            <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-sm font-semibold text-slate-900">Approved user ratings</p>
+                  <p className="text-xs text-slate-600">
+                    {averageRating} out of 5 from {approvedReviews.length} review{approvedReviews.length > 1 ? "s" : ""}
+                  </p>
+                </div>
+                <div className="flex gap-0.5">
+                  {Array.from({ length: 5 }).map((_, index) => (
+                    <Star
+                      key={index}
+                      className={`w-4 h-4 ${index < Math.round(Number(averageRating)) ? "fill-amber-400 text-amber-400" : "text-amber-200"}`}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              <div className="mt-3 space-y-3">
+                {approvedReviews.slice(0, 2).map((claim) => (
+                  <div key={claim.id} className="rounded-lg bg-white/80 p-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-sm font-medium text-slate-900">{claim.claimant_name}</p>
+                      <div className="flex gap-0.5">
+                        {Array.from({ length: 5 }).map((_, index) => (
+                          <Star
+                            key={index}
+                            className={`w-3.5 h-3.5 ${
+                              index < claim.claimant_rating ? "fill-amber-400 text-amber-400" : "text-slate-200"
+                            }`}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                    {claim.claimant_review && (
+                      <p className="mt-2 text-sm text-slate-600">{claim.claimant_review}</p>
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 

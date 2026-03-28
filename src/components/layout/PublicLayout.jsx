@@ -22,12 +22,11 @@ export default function PublicLayout() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-[hsl(210,20%,98%)]">
+    <div className="min-h-screen bg-background text-foreground">
       <a href="#main-content" className="skip-link" onClick={handleSkipToContent}>
         Skip to main content
       </a>
       <Navbar />
-      {/* Main content area with top padding for fixed navbar */}
       <main className="flex-1 pt-16" id="main-content" role="main" tabIndex={-1}>
         <Outlet />
       </main>

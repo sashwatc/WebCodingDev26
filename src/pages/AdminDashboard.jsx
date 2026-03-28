@@ -2,14 +2,11 @@
  * FindBack AI - Admin Dashboard
  * Central admin hub with overview metrics, moderation queue,
  * claims management, lost reports, and audit logs.
- * Accessible only to users with admin role.
+ * Access is protected by the admin route guard in the standalone judging build.
  */
 
 import React from "react";
-import { useNavigate } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useQuery } from "@tanstack/react-query";
@@ -20,114 +17,98 @@ import AdminClaimsQueue from "@/components/admin/AdminClaimsQueue";
 import StatusBadge from "@/components/ui/StatusBadge";
 import { format } from "date-fns";
 import {
-  Shield, LayoutDashboard, Package, FileCheck,
-  AlertTriangle, ClipboardList, Lock
+  LayoutDashboard,
+  Package,
+  FileCheck,
+  AlertTriangle,
+  ClipboardList,
 } from "lucide-react";
-import { useMode } from "@/lib/ModeContext";
 
 export default function AdminDashboard() {
-  const navigate = useNavigate();
-  const { isAdminMode } = useMode();
-
-  // Fetch all data for admin
   const { data: foundItems = [], isLoading: fiLoading } = useQuery({
     queryKey: ["adminFoundItems"],
     queryFn: () => appClient.entities.FoundItem.list("-created_date", 500),
-    enabled: isAdminMode,
   });
 
   const { data: lostReports = [], isLoading: lrLoading } = useQuery({
     queryKey: ["adminLostReports"],
     queryFn: () => appClient.entities.LostReport.list("-created_date", 500),
-    enabled: isAdminMode,
   });
 
   const { data: claims = [], isLoading: clLoading } = useQuery({
     queryKey: ["adminClaims"],
     queryFn: () => appClient.entities.Claim.list("-created_date", 500),
-    enabled: isAdminMode,
   });
 
   const { data: auditLogs = [] } = useQuery({
     queryKey: ["adminAuditLogs"],
     queryFn: () => appClient.entities.AuditLog.list("-created_date", 100),
-    enabled: isAdminMode,
   });
 
-  // Access denied if not in admin mode
-  if (!isAdminMode) {
-    return (
-      <div className="max-w-lg mx-auto px-4 py-20 text-center">
-        <div className="w-16 h-16 mx-auto rounded-full bg-red-100 flex items-center justify-center mb-6">
-          <Lock className="w-8 h-8 text-red-600" />
-        </div>
-        <h1 className="text-2xl font-bold text-slate-900 mb-3">Admin Mode Required</h1>
-        <p className="text-slate-500 mb-6">
-          Switch to Admin mode using the toggle in the top navigation bar.
-        </p>
-        <Button onClick={() => navigate("/Home")}>Back to Home</Button>
-      </div>
-    );
-  }
-
   const isLoading = fiLoading || lrLoading || clLoading;
-  const pendingCount = foundItems.filter(i => i.status === "pending_review").length;
-  const pendingClaims = claims.filter(c => c.status === "submitted").length;
-  const openReports = lostReports.filter(r => r.status === "open").length;
+  const pendingCount = foundItems.filter((item) => item.status === "pending_review").length;
+  const pendingClaims = claims.filter((claim) => claim.status === "submitted" || claim.review_status === "pending").length;
+  const openReports = lostReports.filter((report) => report.status === "open").length;
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-8">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <Shield className="w-6 h-6 text-[hsl(213,56%,24%)]" />
-            <h1 className="text-2xl font-bold text-slate-900">Admin Dashboard</h1>
-          </div>
-          <p className="text-slate-500 text-sm">Manage items, claims, and reports.</p>
+    <div className="page-shell py-8">
+      <div className="mb-8">
+        <div className="page-header">
+          <span className="page-kicker">Admin Workspace</span>
+          <h1 className="page-title">Review items, claims, and reports from one dashboard.</h1>
+          <p className="page-subtitle">
+            This area keeps moderation work separate from the public search pages and surfaces the records that still
+            need action.
+          </p>
         </div>
-        <div className="flex gap-2">
-          <Badge className="bg-[hsl(222,65%,18%)] text-white text-xs">Admin Mode</Badge>
+
+        <div className="grid gap-4 sm:grid-cols-3">
+          {[
+            { label: "Pending Items", value: pendingCount },
+            { label: "Pending Claims", value: pendingClaims },
+            { label: "Open Reports", value: openReports },
+          ].map((stat) => (
+            <div key={stat.label} className="stat-panel">
+              <p className="text-2xl font-semibold text-slate-950">{stat.value}</p>
+              <p className="mt-1 text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">{stat.label}</p>
+            </div>
+          ))}
         </div>
       </div>
 
       {isLoading ? (
         <div className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {Array(4).fill(0).map((_, i) => <Skeleton key={i} className="h-24 rounded-lg" />)}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            {Array.from({ length: 4 }).map((_, index) => (
+              <Skeleton key={index} className="h-28 rounded-lg" />
+            ))}
           </div>
-          <Skeleton className="h-64 rounded-lg" />
+          <Skeleton className="h-80 rounded-lg" />
         </div>
       ) : (
         <Tabs defaultValue="overview">
-          <TabsList className="mb-6 flex-wrap h-auto gap-1">
-            <TabsTrigger value="overview" className="gap-1.5">
-              <LayoutDashboard className="w-4 h-4" />
+          <TabsList className="mb-6 flex h-auto w-full flex-wrap justify-start gap-2 rounded-lg border border-slate-200 bg-white p-2 shadow-none">
+            <TabsTrigger value="overview" className="gap-2">
+              <LayoutDashboard className="h-4 w-4" />
               Overview
             </TabsTrigger>
-            <TabsTrigger value="items" className="gap-1.5">
-              <Package className="w-4 h-4" />
+            <TabsTrigger value="items" className="gap-2">
+              <Package className="h-4 w-4" />
               Items
-              {pendingCount > 0 && (
-                <Badge className="bg-amber-500 text-white text-[10px] px-1.5 ml-1">{pendingCount}</Badge>
-              )}
+              {pendingCount > 0 && <Badge variant="outline">{pendingCount}</Badge>}
             </TabsTrigger>
-            <TabsTrigger value="claims" className="gap-1.5">
-              <FileCheck className="w-4 h-4" />
+            <TabsTrigger value="claims" className="gap-2">
+              <FileCheck className="h-4 w-4" />
               Claims
-              {pendingClaims > 0 && (
-                <Badge className="bg-blue-500 text-white text-[10px] px-1.5 ml-1">{pendingClaims}</Badge>
-              )}
+              {pendingClaims > 0 && <Badge variant="outline">{pendingClaims}</Badge>}
             </TabsTrigger>
-            <TabsTrigger value="reports" className="gap-1.5">
-              <AlertTriangle className="w-4 h-4" />
+            <TabsTrigger value="reports" className="gap-2">
+              <AlertTriangle className="h-4 w-4" />
               Lost Reports
-              {openReports > 0 && (
-                <Badge className="bg-purple-500 text-white text-[10px] px-1.5 ml-1">{openReports}</Badge>
-              )}
+              {openReports > 0 && <Badge variant="outline">{openReports}</Badge>}
             </TabsTrigger>
-            <TabsTrigger value="logs" className="gap-1.5">
-              <ClipboardList className="w-4 h-4" />
+            <TabsTrigger value="logs" className="gap-2">
+              <ClipboardList className="h-4 w-4" />
               Audit Log
             </TabsTrigger>
           </TabsList>
@@ -146,37 +127,38 @@ export default function AdminDashboard() {
 
           <TabsContent value="reports">
             <div className="space-y-4">
-              <p className="text-sm text-slate-500">{lostReports.length} lost reports</p>
+              <div className="surface-card p-5">
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Lost Reports</p>
+                <p className="mt-2 text-sm text-slate-600">{lostReports.length} report{lostReports.length !== 1 ? "s" : ""} currently in the system.</p>
+              </div>
+
               {lostReports.length === 0 ? (
-                <div className="text-center py-12">
-                  <AlertTriangle className="w-10 h-10 text-slate-200 mx-auto mb-3" />
-                  <p className="text-sm text-slate-400">No lost reports yet.</p>
+                <div className="surface-card px-6 py-14 text-center">
+                  <AlertTriangle className="mx-auto mb-3 h-10 w-10 text-slate-300" />
+                  <p className="text-sm text-slate-500">No lost reports yet.</p>
                 </div>
               ) : (
-                <div className="space-y-2">
-                  {lostReports.map(report => (
-                    <Card key={report.id} className="hover:shadow-sm transition-shadow">
-                      <CardContent className="p-4">
-                        <div className="flex items-center gap-4">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-0.5">
-                              <span className="font-semibold text-sm text-slate-900">{report.item_type}</span>
-                              <StatusBadge status={report.status} />
-                              {report.matched_items?.length > 0 && (
-                                <Badge className="bg-purple-100 text-purple-700 text-[10px]">
-                                  {report.matched_items.length} matches
-                                </Badge>
-                              )}
-                            </div>
-                            <p className="text-xs text-slate-500 line-clamp-1">{report.description}</p>
-                            <p className="text-xs text-slate-400 mt-0.5">
-                              by {report.contact_name} • {report.date_lost} • {report.last_seen_location || "Unknown location"}
-                            </p>
+                <div className="space-y-3">
+                  {lostReports.map((report) => (
+                    <div key={report.id} className="surface-card p-5">
+                      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <h3 className="text-base font-semibold text-slate-950">{report.item_type}</h3>
+                            <StatusBadge status={report.status} />
+                            {report.matched_items?.length > 0 && (
+                              <Badge variant="secondary">{report.matched_items.length} matches</Badge>
+                            )}
                           </div>
-                          <Badge variant="outline" className="text-xs capitalize">{report.urgency}</Badge>
+                          <p className="mt-2 text-sm leading-6 text-slate-600">{report.description}</p>
+                          <p className="mt-3 text-xs uppercase tracking-[0.14em] text-slate-500">
+                            {report.contact_name} • {report.date_lost} • {report.last_seen_location || "Unknown location"}
+                          </p>
                         </div>
-                      </CardContent>
-                    </Card>
+
+                        <Badge variant="outline" className="capitalize self-start">{report.urgency}</Badge>
+                      </div>
+                    </div>
                   ))}
                 </div>
               )}
@@ -184,30 +166,32 @@ export default function AdminDashboard() {
           </TabsContent>
 
           <TabsContent value="logs">
-            <div className="space-y-2">
-              {auditLogs.length === 0 ? (
-                <div className="text-center py-12">
-                  <ClipboardList className="w-10 h-10 text-slate-200 mx-auto mb-3" />
-                  <p className="text-sm text-slate-400">No audit logs yet.</p>
-                </div>
-              ) : (
-                auditLogs.map(log => (
-                  <div key={log.id} className="flex items-center gap-3 p-3 bg-white rounded-lg border border-slate-100">
-                    <div className="w-2 h-2 rounded-full bg-slate-300 flex-shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm text-slate-700">{log.action}</p>
-                      <p className="text-xs text-slate-400">{log.details}</p>
-                    </div>
-                    <div className="text-right flex-shrink-0">
-                      <p className="text-xs text-slate-500">{log.performed_by}</p>
-                      <p className="text-[10px] text-slate-400">
-                        {log.created_date ? format(new Date(log.created_date), "MMM d, h:mm a") : ""}
-                      </p>
+            {auditLogs.length === 0 ? (
+              <div className="surface-card px-6 py-14 text-center">
+                <ClipboardList className="mx-auto mb-3 h-10 w-10 text-slate-300" />
+                <p className="text-sm text-slate-500">No audit logs yet.</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {auditLogs.map((log) => (
+                  <div key={log.id} className="surface-card p-4">
+                    <div className="flex items-start gap-3">
+                      <div className="mt-1.5 h-2 w-2 rounded-full bg-primary" />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium text-slate-900">{log.action}</p>
+                        <p className="mt-1 text-sm text-slate-600">{log.details}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">{log.performed_by}</p>
+                        <p className="mt-1 text-[11px] text-slate-500">
+                          {log.created_date ? format(new Date(log.created_date), "MMM d, h:mm a") : ""}
+                        </p>
+                      </div>
                     </div>
                   </div>
-                ))
-              )}
-            </div>
+                ))}
+              </div>
+            )}
           </TabsContent>
         </Tabs>
       )}

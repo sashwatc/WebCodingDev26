@@ -44,7 +44,7 @@ export default function PhotoUploader({ photos = [], onChange, maxPhotos = 3, la
 
   return (
     <div className="space-y-3">
-      <label className="text-sm font-medium text-slate-700">{label}</label>
+      <label className="text-sm font-medium text-slate-800">{label}</label>
       
       {/* Drag & Drop Zone */}
       <div
@@ -52,10 +52,10 @@ export default function PhotoUploader({ photos = [], onChange, maxPhotos = 3, la
         onDragLeave={() => setIsDragging(false)}
         onDrop={handleDrop}
         onClick={() => fileInputRef.current?.click()}
-        className={`relative border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-all ${
+        className={`relative rounded-[18px] border-2 border-dashed p-6 text-center transition-all ${
           isDragging
-            ? "border-[hsl(174,60%,40%)] bg-teal-50/50"
-            : "border-slate-200 hover:border-slate-300 bg-slate-50/50"
+            ? "border-primary bg-slate-100"
+            : "border-slate-300 bg-slate-50 hover:border-slate-400 hover:bg-slate-100"
         } ${photos.length >= maxPhotos ? "opacity-50 pointer-events-none" : ""}`}
         role="button"
         aria-label="Upload photos by clicking or dragging files here"
@@ -78,11 +78,13 @@ export default function PhotoUploader({ photos = [], onChange, maxPhotos = 3, la
           </div>
         ) : (
           <div className="flex flex-col items-center gap-2">
-            <Upload className="w-8 h-8 text-slate-400" />
-            <p className="text-sm text-slate-600 font-medium">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white shadow-[0_8px_18px_rgba(15,23,42,0.05)]">
+              <Upload className="w-5 h-5 text-primary" />
+            </div>
+            <p className="text-sm font-semibold text-slate-700">
               Drag & drop photos or click to browse
             </p>
-            <p className="text-xs text-slate-400">
+            <p className="text-xs text-slate-500">
               Max {maxPhotos} photos, 10MB each • JPG, PNG, WEBP
             </p>
           </div>
@@ -93,11 +95,11 @@ export default function PhotoUploader({ photos = [], onChange, maxPhotos = 3, la
       {photos.length > 0 && (
         <div className="flex gap-3 flex-wrap">
           {photos.map((url, i) => (
-            <div key={i} className="relative w-20 h-20 rounded-lg overflow-hidden border border-slate-200 shadow-sm group">
+            <div key={i} className="group relative h-24 w-24 overflow-hidden rounded-[18px] border border-slate-200 bg-white shadow-[0_8px_18px_rgba(15,23,42,0.05)]">
               <img src={url} alt={`Uploaded photo ${i + 1}`} className="w-full h-full object-cover" />
               <button
                 onClick={(e) => { e.stopPropagation(); removePhoto(i); }}
-                className="absolute top-1 right-1 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-slate-900 text-white opacity-0 transition-opacity group-hover:opacity-100"
                 aria-label={`Remove photo ${i + 1}`}
               >
                 <X className="w-3 h-3" />

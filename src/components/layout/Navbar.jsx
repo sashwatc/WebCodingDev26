@@ -1,20 +1,38 @@
 /**
  * FindBack AI - Main Navigation Bar
- * Responsive top navigation with logo, links, mobile menu, and user actions.
- * Uses framer-motion for smooth mobile menu transitions.
+ * Keeps primary actions and account controls visible without decorative chrome.
  */
 
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
-  Search, Menu, X, Bell, User, Shield, Home,
-  PlusCircle, FileSearch, AlertTriangle, LayoutDashboard, ChevronDown
+  AlertTriangle,
+  Bell,
+  ChevronDown,
+  Home,
+  LayoutDashboard,
+  Menu,
+  MonitorCog,
+  Moon,
+  PlusCircle,
+  FileSearch,
+  Search,
+  Shield,
+  Sun,
+  Type,
+  User,
+  X,
 } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
 import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem,
-  DropdownMenuTrigger, DropdownMenuSeparator
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
 } from "@/components/ui/dropdown-menu";
 import { appClient } from "@/api/appClient";
 import { useQuery } from "@tanstack/react-query";
@@ -26,19 +44,32 @@ export default function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const location = useLocation();
-  const { isAdminMode, setIsAdminMode } = useMode();
-  const { user, navigateToLogin, logout } = useAuth();
+  const {
+    isAdminMode,
+    setIsAdminMode,
+    theme,
+    setTheme,
+    readingMode,
+    setReadingMode,
+  } = useMode();
+  const { user, isAdminUser, navigateToLogin, logout } = useAuth();
   const { toast } = useToast();
 
-  // Track scroll position for navbar background effect
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 10);
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  // Close mobile menu on route change
-  useEffect(() => { setMobileOpen(false); }, [location.pathname]);
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [location.pathname]);
+
+  useEffect(() => {
+    if (!isAdminUser && isAdminMode) {
+      setIsAdminMode(false);
+    }
+  }, [isAdminMode, isAdminUser, setIsAdminMode]);
 
   const { data: notifications = [] } = useQuery({
     queryKey: ["navNotifications", user?.email],
@@ -46,13 +77,12 @@ export default function Navbar() {
     enabled: !!user?.email,
   });
 
-  const isAdmin = isAdminMode;
+  const isAdmin = isAdminUser && isAdminMode;
   const isActive = (path) => location.pathname === path;
 
   const navLinks = [
     { to: "/Home", label: "Home", icon: Home },
     { to: "/Search", label: "Search Items", icon: Search },
-    { to: "/ReportFound", label: "Report Found", icon: PlusCircle },
     { to: "/ReportLost", label: "Report Lost", icon: AlertTriangle },
   ];
 
@@ -83,91 +113,127 @@ export default function Navbar() {
   return (
     <header
       role="banner"
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-      scrolled
-      ? "bg-white shadow-md border-b-2 border-[hsl(222,65%,18%)]"
-      : "bg-white border-b border-slate-200"
+      className={`fixed inset-x-0 top-0 z-50 border-b bg-background/95 backdrop-blur ${
+        scrolled ? "shadow-sm" : ""
       }`}
     >
-      <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8" aria-label="Main navigation">
-        <div className="flex items-center justify-between h-16">
-          {/* Logo */}
-          <Link to="/Home" className="flex items-center gap-2.5 group" aria-label="FindBack AI Home">
-            <div className="w-9 h-9 rounded-xl bg-[hsl(222,65%,18%)] flex items-center justify-center shadow-md group-hover:shadow-lg transition-shadow">
-              <FileSearch className="w-5 h-5 text-white" />
+      <nav className="page-shell" aria-label="Main navigation">
+        <div className="flex min-h-16 items-center justify-between gap-4 py-2">
+          <Link to="/Home" className="flex items-center gap-3" aria-label="FindBack AI Home">
+            <div className="flex h-9 w-9 items-center justify-center rounded-md border border-border bg-muted">
+              <FileSearch className="h-4 w-4" />
             </div>
-            <div className="flex flex-col leading-none">
-              <span className="text-base font-extrabold tracking-tight text-[hsl(222,65%,18%)]">FindBack AI</span>
-              <span className="text-[10px] font-medium text-slate-400 tracking-wide">Pleasant Valley HS</span>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold leading-none text-foreground">FindBack AI</p>
+              <p className="mt-1 text-[11px] uppercase tracking-[0.16em] text-muted-foreground">Pleasant Valley HS</p>
             </div>
           </Link>
 
-          {/* Desktop Navigation Links */}
-          <div className="hidden md:flex items-center gap-1">
+          <div className="hidden lg:flex items-center gap-1">
             {navLinks.map(({ to, label, icon: Icon }) => (
-              <Link key={to} to={to} aria-current={isActive(to) ? "page" : undefined}>
-                <Button
-                  variant={isActive(to) ? "secondary" : "ghost"}
-                  size="sm"
-                  className={`gap-1.5 text-sm font-medium ${
-                    isActive(to)
-                      ? "bg-[hsl(222,65%,18%)]/10 text-[hsl(222,65%,18%)]"
-                      : "text-slate-600 hover:text-[hsl(222,65%,18%)]"
-                  }`}
-                >
-                  <Icon className="w-4 h-4" />
-                  {label}
-                </Button>
+              <Link
+                key={to}
+                to={to}
+                aria-current={isActive(to) ? "page" : undefined}
+                className={`inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium ${
+                  isActive(to)
+                    ? "bg-muted text-foreground"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                }`}
+              >
+                <Icon className="h-4 w-4" />
+                <span>{label}</span>
               </Link>
             ))}
           </div>
 
-          {/* Right Side Actions */}
           <div className="flex items-center gap-2">
-            {/* Mode Toggle */}
-            <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-1">
-              <button
-                onClick={() => setIsAdminMode(false)}
-                aria-pressed={!isAdminMode}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
-                  !isAdminMode
-                    ? "bg-[hsl(222,65%,18%)] text-white shadow-sm"
-                    : "text-slate-500 hover:text-slate-700"
-                }`}
-              >
-                <User className="w-3.5 h-3.5" />
-                Student
-              </button>
-              <button
-                onClick={() => setIsAdminMode(true)}
-                aria-pressed={isAdminMode}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
-                  isAdminMode
-                    ? "bg-[hsl(222,65%,18%)] text-white shadow-sm"
-                    : "text-slate-500 hover:text-slate-700"
-                }`}
-              >
-                <Shield className="w-3.5 h-3.5" />
-                Admin
-              </button>
-            </div>
-            {/* Admin Dashboard Link */}
-            {isAdmin && (
-              <Link to="/AdminDashboard">
-                <Button size="sm" variant="ghost" className="gap-1.5 text-[hsl(222,65%,18%)] font-semibold hidden sm:flex">
-                  <LayoutDashboard className="w-4 h-4" />
+            {isAdminUser ? (
+              <div className="hidden md:flex items-center rounded-md border border-border bg-muted/70 p-1">
+                <button
+                  onClick={() => setIsAdminMode(false)}
+                  aria-pressed={!isAdmin}
+                  className={`rounded px-3 py-1.5 text-xs font-semibold ${
+                    !isAdmin ? "bg-background text-foreground" : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Student
+                </button>
+                <button
+                  onClick={() => setIsAdminMode(true)}
+                  aria-pressed={isAdmin}
+                  className={`rounded px-3 py-1.5 text-xs font-semibold ${
+                    isAdmin ? "bg-background text-foreground" : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Admin
+                </button>
+              </div>
+            ) : (
+              <div className="hidden md:flex items-center rounded-md border border-border bg-muted px-3 py-1.5 text-xs font-semibold text-muted-foreground">
+                Student View
+              </div>
+            )}
+
+            <Link to="/ReportFound" className="hidden md:block">
+              <Button size="sm" className="gap-2">
+                <PlusCircle className="h-4 w-4" />
+                Report Found Item
+              </Button>
+            </Link>
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="icon" className="hidden sm:inline-flex">
+                  <MonitorCog className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-60">
+                <DropdownMenuLabel className="text-xs uppercase tracking-[0.14em] text-slate-500">
+                  Appearance
+                </DropdownMenuLabel>
+                <DropdownMenuRadioGroup value={theme} onValueChange={setTheme}>
+                  <DropdownMenuRadioItem value="light" className="gap-2">
+                    <Sun className="w-4 h-4" />
+                    Light Mode
+                  </DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="dark" className="gap-2">
+                    <Moon className="w-4 h-4" />
+                    Dark Mode
+                  </DropdownMenuRadioItem>
+                </DropdownMenuRadioGroup>
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel className="text-xs uppercase tracking-[0.14em] text-slate-500">
+                  Reading
+                </DropdownMenuLabel>
+                <DropdownMenuRadioGroup value={readingMode} onValueChange={setReadingMode}>
+                  <DropdownMenuRadioItem value="default" className="gap-2">
+                    <Type className="w-4 h-4" />
+                    Standard Reading
+                  </DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="dyslexic" className="gap-2">
+                    <Type className="w-4 h-4" />
+                    Dyslexic Reading
+                  </DropdownMenuRadioItem>
+                </DropdownMenuRadioGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            {isAdminUser && (
+              <Link to="/AdminDashboard" className="hidden xl:block">
+                <Button size="sm" variant="outline" className="gap-2">
+                  <LayoutDashboard className="h-4 w-4" />
                   Dashboard
                 </Button>
               </Link>
             )}
 
-            {/* Notification Bell */}
             {user && (
               <Link to="/UserDashboard" aria-label="Notifications">
-                <Button variant="ghost" size="icon" className="relative">
-                  <Bell className="w-4.5 h-4.5 text-slate-600" />
+                <Button variant="outline" size="icon" className="relative">
+                  <Bell className="h-4 w-4" />
                   {notifications.length > 0 && (
-                    <span className="absolute -top-0.5 -right-0.5 w-4.5 h-4.5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+                    <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground">
                       {notifications.length > 9 ? "9+" : notifications.length}
                     </span>
                   )}
@@ -175,28 +241,33 @@ export default function Navbar() {
               </Link>
             )}
 
-            {/* User Dropdown */}
             {user && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="sm" className="gap-1.5 hidden sm:flex">
-                    <div className="w-7 h-7 rounded-full bg-[hsl(222,65%,18%)] flex items-center justify-center text-white text-xs font-bold">
+                  <Button variant="outline" size="sm" className="hidden gap-2 sm:flex">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-muted text-xs font-bold text-foreground">
                       {user.full_name?.[0]?.toUpperCase() || "U"}
                     </div>
-                    <span className="text-sm text-slate-700 max-w-24 truncate">{user.full_name?.split(" ")[0]}</span>
-                    <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+                    <span className="max-w-24 truncate text-sm">{user.full_name?.split(" ")[0]}</span>
+                    <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuContent align="end" className="w-52">
+                  <DropdownMenuLabel className="text-xs uppercase tracking-[0.14em] text-slate-500">
+                    {isAdminUser ? "Admin Account" : "Student Account"}
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
                   <DropdownMenuItem asChild>
                     <Link to="/UserDashboard" className="flex items-center gap-2">
-                      <User className="w-4 h-4" /> My Dashboard
+                      <User className="w-4 h-4" />
+                      My Dashboard
                     </Link>
                   </DropdownMenuItem>
-                  {isAdmin && (
+                  {isAdminUser && (
                     <DropdownMenuItem asChild>
                       <Link to="/AdminDashboard" className="flex items-center gap-2">
-                        <Shield className="w-4 h-4" /> Admin Panel
+                        <Shield className="w-4 h-4" />
+                        Admin Panel
                       </Link>
                     </DropdownMenuItem>
                   )}
@@ -211,18 +282,18 @@ export default function Navbar() {
             {!user && (
               <Button
                 size="sm"
-                className="hidden sm:flex bg-[hsl(222,65%,18%)] text-white hover:bg-[hsl(222,65%,15%)]"
+                variant="outline"
+                className="hidden sm:inline-flex"
                 onClick={handleSignIn}
               >
                 Sign In
               </Button>
             )}
 
-            {/* Mobile Menu Toggle */}
             <Button
-              variant="ghost"
+              variant="outline"
               size="icon"
-              className="md:hidden"
+              className="lg:hidden"
               onClick={() => setMobileOpen(!mobileOpen)}
               aria-label={mobileOpen ? "Close menu" : "Open menu"}
               aria-expanded={mobileOpen}
@@ -233,65 +304,140 @@ export default function Navbar() {
         </div>
       </nav>
 
-      {/* Mobile Menu */}
-      <AnimatePresence>
-        {mobileOpen && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
-            className="md:hidden bg-white border-t border-slate-100 shadow-lg overflow-hidden"
-          >
-            <div className="px-4 py-3 space-y-1">
+      {mobileOpen && (
+        <div className="border-t bg-background lg:hidden">
+          <div className="page-shell space-y-3 py-4">
+            {isAdminUser ? (
+              <div className="flex items-center rounded-md border border-border bg-muted p-1">
+                <button
+                  onClick={() => setIsAdminMode(false)}
+                  aria-pressed={!isAdmin}
+                  className={`flex-1 rounded px-3 py-2 text-xs font-semibold ${
+                    !isAdmin ? "bg-background text-foreground" : "text-muted-foreground"
+                  }`}
+                >
+                  Student
+                </button>
+                <button
+                  onClick={() => setIsAdminMode(true)}
+                  aria-pressed={isAdmin}
+                  className={`flex-1 rounded px-3 py-2 text-xs font-semibold ${
+                    isAdmin ? "bg-background text-foreground" : "text-muted-foreground"
+                  }`}
+                >
+                  Admin
+                </button>
+              </div>
+            ) : (
+              <div className="rounded-md border border-border bg-muted px-4 py-3 text-sm text-muted-foreground">
+                Student view is active. Sign in with the demo admin account to access moderation tools.
+              </div>
+            )}
+
+            <div className="grid gap-2">
               {navLinks.map(({ to, label, icon: Icon }) => (
-                <Link key={to} to={to} className="block" aria-current={isActive(to) ? "page" : undefined}>
-                  <div className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${
-                    isActive(to) ? "bg-slate-100 text-slate-900" : "text-slate-600 hover:bg-slate-50"
-                  }`}>
-                    <Icon className="w-4.5 h-4.5" />
-                    <span className="font-medium text-sm">{label}</span>
-                  </div>
+                <Link
+                  key={to}
+                  to={to}
+                  aria-current={isActive(to) ? "page" : undefined}
+                  className={`flex items-center gap-3 rounded-md border px-4 py-3 text-sm font-medium ${
+                    isActive(to)
+                      ? "border-border bg-muted text-foreground"
+                      : "border-transparent text-muted-foreground hover:border-border hover:bg-muted hover:text-foreground"
+                  }`}
+                >
+                  <Icon className="h-4 w-4" />
+                  {label}
                 </Link>
               ))}
+
+              <Link
+                to="/ReportFound"
+                className="flex items-center gap-3 rounded-md border border-border bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground"
+              >
+                <PlusCircle className="h-4 w-4" />
+                Report Found Item
+              </Link>
+
               {user && (
-                <Link to="/UserDashboard" className="block">
-                  <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 hover:bg-slate-50">
-                    <LayoutDashboard className="w-4.5 h-4.5" />
-                    <span className="font-medium text-sm">My Dashboard</span>
-                  </div>
+                <Link
+                  to="/UserDashboard"
+                  className="flex items-center gap-3 rounded-md border border-border px-4 py-3 text-sm font-medium text-foreground"
+                >
+                  <LayoutDashboard className="h-4 w-4" />
+                  My Dashboard
                 </Link>
               )}
-              {isAdmin && (
-                <Link to="/AdminDashboard" className="block">
-                  <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-[hsl(213,56%,24%)] bg-blue-50 hover:bg-blue-100">
-                    <Shield className="w-4.5 h-4.5" />
-                    <span className="font-medium text-sm">Admin Dashboard</span>
-                  </div>
+
+              {isAdminUser && (
+                <Link
+                  to="/AdminDashboard"
+                  className="flex items-center gap-3 rounded-md border border-border px-4 py-3 text-sm font-medium text-foreground"
+                >
+                  <Shield className="h-4 w-4" />
+                  Admin Dashboard
                 </Link>
-              )}
-              {user ? (
-                <button
-                  type="button"
-                  onClick={handleSignOut}
-                  className="w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg text-red-600 hover:bg-red-50"
-                >
-                  <User className="w-4.5 h-4.5" />
-                  <span className="font-medium text-sm">Sign Out</span>
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={handleSignIn}
-                  className="w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-700 hover:bg-slate-50"
-                >
-                  <User className="w-4.5 h-4.5" />
-                  <span className="font-medium text-sm">Sign In</span>
-                </button>
               )}
             </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+
+            <div className="rounded-md border border-border p-3">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Display Settings</p>
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setTheme("light")}
+                  className={`flex items-center justify-center gap-2 rounded-md px-3 py-2 text-xs font-semibold ${
+                    theme === "light" ? "bg-muted text-foreground" : "text-muted-foreground hover:bg-muted"
+                  }`}
+                >
+                  <Sun className="h-3.5 w-3.5" />
+                  Light
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTheme("dark")}
+                  className={`flex items-center justify-center gap-2 rounded-md px-3 py-2 text-xs font-semibold ${
+                    theme === "dark" ? "bg-muted text-foreground" : "text-muted-foreground hover:bg-muted"
+                  }`}
+                >
+                  <Moon className="h-3.5 w-3.5" />
+                  Dark
+                </button>
+              </div>
+              <button
+                type="button"
+                onClick={() => setReadingMode(readingMode === "dyslexic" ? "default" : "dyslexic")}
+                className={`mt-2 flex w-full items-center justify-center gap-2 rounded-md px-3 py-2 text-xs font-semibold ${
+                  readingMode === "dyslexic" ? "bg-muted text-foreground" : "text-muted-foreground hover:bg-muted"
+                }`}
+              >
+                <Type className="h-3.5 w-3.5" />
+                {readingMode === "dyslexic" ? "Dyslexic Reading On" : "Dyslexic Reading Off"}
+              </button>
+            </div>
+
+            {user ? (
+              <button
+                type="button"
+                onClick={handleSignOut}
+                className="flex w-full items-center gap-3 rounded-md border border-border px-4 py-3 text-left text-sm font-medium text-foreground"
+              >
+                <User className="h-4 w-4" />
+                Sign Out
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={handleSignIn}
+                className="flex w-full items-center gap-3 rounded-md border border-border px-4 py-3 text-left text-sm font-medium text-foreground"
+              >
+                <User className="h-4 w-4" />
+                Sign In
+              </button>
+            )}
+          </div>
+        </div>
+      )}
     </header>
   );
 }

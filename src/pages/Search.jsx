@@ -1,278 +1,287 @@
 /**
  * FindBack AI - Search / Browse Found Items Page
- * Advanced search with filters, AI smart search, grid/list toggle,
- * and responsive filter drawer for mobile.
+ * Prioritizes direct filtering and quick record review.
  */
 
-import React, { useState, useMemo } from "react";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import React, { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { appClient } from "@/api/appClient";
-import { CATEGORIES, LOCATIONS, COLORS } from "@/lib/constants";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
 import ItemCard from "@/components/search/ItemCard";
-import {
-  Search as SearchIcon, Grid3X3, List, SlidersHorizontal,
-  X, Package, Sparkles
-} from "lucide-react";
+import { CATEGORIES, COLORS, LOCATIONS } from "@/lib/constants";
+import { Grid3X3, List, Package, Search as SearchIcon, X } from "lucide-react";
 
 export default function Search() {
   const [searchQuery, setSearchQuery] = useState("");
-  const [viewMode, setViewMode] = useState("grid");
+  const [viewMode, setViewMode] = useState("list");
   const [filters, setFilters] = useState({
-    category: "all", color: "all", location: "all", status: "all", sort: "newest",
+    category: "all",
+    color: "all",
+    location: "all",
+    sort: "newest",
   });
 
-  // Fetch all approved (and claimed/returned for browsing) found items
   const { data: allItems = [], isLoading } = useQuery({
     queryKey: ["searchFoundItems"],
     queryFn: () => appClient.entities.FoundItem.list("-created_date", 200),
   });
 
-  // Client-side filtering and search
-  const filteredItems = useMemo(() => {
-    let items = allItems.filter(item =>
-      ["approved", "claimed", "returned"].includes(item.status)
-    );
+  const approvedItems = useMemo(
+    () => allItems.filter((item) => item.status === "approved"),
+    [allItems]
+  );
 
-    // Text search across multiple fields
+  const filteredItems = useMemo(() => {
+    let items = [...approvedItems];
+
     if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      items = items.filter(item => {
-        const searchFields = [
-          item.title, item.description, item.ai_description,
-          item.brand, item.color, item.location_found,
-          item.subcategory, item.distinguishing_features,
+      const query = searchQuery.toLowerCase();
+      items = items.filter((item) => {
+        const fields = [
+          item.title,
+          item.description,
+          item.ai_description,
+          item.brand,
+          item.color,
+          item.location_found,
+          item.subcategory,
+          item.distinguishing_features,
           ...(item.tags || []),
-        ].filter(Boolean).join(" ").toLowerCase();
-        return searchFields.includes(q);
+        ]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase();
+
+        return fields.includes(query);
       });
     }
 
-    // Category filter
     if (filters.category !== "all") {
-      items = items.filter(item => item.category === filters.category);
-    }
-    // Color filter
-    if (filters.color !== "all") {
-      items = items.filter(item => item.color === filters.color);
-    }
-    // Location filter
-    if (filters.location !== "all") {
-      items = items.filter(item => item.location_found === filters.location);
-    }
-    // Status filter
-    if (filters.status !== "all") {
-      items = items.filter(item => item.status === filters.status);
+      items = items.filter((item) => item.category === filters.category);
     }
 
-    // Sorting
-    switch (filters.sort) {
-      case "oldest":
-        items.sort((a, b) => new Date(a.date_found) - new Date(b.date_found));
-        break;
-      case "newest":
-      default:
-        items.sort((a, b) => new Date(b.date_found) - new Date(a.date_found));
-        break;
+    if (filters.color !== "all") {
+      items = items.filter((item) => item.color === filters.color);
     }
+
+    if (filters.location !== "all") {
+      items = items.filter((item) => item.location_found === filters.location);
+    }
+
+    items.sort((a, b) => {
+      const first = new Date(a.date_found || a.created_date || 0);
+      const second = new Date(b.date_found || b.created_date || 0);
+      return filters.sort === "oldest" ? first - second : second - first;
+    });
 
     return items;
-  }, [allItems, searchQuery, filters]);
+  }, [approvedItems, filters, searchQuery]);
+
+  const activeFilterBadges = [
+    filters.category !== "all" ? CATEGORIES.find((category) => category.value === filters.category)?.label : null,
+    filters.color !== "all" ? filters.color : null,
+    filters.location !== "all" ? filters.location : null,
+    searchQuery ? `Query: ${searchQuery}` : null,
+  ].filter(Boolean);
 
   const clearFilters = () => {
-    setFilters({ category: "all", color: "all", location: "all", status: "all", sort: "newest" });
     setSearchQuery("");
+    setFilters({
+      category: "all",
+      color: "all",
+      location: "all",
+      sort: "newest",
+    });
   };
 
-  const hasActiveFilters = filters.category !== "all" || filters.color !== "all" || filters.location !== "all" || filters.status !== "all" || searchQuery;
-
-  // Filter controls component (reused in desktop sidebar and mobile sheet)
-  const FilterControls = () => (
-    <div className="space-y-4">
-      <div>
-        <label className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-1.5 block">Category</label>
-        <Select value={filters.category} onValueChange={(v) => setFilters(f => ({ ...f, category: v }))}>
-          <SelectTrigger><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Categories</SelectItem>
-            {CATEGORIES.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}
-          </SelectContent>
-        </Select>
-      </div>
-      <div>
-        <label className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-1.5 block">Color</label>
-        <Select value={filters.color} onValueChange={(v) => setFilters(f => ({ ...f, color: v }))}>
-          <SelectTrigger><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Colors</SelectItem>
-            {COLORS.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-          </SelectContent>
-        </Select>
-      </div>
-      <div>
-        <label className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-1.5 block">Location</label>
-        <Select value={filters.location} onValueChange={(v) => setFilters(f => ({ ...f, location: v }))}>
-          <SelectTrigger><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Locations</SelectItem>
-            {LOCATIONS.map(l => <SelectItem key={l} value={l}>{l}</SelectItem>)}
-          </SelectContent>
-        </Select>
-      </div>
-      <div>
-        <label className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-1.5 block">Status</label>
-        <Select value={filters.status} onValueChange={(v) => setFilters(f => ({ ...f, status: v }))}>
-          <SelectTrigger><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Statuses</SelectItem>
-            <SelectItem value="approved">Approved</SelectItem>
-            <SelectItem value="claimed">Claimed</SelectItem>
-            <SelectItem value="returned">Returned</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-      <div>
-        <label className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-1.5 block">Sort By</label>
-        <Select value={filters.sort} onValueChange={(v) => setFilters(f => ({ ...f, sort: v }))}>
-          <SelectTrigger><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="newest">Newest First</SelectItem>
-            <SelectItem value="oldest">Oldest First</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-      {hasActiveFilters && (
-        <Button variant="ghost" size="sm" onClick={clearFilters} className="w-full text-slate-500 gap-1">
-          <X className="w-3.5 h-3.5" /> Clear All Filters
-        </Button>
-      )}
-    </div>
-  );
+  const hasActiveFilters = activeFilterBadges.length > 0;
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold text-slate-900 mb-2">Search Found Items</h1>
-        <p className="text-slate-500">Browse items that have been found on campus.</p>
+    <div className="page-shell py-10">
+      <div className="page-header">
+        <span className="page-kicker">Search</span>
+        <h1 className="page-title">Search approved found-item records.</h1>
+        <p className="page-subtitle">
+          Search matches titles, descriptions, tags, brand, color, and found location. Only approved items appear in
+          this public view.
+        </p>
       </div>
 
-      {/* Search Bar */}
-      <div className="flex gap-2 mb-6">
-        <div className="relative flex-1">
-          <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-slate-400" />
-          <Input
-            placeholder='Search items — try "black bottle near gym" or "airpods"'
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10 h-11"
-            aria-label="Search found items"
-          />
-          {searchQuery && (
-            <Badge className="absolute right-3 top-1/2 -translate-y-1/2 bg-teal-50 text-teal-700 text-[10px] gap-0.5">
-              <Sparkles className="w-2.5 h-2.5" /> Smart Search
-            </Badge>
-          )}
-        </div>
-
-        {/* View Toggle */}
-        <div className="hidden sm:flex border rounded-lg overflow-hidden">
-          <Button variant={viewMode === "grid" ? "secondary" : "ghost"} size="icon" onClick={() => setViewMode("grid")} aria-label="Grid view">
-            <Grid3X3 className="w-4 h-4" />
-          </Button>
-          <Button variant={viewMode === "list" ? "secondary" : "ghost"} size="icon" onClick={() => setViewMode("list")} aria-label="List view">
-            <List className="w-4 h-4" />
-          </Button>
-        </div>
-
-        {/* Mobile Filter Trigger */}
-        <Sheet>
-          <SheetTrigger asChild>
-            <Button variant="outline" className="lg:hidden gap-1.5">
-              <SlidersHorizontal className="w-4 h-4" />
-              <span className="hidden sm:inline">Filters</span>
-            </Button>
-          </SheetTrigger>
-          <SheetContent side="right" className="w-full max-w-xs">
-            <SheetHeader>
-              <SheetTitle>Filter Items</SheetTitle>
-            </SheetHeader>
-            <div className="mt-6">
-              <FilterControls />
+      <section className="surface-card mb-6 p-5">
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_repeat(4,minmax(0,1fr))]">
+          <div>
+            <label className="mb-1.5 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+              Search
+            </label>
+            <div className="relative">
+              <SearchIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <Input
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                className="pl-9"
+                placeholder='Try "airpods", "black bottle", or "library"'
+                aria-label="Search found items"
+              />
             </div>
-          </SheetContent>
-        </Sheet>
-      </div>
-
-      <div className="flex gap-6">
-        {/* Desktop Sidebar Filters */}
-        <aside className="hidden lg:block w-60 flex-shrink-0">
-          <div className="sticky top-24 bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
-            <h3 className="font-semibold text-sm text-slate-900 mb-4">Filters</h3>
-            <FilterControls />
           </div>
-        </aside>
 
-        {/* Results Area */}
-        <div className="flex-1">
-          {/* Results Count */}
-          <div className="flex items-center justify-between mb-4">
-            <p className="text-sm text-slate-500">
-              {isLoading ? "Loading..." : `${filteredItems.length} item${filteredItems.length !== 1 ? "s" : ""} found`}
-            </p>
+          <div>
+            <label className="mb-1.5 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+              Category
+            </label>
+            <Select value={filters.category} onValueChange={(value) => setFilters((current) => ({ ...current, category: value }))}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All categories</SelectItem>
+                {CATEGORIES.map((category) => (
+                  <SelectItem key={category.value} value={category.value}>
+                    {category.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+              Color
+            </label>
+            <Select value={filters.color} onValueChange={(value) => setFilters((current) => ({ ...current, color: value }))}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All colors</SelectItem>
+                {COLORS.map((color) => (
+                  <SelectItem key={color} value={color}>
+                    {color}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+              Location
+            </label>
+            <Select value={filters.location} onValueChange={(value) => setFilters((current) => ({ ...current, location: value }))}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All locations</SelectItem>
+                {LOCATIONS.map((location) => (
+                  <SelectItem key={location} value={location}>
+                    {location}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+              Sort
+            </label>
+            <Select value={filters.sort} onValueChange={(value) => setFilters((current) => ({ ...current, sort: value }))}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="newest">Newest first</SelectItem>
+                <SelectItem value="oldest">Oldest first</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        <div className="mt-4 flex flex-col gap-3 border-t pt-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant="outline">{approvedItems.length} approved items</Badge>
+            {hasActiveFilters &&
+              activeFilterBadges.map((badge) => (
+                <Badge key={badge} variant="secondary">
+                  {badge}
+                </Badge>
+              ))}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
             {hasActiveFilters && (
-              <Button variant="ghost" size="sm" onClick={clearFilters} className="text-xs text-slate-400 gap-1 lg:hidden">
-                <X className="w-3 h-3" /> Clear Filters
+              <Button variant="outline" size="sm" onClick={clearFilters} className="gap-1">
+                <X className="h-3.5 w-3.5" />
+                Clear filters
               </Button>
             )}
+            <div className="flex items-center rounded-md border">
+              <Button
+                variant={viewMode === "list" ? "secondary" : "ghost"}
+                size="icon"
+                aria-label="List view"
+                onClick={() => setViewMode("list")}
+                className="h-9 w-9 rounded-r-none"
+              >
+                <List className="h-4 w-4" />
+              </Button>
+              <Button
+                variant={viewMode === "grid" ? "secondary" : "ghost"}
+                size="icon"
+                aria-label="Grid view"
+                onClick={() => setViewMode("grid")}
+                className="h-9 w-9 rounded-l-none border-l"
+              >
+                <Grid3X3 className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
+        </div>
+      </section>
 
-          {/* Loading */}
-          {isLoading && (
-            <div className={viewMode === "grid" ? "grid sm:grid-cols-2 xl:grid-cols-3 gap-4" : "space-y-3"}>
-              {Array(6).fill(0).map((_, i) => (
-                <div key={i} className="bg-white rounded-xl border p-4">
-                  <Skeleton className="h-40 rounded-lg mb-3" />
-                  <Skeleton className="h-4 w-3/4 mb-2" />
-                  <Skeleton className="h-3 w-full" />
-                </div>
-              ))}
-            </div>
-          )}
+      <div className="mb-4 text-sm text-slate-600">
+        {isLoading ? "Loading items..." : `${filteredItems.length} result${filteredItems.length !== 1 ? "s" : ""}`}
+      </div>
 
-          {/* Empty State */}
-          {!isLoading && filteredItems.length === 0 && (
-            <div className="text-center py-16 bg-white rounded-xl border border-dashed border-slate-200">
-              <Package className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-slate-600 mb-1">No Items Found</h3>
-              <p className="text-sm text-slate-400 mb-4">
-                {searchQuery ? "Try adjusting your search or filters." : "No items match your current filters."}
-              </p>
-              {hasActiveFilters && (
-                <Button variant="outline" size="sm" onClick={clearFilters}>Clear Filters</Button>
-              )}
+      {isLoading && (
+        <div className={viewMode === "grid" ? "grid gap-4 sm:grid-cols-2 xl:grid-cols-3" : "space-y-3"}>
+          {Array.from({ length: 6 }).map((_, index) => (
+            <div key={index} className="surface-card p-4">
+              <Skeleton className="mb-3 h-32 rounded-md" />
+              <Skeleton className="mb-2 h-4 w-2/3" />
+              <Skeleton className="h-4 w-full" />
             </div>
-          )}
+          ))}
+        </div>
+      )}
 
-          {/* Results Grid/List */}
-          {!isLoading && filteredItems.length > 0 && (
-            <div className={
-              viewMode === "grid"
-                ? "grid sm:grid-cols-2 xl:grid-cols-3 gap-4"
-                : "space-y-3"
-            }>
-              {filteredItems.map(item => (
-                <ItemCard key={item.id} item={item} viewMode={viewMode} />
-              ))}
-            </div>
+      {!isLoading && filteredItems.length === 0 && (
+        <div className="surface-card px-5 py-10 text-center">
+          <Package className="mx-auto mb-3 h-10 w-10 text-slate-300" />
+          <h2 className="text-lg font-semibold text-slate-900">No matching items found</h2>
+          <p className="mt-2 text-sm text-slate-600">
+            Try a broader description or remove one of the filters.
+          </p>
+          {hasActiveFilters && (
+            <Button variant="outline" className="mt-4" onClick={clearFilters}>
+              Clear filters
+            </Button>
           )}
         </div>
-      </div>
+      )}
+
+      {!isLoading && filteredItems.length > 0 && (
+        <div className={viewMode === "grid" ? "grid gap-4 sm:grid-cols-2 xl:grid-cols-3" : "space-y-3"}>
+          {filteredItems.map((item) => (
+            <ItemCard key={item.id} item={item} viewMode={viewMode} />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

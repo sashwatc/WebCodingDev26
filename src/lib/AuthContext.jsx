@@ -80,10 +80,13 @@ export const AuthProvider = ({ children }) => {
     return null;
   };
 
+  const isAdminUser = user?.role === "admin";
+
   return (
     <AuthContext.Provider
       value={{
         user,
+        isAdminUser,
         isAuthenticated,
         isLoadingAuth,
         isLoadingPublicSettings,

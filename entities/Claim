@@ -33,6 +33,10 @@
     "pickup_availability": {
       "type": "string"
     },
+    "received_confirmed_at": {
+      "type": "string",
+      "description": "When the claimant confirmed they received the item"
+    },
     "status": {
       "type": "string",
       "enum": [
@@ -58,6 +62,31 @@
         "type": "string"
       },
       "description": "AI-generated risk flags"
+    },
+    "claimant_rating": {
+      "type": "number",
+      "description": "Claimant satisfaction rating from 1-5"
+    },
+    "claimant_review": {
+      "type": "string",
+      "description": "Optional written review from the claimant"
+    },
+    "review_status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "approved",
+        "rejected"
+      ],
+      "description": "Admin moderation state for the claimant review"
+    },
+    "review_submitted_at": {
+      "type": "string",
+      "description": "When the claimant submitted their rating"
+    },
+    "review_reviewed_at": {
+      "type": "string",
+      "description": "When an admin reviewed the claimant rating"
     }
   },
   "required": [

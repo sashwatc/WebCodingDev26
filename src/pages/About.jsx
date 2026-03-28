@@ -33,7 +33,7 @@ const highlights = [
   {
     icon: Shield,
     title: "Privacy-aware design",
-    description: "Sensitive storage information is restricted to admin views, and the privacy copy reflects the current standalone browser-based build.",
+    description: "Sensitive storage information is restricted to authenticated admin views, and the privacy copy reflects the current standalone browser-based build.",
   },
   {
     icon: MonitorSmartphone,
@@ -123,7 +123,7 @@ export default function About() {
                 </Button>
               </Link>
               <Link to="/Sources">
-                <Button size="sm" variant="outline" className="border-white/25 text-white hover:bg-white/10 gap-2">
+                <Button size="sm" className="border border-white/25 bg-white/10 text-white hover:bg-white/18 hover:text-white gap-2">
                   Sources
                   <ArrowRight className="w-4 h-4" />
                 </Button>
