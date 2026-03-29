@@ -4,7 +4,7 @@
  * AI match suggestions, and notification updates.
  */
 
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -15,9 +15,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { appClient } from "@/api/appClient";
 import StatusBadge from "@/components/ui/StatusBadge";
+import RecordThumbnail from "@/components/shared/RecordThumbnail";
 import { format } from "date-fns";
 import { useAuth } from "@/lib/AuthContext";
 import { useToast } from "@/components/ui/use-toast";
+import { getPrimaryRecordPhoto } from "@/lib/media";
 import {
   AlertTriangle, FileCheck, Bell, Eye,
   Brain, CheckCircle2, Loader2, Star
@@ -40,6 +42,12 @@ export default function UserDashboard() {
   const { data: claims = [], isLoading: clLoading } = useQuery({
     queryKey: ["userClaims", user?.email],
     queryFn: () => appClient.entities.Claim.filter({ claimant_email: user.email }),
+    enabled: !!user?.email,
+  });
+
+  const { data: foundItems = [] } = useQuery({
+    queryKey: ["dashboardFoundItems"],
+    queryFn: () => appClient.entities.FoundItem.list("-created_date", 500),
     enabled: !!user?.email,
   });
 
@@ -124,6 +132,15 @@ export default function UserDashboard() {
       });
     },
   });
+
+  const foundItemsById = useMemo(
+    () =>
+      foundItems.reduce((itemsById, item) => {
+        itemsById[item.id] = item;
+        return itemsById;
+      }, {}),
+    [foundItems]
+  );
 
   const EmptyState = ({ icon: Icon, message }) => (
     <div className="text-center py-12">
@@ -212,7 +229,11 @@ export default function UserDashboard() {
               {lostReports.map(report => (
                 <Card key={report.id} className="hover:shadow-sm transition-shadow">
                   <CardContent className="p-4">
-                    <div className="flex items-start justify-between gap-4">
+                    <div className="flex items-start gap-4">
+                      <RecordThumbnail
+                        src={getPrimaryRecordPhoto(report)}
+                        alt={report.item_type || "Lost report"}
+                      />
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
                           <h3 className="font-semibold text-slate-900">{report.item_type}</h3>
@@ -248,7 +269,11 @@ export default function UserDashboard() {
               {claims.map(claim => (
                 <Card key={claim.id} className="hover:shadow-sm transition-shadow">
                   <CardContent className="p-4">
-                    <div className="flex items-start justify-between gap-4">
+                    <div className="flex items-start gap-4">
+                      <RecordThumbnail
+                        src={getPrimaryRecordPhoto(claim, foundItemsById[claim.found_item_id])}
+                        alt={claim.found_item_title || "Claim"}
+                      />
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
                           <h3 className="font-semibold text-slate-900">{claim.found_item_title || "Claim"}</h3>
@@ -406,7 +431,7 @@ export default function UserDashboard() {
                           </div>
                         )}
                       </div>
-                      <Link to={`/ItemDetails?id=${claim.found_item_id}`}>
+                      <Link to={`/ItemDetails?id=${claim.found_item_id}`} className="self-start">
                         <Button variant="outline" size="sm" className="gap-1">
                           <Eye className="w-3.5 h-3.5" /> View Item
                         </Button>

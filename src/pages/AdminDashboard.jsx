@@ -14,8 +14,10 @@ import { appClient } from "@/api/appClient";
 import AdminOverview from "@/components/admin/AdminOverview";
 import AdminItemsQueue from "@/components/admin/AdminItemsQueue";
 import AdminClaimsQueue from "@/components/admin/AdminClaimsQueue";
+import RecordThumbnail from "@/components/shared/RecordThumbnail";
 import StatusBadge from "@/components/ui/StatusBadge";
 import { format } from "date-fns";
+import { getPrimaryRecordPhoto } from "@/lib/media";
 import {
   LayoutDashboard,
   Package,
@@ -122,7 +124,7 @@ export default function AdminDashboard() {
           </TabsContent>
 
           <TabsContent value="claims">
-            <AdminClaimsQueue claims={claims} />
+            <AdminClaimsQueue claims={claims} foundItems={foundItems} />
           </TabsContent>
 
           <TabsContent value="reports">
@@ -142,20 +144,25 @@ export default function AdminDashboard() {
                   {lostReports.map((report) => (
                     <div key={report.id} className="surface-card p-5">
                       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                        <div className="min-w-0 flex-1">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <h3 className="text-base font-semibold text-slate-950">{report.item_type}</h3>
-                            <StatusBadge status={report.status} />
-                            {report.matched_items?.length > 0 && (
-                              <Badge variant="secondary">{report.matched_items.length} matches</Badge>
-                            )}
+                        <div className="flex items-start gap-4 min-w-0 flex-1">
+                          <RecordThumbnail
+                            src={getPrimaryRecordPhoto(report)}
+                            alt={report.item_type || "Lost report"}
+                          />
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <h3 className="text-base font-semibold text-slate-950">{report.item_type}</h3>
+                              <StatusBadge status={report.status} />
+                              {report.matched_items?.length > 0 && (
+                                <Badge variant="secondary">{report.matched_items.length} matches</Badge>
+                              )}
+                            </div>
+                            <p className="mt-2 text-sm leading-6 text-slate-600">{report.description}</p>
+                            <p className="mt-3 text-xs uppercase tracking-[0.14em] text-slate-500">
+                              {report.contact_name} • {report.date_lost} • {report.last_seen_location || "Unknown location"}
+                            </p>
                           </div>
-                          <p className="mt-2 text-sm leading-6 text-slate-600">{report.description}</p>
-                          <p className="mt-3 text-xs uppercase tracking-[0.14em] text-slate-500">
-                            {report.contact_name} • {report.date_lost} • {report.last_seen_location || "Unknown location"}
-                          </p>
                         </div>
-
                         <Badge variant="outline" className="capitalize self-start">{report.urgency}</Badge>
                       </div>
                     </div>

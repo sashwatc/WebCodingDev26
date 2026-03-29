@@ -20,7 +20,9 @@ import { useToast } from "@/components/ui/use-toast";
 import { appClient } from "@/api/appClient";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import StatusBadge from "@/components/ui/StatusBadge";
+import RecordThumbnail from "@/components/shared/RecordThumbnail";
 import { format } from "date-fns";
+import { getPrimaryRecordPhoto } from "@/lib/media";
 import {
   CheckCircle2,
   XCircle,
@@ -38,7 +40,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-export default function AdminClaimsQueue({ claims }) {
+export default function AdminClaimsQueue({ claims, foundItems = [] }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
@@ -172,6 +174,13 @@ export default function AdminClaimsQueue({ claims }) {
             >
               <CardContent className="p-5">
                 <div className="flex flex-col gap-4 xl:flex-row xl:items-start">
+                  <RecordThumbnail
+                    src={getPrimaryRecordPhoto(
+                      claim,
+                      foundItems.find((item) => item.id === claim.found_item_id)
+                    )}
+                    alt={claim.found_item_title || "Claim"}
+                  />
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <h3 className="text-base font-semibold text-slate-950">{claim.found_item_title || "Unknown item"}</h3>
@@ -180,6 +189,9 @@ export default function AdminClaimsQueue({ claims }) {
                         <Badge className={getRiskColor(claim.risk_score)}>
                           Risk {claim.risk_score}
                         </Badge>
+                      )}
+                      {claim.proof_photo_url && (
+                        <Badge variant="outline">Proof Photo</Badge>
                       )}
                     </div>
 

@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const itemStore = require("../lib/itemStore");
+const { enrichFoundItemMedia, enrichFoundItemsMedia } = require("../lib/itemMedia");
 
 function parseDate(value) {
   if (!value) {
@@ -112,7 +113,7 @@ router.get("/", async (req, res) => {
   console.log("GET /api/items hit");
 
   try {
-    const items = await itemStore.list();
+    const items = await enrichFoundItemsMedia(await itemStore.list());
     res.json(items);
   } catch (error) {
     res.status(500).json({
@@ -127,7 +128,7 @@ router.post("/", async (req, res) => {
 
   try {
     const savedItem = await itemStore.create(normalizeItemPayload(req.body));
-    res.status(201).json(savedItem);
+    res.status(201).json(await enrichFoundItemMedia(savedItem));
   } catch (error) {
     const statusCode = error.name === "ValidationError" ? 400 : 500;
 
@@ -154,7 +155,7 @@ router.patch("/:id", async (req, res) => {
     await applyPatchOperations(item, req.body);
 
     const updatedItem = await itemStore.save(item);
-    res.json(updatedItem);
+    res.json(await enrichFoundItemMedia(updatedItem));
   } catch (error) {
     const statusCode = error.statusCode || (error.name === "ValidationError" ? 400 : 500);
 
