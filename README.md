@@ -38,11 +38,50 @@ Notes:
 - Demo admin account: `Avery Patel` / `avery.patel@pleasantvalley.edu`
 - Admin unlock password: `PVHS-Admin-2026`
 
+`npm run dev` now starts both parts of the app:
+
+- the website on `http://localhost:4173`
+- the items API on `http://localhost:5001`
+
+The website calls `/api/items`, and Vite proxies that to the local backend during development.
+
 ## Build and Quality Checks
 
 ```bash
 npm run lint
 npm run build
+```
+
+## Deployment
+
+For a standard deployment, build the frontend and run the Node server:
+
+```bash
+npm install
+npm run build
+npm start
+```
+
+This serves both:
+
+- the built frontend
+- the `/api/items` backend routes
+
+from the same deployment and same origin, which means the website can load backend items without extra proxy setup.
+
+### Data Storage
+
+- If `MONGO_URI` is set, found items are stored in MongoDB.
+- If `MONGO_URI` is not set, the backend automatically uses a local seeded item store so the deployed site still works out of the box.
+
+### Split Frontend / Backend Deployments
+
+If you deploy the frontend and backend separately, set `VITE_API_BASE_URL` during the frontend build so the site knows where to reach the API.
+
+Example:
+
+```bash
+VITE_API_BASE_URL=https://your-api.example.com npm run build
 ```
 
 ## Judging Build Notes

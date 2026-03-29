@@ -2,7 +2,8 @@ import { BRAND_NAME, getDemoRoleForEmail } from "@/lib/constants";
 
 const STORAGE_KEY = "findback-app-db";
 const AUTH_STORAGE_KEY = "findback-auth-user";
-const FOUND_ITEMS_API_URL = "/api/items";
+const API_BASE_URL = String(import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "");
+const FOUND_ITEMS_API_URL = `${API_BASE_URL}/api/items`;
 const authListeners = new Set();
 
 const CATEGORY_LABELS = {
