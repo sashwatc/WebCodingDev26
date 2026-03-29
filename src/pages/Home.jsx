@@ -27,7 +27,7 @@ import {
 
 export default function Home() {
   const { user, hasAdminAccess } = useAuth();
-  const { isAdminMode } = useMode();
+  const { isAdminMode, theme } = useMode();
 
   const { data: foundItems = [] } = useQuery({
     queryKey: ["homeFoundItems"],
@@ -92,9 +92,9 @@ export default function Home() {
   ].filter(Boolean);
 
   return (
-    <div className="relative isolate overflow-hidden bg-white">
+    <div className="relative isolate overflow-hidden bg-transparent">
       <div className="pointer-events-none absolute inset-0">
-        <WebGLShader variant="blue-flow" className="opacity-90" />
+        <WebGLShader variant="blue-flow" theme={theme} className={theme === "dark" ? "opacity-60" : "opacity-100"} />
       </div>
 
       <div className="page-shell relative z-10 py-10">
@@ -108,7 +108,7 @@ export default function Home() {
         </section>
 
         <section className="mb-8 grid gap-4 lg:grid-cols-[minmax(0,1.3fr)_minmax(320px,0.7fr)]">
-          <div className="hero-panel bg-white/82 p-6 backdrop-blur-[5px]">
+          <div className="hero-panel bg-white p-6">
             <div className="flex flex-col gap-5">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Primary Action</p>
@@ -143,7 +143,7 @@ export default function Home() {
 
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1">
             <Link to="/ReportLost" className="block">
-              <div className="surface-card bg-white/82 p-5 backdrop-blur-[5px] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_24px_44px_rgba(15,23,42,0.08)]">
+              <div className="surface-card bg-white p-5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_24px_44px_rgba(15,23,42,0.08)]">
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <p className="text-sm font-semibold text-slate-900">Can&apos;t find it?</p>
@@ -157,7 +157,7 @@ export default function Home() {
             </Link>
 
             <Link to="/ReportFound" className="block">
-              <div className="surface-card bg-white/82 p-5 backdrop-blur-[5px] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_24px_44px_rgba(15,23,42,0.08)]">
+              <div className="surface-card bg-white p-5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_24px_44px_rgba(15,23,42,0.08)]">
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <p className="text-sm font-semibold text-slate-900">Found something?</p>

@@ -4,7 +4,7 @@ import { useEffect, useRef } from "react"
 import * as THREE from "three"
 import { cn } from "@/lib/utils"
 
-export function WebGLShader({ className, variant = "blue-flow" }) {
+export function WebGLShader({ className, variant = "blue-flow", theme = "light" }) {
   const canvasRef = useRef(null)
   const sceneRef = useRef({
     scene: null,
@@ -61,31 +61,50 @@ export function WebGLShader({ className, variant = "blue-flow" }) {
         uniform float xScale;
         uniform float yScale;
         uniform float distortion;
+        uniform float alphaScale;
+        uniform float brightness;
+        uniform float lineThickness;
 
         void main() {
           vec2 p = (gl_FragCoord.xy * 2.0 - resolution) / min(resolution.x, resolution.y);
+          p.x *= 1.04;
 
-          float d = length(p * vec2(0.85, 1.0)) * distortion;
+          vec3 deepBlue = vec3(0.005, 0.025, 0.09);
+          vec3 midBlue = vec3(0.015, 0.055, 0.17);
+          vec3 lightBlue = vec3(0.05, 0.12, 0.28);
 
-          float waveA = p.y + sin((p.x + time * 0.38) * xScale) * yScale;
-          float waveB = p.y - 0.22 + sin((p.x * 1.25 - time * 0.26) * (xScale * 0.86)) * (yScale * 0.82);
-          float waveC = p.y + 0.26 + sin((p.x * 1.72 + time * 0.52) * (xScale * 1.08)) * (yScale * 0.64);
+          vec3 color = vec3(0.0);
+          float alpha = 0.0;
 
-          float bandA = 0.012 / (abs(waveA + d * 0.08) + 0.02);
-          float bandB = 0.010 / (abs(waveB - d * 0.05) + 0.018);
-          float bandC = 0.009 / (abs(waveC) + 0.022);
-          float glow = exp(-length(p * vec2(0.7, 1.2)) * 1.4) * 0.15;
+          for (int i = 0; i < 5; i++) {
+            float fi = float(i);
+            float offset = -0.12 + (fi - 2.0) * 0.095;
+            float frequency = xScale * mix(0.82, 1.06, fract(fi * 0.37));
+            float amplitude = yScale * mix(0.9, 1.14, fract(fi * 0.29));
+            float speed = mix(0.07, 0.15, fract(fi * 0.23));
+            float phase = fi * 0.88;
 
-          float intensity = clamp(bandA + bandB + bandC + glow, 0.0, 1.0);
+            float y =
+              sin((p.x * frequency) + phase + time * speed) * amplitude +
+              sin((p.x * (frequency * 0.54)) - phase * 1.1 - time * (speed * 0.58)) * (amplitude * 0.18) +
+              offset;
 
-          vec3 deepBlue = vec3(0.10, 0.27, 0.69);
-          vec3 midBlue = vec3(0.25, 0.53, 0.90);
-          vec3 lightBlue = vec3(0.73, 0.87, 1.0);
+            float dist = abs(p.y - y);
+            float thickness = lineThickness * mix(0.9, 1.14, fract(fi * 0.41));
+            float line = smoothstep(thickness * 1.9, thickness * 0.38, dist);
 
-          vec3 color = mix(deepBlue, midBlue, clamp(bandA * 2.6, 0.0, 1.0));
-          color = mix(color, lightBlue, clamp(bandB * 3.0 + glow * 0.6, 0.0, 1.0));
+            float bendFade = smoothstep(1.95, 0.24, abs(p.x)) * (1.0 - smoothstep(1.82, 2.08, abs(p.x)));
+            line *= bendFade;
 
-          float alpha = clamp(intensity * 0.20, 0.0, 0.24);
+            vec3 strandColor = mix(deepBlue, midBlue, fract(fi * 0.37));
+            strandColor = mix(strandColor, lightBlue, fract(fi * 0.19) * 0.4);
+
+            color += strandColor * (line * 0.88);
+            alpha += line * alphaScale;
+          }
+
+          color *= brightness;
+          alpha = clamp(alpha, 0.0, alphaScale * 2.15);
 
           gl_FragColor = vec4(color, alpha);
         }
@@ -113,9 +132,12 @@ export function WebGLShader({ className, variant = "blue-flow" }) {
       refs.uniforms = {
         resolution: { value: new THREE.Vector2(1, 1) },
         time: { value: 0.0 },
-        xScale: { value: variant === "rainbow" ? 1.0 : 2.0 },
+        xScale: { value: variant === "rainbow" ? 1.0 : 1.75 },
         yScale: { value: variant === "rainbow" ? 0.5 : 0.16 },
         distortion: { value: variant === "rainbow" ? 0.05 : 0.14 },
+        alphaScale: { value: variant === "rainbow" ? 0.08 : theme === "dark" ? 0.034 : 0.082 },
+        brightness: { value: variant === "rainbow" ? 1.0 : theme === "dark" ? 0.76 : 1.18 },
+        lineThickness: { value: variant === "rainbow" ? 0.016 : theme === "dark" ? 0.026 : 0.022 },
       }
 
       const position = [
@@ -146,7 +168,7 @@ export function WebGLShader({ className, variant = "blue-flow" }) {
 
     const animate = () => {
       if (refs.uniforms) {
-        refs.uniforms.time.value += 0.01
+        refs.uniforms.time.value += variant === "rainbow" ? 0.02 : 0.026
       }
 
       if (refs.renderer && refs.scene && refs.camera) {
@@ -185,7 +207,7 @@ export function WebGLShader({ className, variant = "blue-flow" }) {
 
       refs.renderer?.dispose()
     }
-  }, [variant])
+  }, [theme, variant])
 
   return (
     <canvas
