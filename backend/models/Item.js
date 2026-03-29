@@ -1,5 +1,9 @@
 const mongoose = require("mongoose");
 
+function createExternalId() {
+  return `found_${new mongoose.Types.ObjectId().toString()}`;
+}
+
 const ratingSchema = new mongoose.Schema(
   {
     claimId: {
@@ -49,6 +53,12 @@ const ratingSchema = new mongoose.Schema(
 
 const itemSchema = new mongoose.Schema(
   {
+    id: {
+      type: String,
+      default: createExternalId,
+      index: true,
+      trim: true,
+    },
     title: {
       type: String,
       required: true,

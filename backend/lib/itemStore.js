@@ -1,5 +1,6 @@
 const fs = require("fs");
 const path = require("path");
+const mongoose = require("mongoose");
 
 const seedItems = require("../data/seedItems");
 
@@ -45,6 +46,16 @@ async function getMongoModel() {
   return require("../models/Item");
 }
 
+function buildMongoIdQuery(id) {
+  const query = [{ id }];
+
+  if (mongoose.Types.ObjectId.isValid(id)) {
+    query.push({ _id: id });
+  }
+
+  return { $or: query };
+}
+
 function sortByCreatedDateDesc(items) {
   return [...items].sort((first, second) => {
     const a = new Date(first.createdAt || 0).getTime();
@@ -65,7 +76,7 @@ function normalizeLocalItem(record = {}) {
 async function list() {
   if (!isLocalMode()) {
     const Item = await getMongoModel();
-    return Item.find().sort({ createdAt: -1 });
+    return Item.find().sort({ createdAt: -1 }).lean();
   }
 
   return sortByCreatedDateDesc(readLocalItems()).map((item) => clone(normalizeLocalItem(item)));
@@ -81,7 +92,8 @@ async function create(data) {
   if (!isLocalMode()) {
     const Item = await getMongoModel();
     const newItem = new Item(data);
-    return newItem.save();
+    const saved = await newItem.save();
+    return saved.toObject();
   }
 
   const items = readLocalItems();
@@ -102,7 +114,7 @@ async function create(data) {
 async function findById(id) {
   if (!isLocalMode()) {
     const Item = await getMongoModel();
-    return Item.findById(id);
+    return Item.findOne(buildMongoIdQuery(id));
   }
 
   const item = readLocalItems().find((record) => record.id === id);
@@ -111,7 +123,18 @@ async function findById(id) {
 
 async function save(item) {
   if (!isLocalMode()) {
-    return item.save();
+    const Item = await getMongoModel();
+    const doc = await Item.findOne(buildMongoIdQuery(item.id || item._id));
+
+    if (!doc) {
+      const error = new Error("Item not found");
+      error.statusCode = 404;
+      throw error;
+    }
+
+    Object.assign(doc, clone(item));
+    const saved = await doc.save();
+    return saved.toObject();
   }
 
   const items = readLocalItems();
@@ -137,7 +160,7 @@ async function save(item) {
 async function remove(id) {
   if (!isLocalMode()) {
     const Item = await getMongoModel();
-    return Item.findByIdAndDelete(id);
+    return Item.findOneAndDelete(buildMongoIdQuery(id)).lean();
   }
 
   const items = readLocalItems();
@@ -152,8 +175,23 @@ async function remove(id) {
   return clone(deletedItem);
 }
 
+async function ensureSeedData() {
+  if (isLocalMode()) {
+    ensureLocalDataFile();
+    return;
+  }
+
+  const Item = await getMongoModel();
+  const count = await Item.countDocuments();
+
+  if (count === 0 && seedItems.length > 0) {
+    await Item.insertMany(clone(seedItems));
+  }
+}
+
 module.exports = {
   isLocalMode,
+  ensureSeedData,
   list,
   create,
   findById,

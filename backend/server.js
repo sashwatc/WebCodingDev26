@@ -6,6 +6,7 @@ require("dotenv").config({ path: path.resolve(__dirname, "../.env") });
 const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
+const { ensureSeedData } = require("./lib/stores");
 
 const app = express();
 const PORT = process.env.PORT || 5001;
@@ -19,6 +20,8 @@ const hasBuiltClient = fs.existsSync(INDEX_FILE);
 process.env.USE_LOCAL_ITEM_STORE = usingLocalItemStore ? "true" : "false";
 
 const itemRoutes = require("./routes/items");
+const entityRoutes = require("./routes/entities");
+const authRoutes = require("./routes/auth");
 
 app.use(cors());
 app.use(express.json());
@@ -31,6 +34,8 @@ app.get("/api/health", (req, res) => {
 });
 
 app.use("/api/items", itemRoutes);
+app.use("/api/entities", entityRoutes);
+app.use("/api/auth", authRoutes);
 
 if (hasBuiltClient) {
   app.use(express.static(DIST_DIR));
@@ -48,30 +53,29 @@ if (hasBuiltClient) {
   });
 }
 
-if (usingLocalItemStore) {
-  console.log(`Starting API on port ${PORT} using local item store`);
-  if (hasBuiltClient) {
-    console.log(`Serving built frontend from ${DIST_DIR}`);
-  }
-  app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-  });
-} else {
-  console.log("MONGO_URI loaded:", true);
-
-  mongoose
-    .connect(mongoUri)
-    .then(() => {
+async function startServer() {
+  try {
+    if (usingLocalItemStore) {
+      console.log(`Starting API on port ${PORT} using local data store`);
+    } else {
+      console.log("MONGO_URI loaded:", true);
+      await mongoose.connect(mongoUri);
       console.log("MongoDB connected");
-      if (hasBuiltClient) {
-        console.log(`Serving built frontend from ${DIST_DIR}`);
-      }
-      app.listen(PORT, () => {
-        console.log(`Server running on port ${PORT}`);
-      });
-    })
-    .catch((error) => {
-      console.error("MongoDB connection failed:", error.message);
-      process.exit(1);
+    }
+
+    await ensureSeedData();
+
+    if (hasBuiltClient) {
+      console.log(`Serving built frontend from ${DIST_DIR}`);
+    }
+
+    app.listen(PORT, () => {
+      console.log(`Server running on port ${PORT}`);
     });
+  } catch (error) {
+    console.error(usingLocalItemStore ? "Startup failed:" : "MongoDB connection failed:", error.message);
+    process.exit(1);
+  }
 }
+
+void startServer();

@@ -1,9 +1,11 @@
-import { BRAND_NAME, getDemoRoleForEmail } from "@/lib/constants";
+import { BRAND_NAME } from "@/lib/constants";
 
 const STORAGE_KEY = "findback-app-db";
 const AUTH_STORAGE_KEY = "findback-auth-user";
 const API_BASE_URL = String(import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "");
 const FOUND_ITEMS_API_URL = `${API_BASE_URL}/api/items`;
+const ENTITY_API_BASE_URL = `${API_BASE_URL}/api/entities`;
+const AUTH_API_BASE_URL = `${API_BASE_URL}/api/auth`;
 const authListeners = new Set();
 
 const CATEGORY_LABELS = {
@@ -649,10 +651,6 @@ function writeAuthUser(user) {
   storage.setItem(AUTH_STORAGE_KEY, JSON.stringify(user));
 }
 
-function createId(prefix) {
-  return `${prefix}_${Math.random().toString(36).slice(2, 10)}`;
-}
-
 function sortRecords(records, sort) {
   if (!sort) {
     return records;
@@ -698,33 +696,55 @@ function limitRecords(records, limit) {
   return records.slice(0, limit);
 }
 
-function addNotification(db, notification) {
-  db.Notification.unshift({
-    id: createId("notif"),
+function replaceCachedCollection(entityName, records) {
+  const db = readDb();
+  db[entityName] = clone(records);
+  writeDb(db);
+}
+
+function upsertCachedRecord(entityName, record) {
+  const db = readDb();
+  const records = db[entityName] || [];
+  const recordId = record?.id || record?._id;
+  const index = records.findIndex((entry) => (entry?.id || entry?._id) === recordId);
+
+  if (index >= 0) {
+    records[index] = clone(record);
+  } else {
+    records.unshift(clone(record));
+  }
+
+  db[entityName] = records;
+  writeDb(db);
+}
+
+function removeCachedRecord(entityName, id) {
+  const db = readDb();
+  db[entityName] = (db[entityName] || []).filter((entry) => (entry?.id || entry?._id) !== id);
+  writeDb(db);
+}
+
+async function addNotification(notification) {
+  return appClient.entities.Notification.create({
     type: "system",
     is_read: false,
     link: "",
     related_item_id: "",
-    created_date: new Date().toISOString(),
-    updated_date: new Date().toISOString(),
     ...notification,
   });
 }
 
-function addAuditLog(db, log) {
-  db.AuditLog.unshift({
-    id: createId("audit"),
+async function addAuditLog(log) {
+  return appClient.entities.AuditLog.create({
     previous_value: "",
     new_value: "",
-    created_date: new Date().toISOString(),
-    updated_date: new Date().toISOString(),
     ...log,
   });
 }
 
-function applyEntitySideEffects(entityName, operation, record, previousRecord, db) {
+async function applyEntitySideEffects(entityName, operation, record, previousRecord) {
   if (entityName === "Claim" && operation === "create") {
-    addNotification(db, {
+    await addNotification({
       user_email: record.claimant_email,
       title: "Claim submitted",
       message: `Your claim for ${record.found_item_title} has been submitted.`,
@@ -733,7 +753,7 @@ function applyEntitySideEffects(entityName, operation, record, previousRecord, d
       related_item_id: record.found_item_id,
     });
 
-    addAuditLog(db, {
+    await addAuditLog({
       action: "Claim submitted",
       entity_type: "claim",
       entity_id: record.id,
@@ -743,7 +763,7 @@ function applyEntitySideEffects(entityName, operation, record, previousRecord, d
   }
 
   if (entityName === "Claim" && operation === "update" && record.status !== previousRecord?.status) {
-    addNotification(db, {
+    await addNotification({
       user_email: record.claimant_email,
       title: "Claim updated",
       message: `Your claim for ${record.found_item_title} is now ${record.status.replaceAll("_", " ")}.`,
@@ -757,9 +777,9 @@ function applyEntitySideEffects(entityName, operation, record, previousRecord, d
     entityName === "LostReport" &&
     operation === "update" &&
     record.matched_items?.length &&
-    record.matched_items !== previousRecord?.matched_items
+    JSON.stringify(record.matched_items || []) !== JSON.stringify(previousRecord?.matched_items || [])
   ) {
-    addNotification(db, {
+    await addNotification({
       user_email: record.contact_email,
       title: "Potential match found",
       message: `We found ${record.matched_items.length} possible match${record.matched_items.length > 1 ? "es" : ""} for your lost item report.`,
@@ -769,7 +789,7 @@ function applyEntitySideEffects(entityName, operation, record, previousRecord, d
   }
 
   if (entityName === "FoundItem" && operation === "update" && record.status !== previousRecord?.status && record.finder_email) {
-    addNotification(db, {
+    await addNotification({
       user_email: record.finder_email,
       title: "Found item updated",
       message: `${record.title} is now marked as ${record.status.replaceAll("_", " ")}.`,
@@ -781,79 +801,89 @@ function applyEntitySideEffects(entityName, operation, record, previousRecord, d
 }
 
 function createEntityApi(entityName) {
-  return {
+  const api = {
     async list(sort, limit) {
-      const db = readDb();
-      const records = db[entityName] || [];
-      return clone(limitRecords(sortRecords(records, sort), limit));
+      try {
+        const records = await requestEntityApi(entityName);
+        replaceCachedCollection(entityName, records);
+        return clone(limitRecords(sortRecords(records, sort), limit));
+      } catch {
+        const db = readDb();
+        const records = db[entityName] || [];
+        return clone(limitRecords(sortRecords(records, sort), limit));
+      }
     },
 
     async filter(filters = {}, sort, limit) {
-      const db = readDb();
-      const records = (db[entityName] || []).filter((record) => matchRecord(record, filters));
-      return clone(limitRecords(sortRecords(records, sort), limit));
+      try {
+        const records = await requestEntityApi(entityName);
+        replaceCachedCollection(entityName, records);
+        const filtered = records.filter((record) => matchRecord(record, filters));
+        return clone(limitRecords(sortRecords(filtered, sort), limit));
+      } catch {
+        const db = readDb();
+        const records = (db[entityName] || []).filter((record) => matchRecord(record, filters));
+        return clone(limitRecords(sortRecords(records, sort), limit));
+      }
     },
 
     async create(data) {
-      const db = readDb();
-      const now = new Date().toISOString();
-      const prefix = entityName.toLowerCase();
-      const record = {
-        id: createId(prefix),
-        created_date: now,
-        updated_date: now,
-        ...data,
-      };
+      const record = await requestEntityApi(entityName, "", {
+        method: "POST",
+        body: JSON.stringify(data),
+      });
 
-      db[entityName].unshift(record);
-      applyEntitySideEffects(entityName, "create", record, null, db);
-      writeDb(db);
+      upsertCachedRecord(entityName, record);
+      await applyEntitySideEffects(entityName, "create", record, null);
       return clone(record);
     },
 
     async update(id, updates) {
-      const db = readDb();
-      const records = db[entityName] || [];
-      const index = records.findIndex((record) => record.id === id);
+      const records = await api.list();
+      const previousRecord =
+        records.find((record) => (record?.id || record?._id) === id) ||
+        (readDb()[entityName] || []).find((record) => (record?.id || record?._id) === id) ||
+        null;
 
-      if (index === -1) {
-        const error = Object.assign(new Error(`${entityName} ${id} not found`), {
-          status: 404,
-        });
-        throw error;
-      }
+      const nextRecord = await requestEntityApi(entityName, `/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(updates),
+      });
 
-      const previousRecord = clone(records[index]);
-      const nextRecord = {
-        ...records[index],
-        ...updates,
-        updated_date: new Date().toISOString(),
-      };
-
-      records[index] = nextRecord;
-      applyEntitySideEffects(entityName, "update", nextRecord, previousRecord, db);
-      writeDb(db);
+      upsertCachedRecord(entityName, nextRecord);
+      await applyEntitySideEffects(entityName, "update", nextRecord, previousRecord);
       return clone(nextRecord);
     },
 
     async delete(id) {
-      const db = readDb();
-      const records = db[entityName] || [];
-      const index = records.findIndex((record) => record.id === id);
+      try {
+        const response = await requestEntityApi(entityName, `/${id}`, {
+          method: "DELETE",
+        });
 
-      if (index === -1) {
-        return false;
+        removeCachedRecord(entityName, id);
+        return Boolean(response?.success);
+      } catch {
+        const db = readDb();
+        const records = db[entityName] || [];
+        const index = records.findIndex((record) => (record?.id || record?._id) === id);
+
+        if (index === -1) {
+          return false;
+        }
+
+        records.splice(index, 1);
+        writeDb(db);
+        return true;
       }
-
-      records.splice(index, 1);
-      writeDb(db);
-      return true;
     },
   };
+
+  return api;
 }
 
-async function requestFoundItemsApi(path = "", options = {}) {
-  const response = await fetch(`${FOUND_ITEMS_API_URL}${path}`, {
+async function requestApi(url, options = {}) {
+  const response = await fetch(url, {
     headers: {
       "Content-Type": "application/json",
       ...(options.headers || {}),
@@ -877,6 +907,18 @@ async function requestFoundItemsApi(path = "", options = {}) {
   }
 
   return payload;
+}
+
+async function requestFoundItemsApi(path = "", options = {}) {
+  return requestApi(`${FOUND_ITEMS_API_URL}${path}`, options);
+}
+
+async function requestEntityApi(entityName, path = "", options = {}) {
+  return requestApi(`${ENTITY_API_BASE_URL}/${encodeURIComponent(entityName)}${path}`, options);
+}
+
+async function requestAuthApi(path = "", options = {}) {
+  return requestApi(`${AUTH_API_BASE_URL}${path}`, options);
 }
 
 function normalizeRating(record = {}) {
@@ -1256,13 +1298,13 @@ function emitAuthChange(event, user) {
   });
 }
 
-function ensureLocalUserNotification(user) {
+async function ensureLocalUserNotification(user) {
   if (!user?.email) {
     return;
   }
 
-  const db = readDb();
-  const alreadyExists = db.Notification.some(
+  const notifications = await appClient.entities.Notification.filter({ user_email: user.email }, "-created_date", 100);
+  const alreadyExists = notifications.some(
     (notification) =>
       notification.user_email === user.email && notification.title === `Welcome to ${BRAND_NAME}`
   );
@@ -1271,7 +1313,7 @@ function ensureLocalUserNotification(user) {
     return;
   }
 
-  addNotification(db, {
+  await addNotification({
     user_email: user.email,
     title: `Welcome to ${BRAND_NAME}`,
     message: "Your browser-only account is ready. Reports, claims, and notifications now follow this email on this device.",
@@ -1279,21 +1321,18 @@ function ensureLocalUserNotification(user) {
     link: "/UserDashboard",
   });
 
-  addAuditLog(db, {
+  await addAuditLog({
     action: "User signed in",
     entity_type: "user",
     entity_id: user.id,
     performed_by: user.email,
     details: "Local browser session started.",
   });
-
-  writeDb(db);
 }
 
 function normalizeAuthUser({ full_name, email }) {
   const normalizedEmail = String(email || "").trim().toLowerCase();
   const normalizedName = String(full_name || "").trim();
-  const previousUser = readAuthUser();
 
   if (!normalizedName) {
     throw new Error("Full name is required.");
@@ -1304,16 +1343,29 @@ function normalizeAuthUser({ full_name, email }) {
   }
 
   return {
-    id: previousUser?.email === normalizedEmail ? previousUser.id : createId("user"),
     full_name: normalizedName,
     email: normalizedEmail,
-    role: getDemoRoleForEmail(normalizedEmail),
-    avatar_url: "",
   };
 }
 
 async function getCurrentAuthUser() {
-  return readAuthUser();
+  const currentUser = readAuthUser();
+
+  if (!currentUser?.email) {
+    return null;
+  }
+
+  try {
+    const canonicalUser = await requestAuthApi(`/user?email=${encodeURIComponent(currentUser.email)}`);
+    if (canonicalUser) {
+      writeAuthUser(canonicalUser);
+      return clone(canonicalUser);
+    }
+  } catch {
+    // Fall back to the local session cache if the backend lookup fails.
+  }
+
+  return clone(currentUser);
 }
 
 export function resetAppData() {
@@ -1332,9 +1384,12 @@ function createAppClient() {
         return getCurrentAuthUser();
       },
       async signIn(credentials) {
-        const user = normalizeAuthUser(credentials);
+        const user = await requestAuthApi("/signin", {
+          method: "POST",
+          body: JSON.stringify(normalizeAuthUser(credentials)),
+        });
         writeAuthUser(user);
-        ensureLocalUserNotification(user);
+        await ensureLocalUserNotification(user);
         emitAuthChange("SIGNED_IN", user);
         return clone(user);
       },
