@@ -7,11 +7,12 @@ import { Link } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Shield } from "lucide-react";
+import { BRAND_NAME, SUPPORT_EMAIL } from "@/lib/constants";
 
 const sections = [
   {
     title: "1. Information Stored in This Build",
-    body: "FindBack AI stores the information needed to demonstrate a lost-and-found workflow, such as names, email addresses, optional student IDs, item descriptions, photos, dates, and locations.",
+    body: `${BRAND_NAME} stores the information needed to demonstrate a lost-and-found workflow, such as names, email addresses, optional student IDs, item descriptions, photos, dates, and locations.`,
   },
   {
     title: "2. Where Data Is Stored",
@@ -31,7 +32,7 @@ const sections = [
   },
   {
     title: "6. Contact and References",
-    body: "For privacy-related questions, contact lostandfound@school.edu. Official privacy references used for this page are listed on the Sources and Citations page.",
+    body: `For privacy-related questions, contact ${SUPPORT_EMAIL}. Official privacy references used for this page are listed on the Sources and Citations page.`,
   },
 ];
 

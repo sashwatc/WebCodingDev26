@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="title desc">
+  <title id="title">PVHS helmet mark</title>
+  <desc id="desc">Blue spartan-style helmet with PV lettering for Pleasant Valley High School.</desc>
+  <defs>
+    <linearGradient id="helmetFill" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#2b4f90" />
+      <stop offset="100%" stop-color="#183459" />
+    </linearGradient>
+  </defs>
+  <path
+    fill="url(#helmetFill)"
+    d="M94 18c10 10 17 23 17 37 0 29-19 51-46 56-2 13-11 23-27 31 8-11 11-20 12-28-10-4-17-14-17-25 0-14 8-27 20-35-1-11-6-23-16-36 22-9 41-9 57 0z"
+  />
+  <path
+    fill="#ffffff"
+    opacity="0.14"
+    d="M43 24c15-6 31-6 47-1 7 3 13 7 19 12-17-6-35-8-55-6-7 1-14 3-21 5 3-4 6-7 10-10z"
+  />
+  <path
+    fill="#183459"
+    d="M48 80c7-1 12-6 15-13l2-5h18c6-9 9-18 10-29-8-7-20-12-35-14-3 7-3 13-2 18-11 8-18 19-18 30 0 5 2 10 6 13l4 3z"
+  />
+  <path
+    fill="#0f2347"
+    d="M52 38c14 1 26 5 35 11-1 9-4 17-9 25H64l-2 5c-2 5-5 9-10 12 1-5 1-10-1-13l-4-5c0-9 5-18 16-26l3-2-1-4c-1-4-1-8 0-12-4 2-8 5-13 9z"
+  />
+  <path
+    fill="none"
+    stroke="#ffffff"
+    stroke-linecap="round"
+    stroke-width="4"
+    d="M40 41c20-7 38-7 56 0"
+  />
+  <text
+    x="58"
+    y="65"
+    fill="#ffffff"
+    font-family="Georgia, Times New Roman, serif"
+    font-size="28"
+    font-weight="700"
+    text-anchor="middle"
+  >
+    PV
+  </text>

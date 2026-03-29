@@ -1,9 +1,9 @@
 {
-  "name": "FindBack AI",
-  "short_name": "FindBack",
+  "name": "Lost Then Found",
+  "short_name": "LostThenFound",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#f7f9fc",
   "theme_color": "#183459",
-  "description": "Accessible school lost-and-found website built for FBLA."
+  "description": "PVHS lost-and-found website with search, reporting, admin review, and accessibility support."
 }

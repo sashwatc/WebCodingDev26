@@ -7,18 +7,26 @@ import { useMode } from "@/lib/ModeContext";
 import { useToast } from "@/components/ui/use-toast";
 
 export default function AdminRouteGuard({ children }) {
-  const { user, isAdminUser, isLoadingAuth, isLoadingPublicSettings, navigateToLogin } = useAuth();
+  const {
+    user,
+    hasAdminAccess,
+    isLoadingAuth,
+    isLoadingPublicSettings,
+    navigateToLogin,
+    openAdminAccess,
+  } = useAuth();
   const { isAdminMode, setIsAdminMode } = useMode();
   const { toast } = useToast();
   const [openingLogin, setOpeningLogin] = useState(false);
+  const [openingUnlock, setOpeningUnlock] = useState(false);
 
   useEffect(() => {
-    const nextAdminMode = Boolean(isAdminUser);
+    const nextAdminMode = Boolean(hasAdminAccess);
 
     if (isAdminMode !== nextAdminMode) {
       setIsAdminMode(nextAdminMode);
     }
-  }, [isAdminMode, isAdminUser, setIsAdminMode]);
+  }, [hasAdminAccess, isAdminMode, setIsAdminMode]);
 
   const handleSignIn = async () => {
     setOpeningLogin(true);
@@ -32,6 +40,21 @@ export default function AdminRouteGuard({ children }) {
       });
     } finally {
       setOpeningLogin(false);
+    }
+  };
+
+  const handleUnlock = async () => {
+    setOpeningUnlock(true);
+    try {
+      await openAdminAccess();
+    } catch (error) {
+      toast({
+        title: "Unlock unavailable",
+        description: error.message || "Unable to open the admin access dialog.",
+        variant: "destructive",
+      });
+    } finally {
+      setOpeningUnlock(false);
     }
   };
 
@@ -60,8 +83,7 @@ export default function AdminRouteGuard({ children }) {
           </div>
           <h1 className="text-2xl font-semibold text-slate-950">Admin sign-in required</h1>
           <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-slate-600">
-            This dashboard is restricted in the judging build. Sign in with the demo admin account to review items,
-            claims, and audit logs.
+            This dashboard is restricted in the judging build. Sign in before unlocking the moderation workspace.
           </p>
           <div className="mt-8 flex flex-wrap justify-center gap-3">
             <Button onClick={handleSignIn} disabled={openingLogin}>
@@ -76,30 +98,22 @@ export default function AdminRouteGuard({ children }) {
     );
   }
 
-  if (!isAdminUser) {
+  if (!hasAdminAccess) {
     return (
       <div className="page-shell max-w-2xl py-20">
         <div className="surface-card px-8 py-14 text-center">
           <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-full bg-red-50">
             <UserRoundX className="h-7 w-7 text-red-600" />
           </div>
-          <h1 className="text-2xl font-semibold text-slate-950">Admin access unavailable</h1>
+          <h1 className="text-2xl font-semibold text-slate-950">Admin access locked</h1>
           <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-slate-600">
-            You are signed in as a student account. Use the demo admin account to open restricted moderation views in
-            this prototype.
+            Sign in is complete, but moderation tools are still protected. Enter the admin password to unlock the
+            review workspace for this browser session.
           </p>
-          <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-left text-sm text-slate-600">
-            <p className="font-semibold text-slate-900">Demo admin account</p>
-            <p className="mt-1">Avery Patel</p>
-            <p className="font-mono text-xs text-slate-500">avery.patel@pleasantvalley.edu</p>
-          </div>
           <div className="mt-8 flex flex-wrap justify-center gap-3">
-            <Button onClick={handleSignIn} disabled={openingLogin}>
-              {openingLogin ? "Opening Sign-In..." : "Switch Account"}
+            <Button onClick={handleUnlock} disabled={openingUnlock}>
+              {openingUnlock ? "Opening Unlock..." : "Unlock Admin"}
             </Button>
-            <Link to="/UserDashboard">
-              <Button variant="outline">Go to My Dashboard</Button>
-            </Link>
             <Link to="/Home">
               <Button variant="outline">Back to Home</Button>
             </Link>

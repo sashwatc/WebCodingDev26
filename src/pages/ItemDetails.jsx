@@ -27,7 +27,7 @@ import {
 export default function ItemDetails() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { isAdminUser } = useAuth();
+  const { hasAdminAccess } = useAuth();
   const { isAdminMode } = useMode();
   const urlParams = new URLSearchParams(location.search);
   const itemId = urlParams.get("id");
@@ -40,7 +40,7 @@ export default function ItemDetails() {
     select: (data) => data?.[0],
   });
 
-  const isAdmin = isAdminUser && isAdminMode;
+  const isAdmin = hasAdminAccess && isAdminMode;
 
   const { data: itemClaims = [] } = useQuery({
     queryKey: ["itemReviews", itemId],

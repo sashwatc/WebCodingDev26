@@ -1,5 +1,5 @@
 /**
- * FindBack AI - About Page
+ * Lost Then Found - About Page
  * Explains the project goals, architecture, and judging-build choices.
  */
 
@@ -18,6 +18,7 @@ import {
   Users,
   Workflow,
 } from "lucide-react";
+import { BRAND_NAME, SCHOOL_NAME } from "@/lib/constants";
 
 const highlights = [
   {
@@ -55,9 +56,9 @@ export default function About() {
     <div className="max-w-5xl mx-auto px-4 py-16">
       <div className="text-center mb-12">
         <Badge variant="outline" className="mb-3">About</Badge>
-        <h1 className="text-4xl font-bold text-slate-900 mb-4">About FindBack AI</h1>
+        <h1 className="text-4xl font-bold text-slate-900 mb-4">About {BRAND_NAME}</h1>
         <p className="text-lg text-slate-500 max-w-3xl mx-auto leading-relaxed">
-          FindBack AI is a student-built lost-and-found platform for schools. It combines modern frontend
+          {BRAND_NAME} is a student-built lost-and-found platform for {SCHOOL_NAME}. It combines modern frontend
           development, thoughtful UX, and accessibility-minded workflows to make item recovery faster and more organized.
         </p>
       </div>

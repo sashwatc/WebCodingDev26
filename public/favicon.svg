@@ -1,14 +1,15 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title desc">
-  <title id="title">FindBack AI</title>
-  <desc id="desc">Rounded square with a magnifying glass and star accent.</desc>
+  <title id="title">Lost Then Found</title>
+  <desc id="desc">PVHS spartan-style helmet logo.</desc>
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#183459" />
-      <stop offset="100%" stop-color="#0f766e" />
+    <linearGradient id="helmetFill" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#2b4f90" />
+      <stop offset="100%" stop-color="#183459" />
     </linearGradient>
   </defs>
-  <rect width="64" height="64" rx="18" fill="url(#bg)" />
-  <circle cx="27" cy="27" r="12" fill="none" stroke="#ffffff" stroke-width="5" />
-  <path d="M35 35L46 46" stroke="#ffffff" stroke-linecap="round" stroke-width="5" />
-  <path d="M46 15l1.8 4.2L52 21l-4.2 1.8L46 27l-1.8-4.2L40 21l4.2-1.8L46 15z" fill="#fbbf24" />
+  <rect width="64" height="64" rx="16" fill="#eef3ff" />
+  <path fill="url(#helmetFill)" d="M49 11c6 6 9 14 9 22 0 17-11 30-25 33-1 7-6 14-16 19 4-7 6-12 6-17-6-2-10-8-10-14 0-8 4-16 11-20 0-7-3-14-9-22 13-5 24-5 34-1z" />
+  <path fill="#10284f" d="M24 39c4 0 7-3 9-7l1-3h11c4-5 5-10 6-16-5-4-12-7-20-8-2 4-2 8-1 11-7 4-11 11-11 17 0 3 1 5 3 6l2 0z" />
+  <path fill="none" stroke="#ffffff" stroke-linecap="round" stroke-width="2.25" d="M22 18c11-4 22-4 33 0" />
+  <text x="30" y="31" fill="#ffffff" font-family="Georgia, Times New Roman, serif" font-size="12" font-weight="700" text-anchor="middle">PV</text>
 </svg>

@@ -5,11 +5,12 @@
 import React from "react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { BRAND_NAME } from "@/lib/constants";
 
 const terms = [
   {
     title: "1. Acceptable Use",
-    body: "FindBack AI is intended for legitimate lost-and-found activity within a school environment. Users should provide accurate details and should not misuse the system for harassment, fraud, or false submissions.",
+    body: `${BRAND_NAME} is intended for legitimate lost-and-found activity within a school environment. Users should provide accurate details and should not misuse the system for harassment, fraud, or false submissions.`,
   },
   {
     title: "2. Honest Claims and Reports",
@@ -21,7 +22,7 @@ const terms = [
   },
   {
     title: "4. Availability and Accuracy",
-    body: "FindBack AI improves organization and item matching, but it does not guarantee that every lost item will be recovered or that every suggested match is correct.",
+    body: `${BRAND_NAME} improves organization and item matching, but it does not guarantee that every lost item will be recovered or that every suggested match is correct.`,
   },
   {
     title: "5. Content Responsibility",

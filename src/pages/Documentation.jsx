@@ -92,7 +92,8 @@ export default function Documentation() {
                 The application logic, page layouts, workflows, seeded data, and copy were customized for the lost-and-found scenario rather than assembled from a website theme.
               </p>
               <p>
-                Restricted moderation tools are available only through the demo admin account in this standalone build, so the admin workflow can be demonstrated without exposing private views to every user.
+                Restricted moderation tools require sign-in plus the admin unlock password in this standalone build,
+                so the admin workflow can be demonstrated without exposing private views to every user.
               </p>
             </CardContent>
           </Card>
@@ -112,6 +113,7 @@ export default function Documentation() {
               </p>
               <p>Student demo: <code className="rounded bg-slate-100 px-2 py-1">Jordan Kim</code> / <code className="rounded bg-slate-100 px-2 py-1">jordan.kim@pleasantvalley.edu</code></p>
               <p>Admin demo: <code className="rounded bg-slate-100 px-2 py-1">Avery Patel</code> / <code className="rounded bg-slate-100 px-2 py-1">avery.patel@pleasantvalley.edu</code></p>
+              <p>Admin unlock password: <code className="rounded bg-slate-100 px-2 py-1">PVHS-Admin-2026</code></p>
             </CardContent>
           </Card>
 
@@ -121,6 +123,9 @@ export default function Documentation() {
             </Link>
             <Link to="/Accessibility">
               <Button variant="outline">Accessibility Statement</Button>
+            </Link>
+            <Link to="/ShaderDemo">
+              <Button variant="outline">Shader Demo</Button>
             </Link>
           </div>
         </div>

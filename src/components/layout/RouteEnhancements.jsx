@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
+import { BRAND_NAME } from "@/lib/constants";
 
 const PAGE_TITLES = {
   "/Home": "Home",
@@ -10,13 +11,14 @@ const PAGE_TITLES = {
   "/ClaimItem": "Submit a Claim",
   "/UserDashboard": "My Dashboard",
   "/AdminDashboard": "Admin Dashboard",
-  "/About": "About FindBack AI",
+  "/About": `About ${BRAND_NAME}`,
   "/FAQ": "FAQ",
   "/Privacy": "Privacy Policy",
   "/Terms": "Terms of Use",
   "/Accessibility": "Accessibility Statement",
   "/Sources": "Sources and Citations",
   "/Documentation": "Project Documentation",
+  "/ShaderDemo": "Shader Demo",
 };
 
 export default function RouteEnhancements() {
@@ -24,8 +26,8 @@ export default function RouteEnhancements() {
   const [announcement, setAnnouncement] = useState("");
 
   useEffect(() => {
-    const pageTitle = PAGE_TITLES[location.pathname] || "FindBack AI";
-    document.title = pageTitle.includes("FindBack AI") ? pageTitle : `${pageTitle} | FindBack AI`;
+    const pageTitle = PAGE_TITLES[location.pathname] || BRAND_NAME;
+    document.title = pageTitle.includes(BRAND_NAME) ? pageTitle : `${pageTitle} | ${BRAND_NAME}`;
     window.scrollTo(0, 0);
     setAnnouncement(`${pageTitle} loaded`);
   }, [location.pathname]);

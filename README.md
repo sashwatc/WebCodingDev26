@@ -1,6 +1,6 @@
-# FindBack AI
+# Lost Then Found
 
-FindBack AI is a React-based lost-and-found website built for the FBLA Website Coding & Development event. It focuses on a school use case with searchable found items, lost-item reporting, claim verification, admin review tools, accessibility support, and judging-ready documentation.
+Lost Then Found is a React-based PVHS lost-and-found website built for the FBLA Website Coding & Development event. It focuses on searchable found items, lost-item reporting, claim verification, admin review tools, accessibility support, and judging-ready documentation.
 
 ## Project Highlights
 
@@ -36,6 +36,7 @@ Notes:
 - When using `npm run dev`, refresh the page after code changes to see the rebuilt output.
 - Demo student account: `Jordan Kim` / `jordan.kim@pleasantvalley.edu`
 - Demo admin account: `Avery Patel` / `avery.patel@pleasantvalley.edu`
+- Admin unlock password: `PVHS-Admin-2026`
 
 ## Build and Quality Checks
 
@@ -49,7 +50,7 @@ npm run build
 - This version is intentionally standalone.
 - Records and sign-in state are stored in the current browser using local storage.
 - The application logic, page flows, seeded records, and content are customized for this project rather than assembled from a generic website template.
-- Admin views are restricted to the demo admin account in this judging build.
+- Admin views require sign-in plus the admin unlock password in this judging build.
 
 ## Accessibility
 

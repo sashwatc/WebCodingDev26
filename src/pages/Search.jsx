@@ -111,7 +111,7 @@ export default function Search() {
         </p>
       </div>
 
-      <section className="surface-card mb-6 p-5">
+      <section className="hero-panel mb-6 p-5">
         <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_repeat(4,minmax(0,1fr))]">
           <div>
             <label className="mb-1.5 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
@@ -263,7 +263,7 @@ export default function Search() {
       {!isLoading && filteredItems.length === 0 && (
         <div className="surface-card px-5 py-10 text-center">
           <Package className="mx-auto mb-3 h-10 w-10 text-slate-300" />
-          <h2 className="text-lg font-semibold text-slate-900">No matching items found</h2>
+          <h2 className="section-heading">No matching items found</h2>
           <p className="mt-2 text-sm text-slate-600">
             Try a broader description or remove one of the filters.
           </p>

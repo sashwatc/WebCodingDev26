@@ -129,7 +129,8 @@ export default function SignInDialog() {
           </div>
 
           <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-500">
-            Use the student demo to review seeded dashboard activity, or the admin demo to access restricted review tools.
+            Use either demo account to sign in. Admin tools unlock from the Student/Admin switch after sign-in with the
+            admin password.
           </div>
 
           <DialogFooter>

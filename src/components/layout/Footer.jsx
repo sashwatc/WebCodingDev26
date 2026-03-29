@@ -1,6 +1,13 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import { Mail, MapPin, Phone } from "lucide-react";
+import {
+  BRAND_NAME,
+  SCHOOL_NAME,
+  SUPPORT_EMAIL,
+  SUPPORT_LOCATION,
+  SUPPORT_PHONE,
+} from "@/lib/constants";
 
 export default function Footer() {
   return (
@@ -8,9 +15,9 @@ export default function Footer() {
       <div className="page-shell py-10">
         <div className="grid gap-8 md:grid-cols-3">
           <div className="space-y-3">
-            <h2 className="text-base font-semibold text-foreground">FindBack AI</h2>
+            <h2 className="text-base font-semibold text-foreground">{BRAND_NAME}</h2>
             <p className="max-w-md text-sm leading-6 text-muted-foreground">
-              Standalone school lost-and-found system with reporting, search, claims, moderation, and documentation.
+              PVHS lost-and-found system with reporting, search, claims, moderation, and documentation.
             </p>
             <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Built for FBLA 2025-2026</p>
           </div>
@@ -40,15 +47,15 @@ export default function Footer() {
             <ul className="space-y-3">
               <li className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Mail className="h-4 w-4 flex-shrink-0" />
-                lostandfound@school.edu
+                {SUPPORT_EMAIL}
               </li>
               <li className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Phone className="h-4 w-4 flex-shrink-0" />
-                (555) 123-4567
+                {SUPPORT_PHONE}
               </li>
               <li className="flex items-center gap-2 text-sm text-muted-foreground">
                 <MapPin className="h-4 w-4 flex-shrink-0" />
-                Main Office, Room 102
+                {SUPPORT_LOCATION}
               </li>
             </ul>
           </div>
@@ -56,7 +63,7 @@ export default function Footer() {
 
         <div className="mt-8 flex flex-col gap-2 border-t pt-4 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
           <p>
-            © {new Date().getFullYear()} FindBack AI · Pleasant Valley High School · FBLA Website Coding & Development
+            © {new Date().getFullYear()} {BRAND_NAME} · {SCHOOL_NAME} · FBLA Website Coding & Development
           </p>
           <p>
             This judging build stores data locally in the current browser for demo purposes.

@@ -1,8 +1,16 @@
 /**
- * FindBack AI - Application Constants
- * Centralized configuration for categories, locations, statuses, and color mappings.
- * This keeps the app consistent and easy to maintain.
+ * Lost Then Found - Application Constants
+ * Centralized configuration for branding, demo access, categories, and statuses.
  */
+
+export const BRAND_NAME = "Lost Then Found";
+export const BRAND_SHORT_NAME = "Lost Then Found";
+export const SCHOOL_NAME = "PVHS";
+export const SCHOOL_FULL_NAME = "Pleasant Valley High School";
+export const SUPPORT_EMAIL = "lostthenfound@pvhs.edu";
+export const SUPPORT_PHONE = "(555) 123-4567";
+export const SUPPORT_LOCATION = "Main Office, Room 102";
+export const ADMIN_ACCESS_PASSWORD = "PVHS-Admin-2026";
 
 export const CATEGORIES = [
   { value: "electronics", label: "Electronics", icon: "Smartphone" },

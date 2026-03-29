@@ -1,5 +1,5 @@
 /**
- * FindBack AI - Application Router
+ * Lost Then Found - Application Router
  * Defines all routes and wraps pages in the appropriate layouts.
  * Public pages use PublicLayout (Navbar + Footer).
  */
@@ -15,7 +15,9 @@ import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 import { ModeProvider } from '@/lib/ModeContext';
 import AdminRouteGuard from '@/components/auth/AdminRouteGuard';
 import SignInDialog from '@/components/auth/SignInDialog';
+import AdminAccessDialog from '@/components/auth/AdminAccessDialog';
 import RouteEnhancements from '@/components/layout/RouteEnhancements';
+import { BRAND_NAME } from '@/lib/constants';
 
 // Layout
 import PublicLayout from '@/components/layout/PublicLayout';
@@ -36,6 +38,7 @@ import Terms from '@/pages/Terms';
 import Accessibility from '@/pages/Accessibility';
 import Sources from '@/pages/Sources';
 import Documentation from '@/pages/Documentation';
+import ShaderDemo from '@/pages/ShaderDemo';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -45,7 +48,7 @@ const AuthenticatedApp = () => {
       <div className="fixed inset-0 flex items-center justify-center bg-[hsl(210,20%,98%)]">
         <div className="text-center">
           <div className="w-10 h-10 border-4 border-slate-200 border-t-[hsl(174,60%,40%)] rounded-full animate-spin mx-auto mb-3"></div>
-          <p className="text-sm text-slate-400">Loading FindBack AI...</p>
+          <p className="text-sm text-slate-400">Loading {BRAND_NAME}...</p>
         </div>
       </div>
     );
@@ -91,6 +94,7 @@ const AuthenticatedApp = () => {
           <Route path="/Accessibility" element={<Accessibility />} />
           <Route path="/Sources" element={<Sources />} />
           <Route path="/Documentation" element={<Documentation />} />
+          <Route path="/ShaderDemo" element={<ShaderDemo />} />
         </Route>
 
         {/* 404 fallback */}
@@ -107,6 +111,7 @@ function App() {
         <QueryClientProvider client={queryClientInstance}>
           <MotionConfig reducedMotion="user">
             <SignInDialog />
+            <AdminAccessDialog />
             <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
               <AuthenticatedApp />
             </Router>

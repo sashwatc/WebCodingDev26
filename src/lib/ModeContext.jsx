@@ -8,6 +8,7 @@ function getDefaultSettings() {
     isAdminMode: false,
     theme: "light",
     readingMode: "default",
+    contrastMode: "default",
   };
 }
 
@@ -27,6 +28,7 @@ function readStoredSettings() {
       isAdminMode: Boolean(parsed.isAdminMode),
       theme: parsed.theme === "dark" ? "dark" : "light",
       readingMode: parsed.readingMode === "dyslexic" ? "dyslexic" : "default",
+      contrastMode: parsed.contrastMode === "high" ? "high" : "default",
     };
   } catch {
     return getDefaultSettings();
@@ -56,7 +58,8 @@ export function ModeProvider({ children }) {
     const root = document.documentElement;
     root.classList.toggle("dark", settings.theme === "dark");
     root.dataset.readingMode = settings.readingMode;
-  }, [settings.theme, settings.readingMode]);
+    root.dataset.contrastMode = settings.contrastMode;
+  }, [settings.theme, settings.readingMode, settings.contrastMode]);
 
   const setIsAdminMode = (value) => {
     setSettings((current) => {
@@ -100,6 +103,21 @@ export function ModeProvider({ children }) {
     });
   };
 
+  const setContrastMode = (value) => {
+    setSettings((current) => {
+      const nextContrastMode = value === "high" ? "high" : "default";
+
+      if (current.contrastMode === nextContrastMode) {
+        return current;
+      }
+
+      return {
+        ...current,
+        contrastMode: nextContrastMode,
+      };
+    });
+  };
+
   return (
     <ModeContext.Provider
       value={{
@@ -109,6 +127,8 @@ export function ModeProvider({ children }) {
         setTheme,
         readingMode: settings.readingMode,
         setReadingMode,
+        contrastMode: settings.contrastMode,
+        setContrastMode,
       }}
     >
       {children}

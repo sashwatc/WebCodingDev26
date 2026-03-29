@@ -1,5 +1,5 @@
 /**
- * FindBack AI - Main Navigation Bar
+ * Lost Then Found - Main Navigation Bar
  * Keeps primary actions and account controls visible without decorative chrome.
  */
 
@@ -10,13 +10,13 @@ import {
   AlertTriangle,
   Bell,
   ChevronDown,
+  Contrast,
   Home,
   LayoutDashboard,
   Menu,
   MonitorCog,
   Moon,
   PlusCircle,
-  FileSearch,
   Search,
   Shield,
   Sun,
@@ -39,6 +39,11 @@ import { useQuery } from "@tanstack/react-query";
 import { useMode } from "@/lib/ModeContext";
 import { useAuth } from "@/lib/AuthContext";
 import { useToast } from "@/components/ui/use-toast";
+import {
+  BRAND_NAME,
+  SCHOOL_NAME,
+} from "@/lib/constants";
+import schoolMark from "@/assets/pvhs-mark.svg";
 
 export default function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -51,8 +56,17 @@ export default function Navbar() {
     setTheme,
     readingMode,
     setReadingMode,
+    contrastMode,
+    setContrastMode,
   } = useMode();
-  const { user, isAdminUser, navigateToLogin, logout } = useAuth();
+  const {
+    user,
+    hasAdminAccess,
+    navigateToLogin,
+    openAdminAccess,
+    revokeAdminAccess,
+    logout,
+  } = useAuth();
   const { toast } = useToast();
 
   useEffect(() => {
@@ -66,10 +80,10 @@ export default function Navbar() {
   }, [location.pathname]);
 
   useEffect(() => {
-    if (!isAdminUser && isAdminMode) {
+    if (!hasAdminAccess && isAdminMode) {
       setIsAdminMode(false);
     }
-  }, [isAdminMode, isAdminUser, setIsAdminMode]);
+  }, [hasAdminAccess, isAdminMode, setIsAdminMode]);
 
   const { data: notifications = [] } = useQuery({
     queryKey: ["navNotifications", user?.email],
@@ -77,7 +91,7 @@ export default function Navbar() {
     enabled: !!user?.email,
   });
 
-  const isAdmin = isAdminUser && isAdminMode;
+  const isAdmin = hasAdminAccess && isAdminMode;
   const isActive = (path) => location.pathname === path;
 
   const navLinks = [
@@ -110,22 +124,49 @@ export default function Navbar() {
     }
   };
 
+  const handleAdminView = async () => {
+    if (isAdmin) {
+      return;
+    }
+
+    if (!user) {
+      await handleSignIn();
+      return;
+    }
+
+    if (hasAdminAccess) {
+      setIsAdminMode(true);
+      return;
+    }
+
+    await openAdminAccess();
+  };
+
+  const handleLockAdminAccess = () => {
+    setIsAdminMode(false);
+    revokeAdminAccess();
+    toast({
+      title: "Admin access locked",
+      description: "Moderation tools were locked for this browser session.",
+    });
+  };
+
   return (
     <header
       role="banner"
       className={`fixed inset-x-0 top-0 z-50 border-b bg-background/95 backdrop-blur ${
-        scrolled ? "shadow-sm" : ""
+        scrolled ? "shadow-[0_18px_36px_rgba(15,23,42,0.08)]" : ""
       }`}
     >
       <nav className="page-shell" aria-label="Main navigation">
         <div className="flex min-h-16 items-center justify-between gap-4 py-2">
-          <Link to="/Home" className="flex items-center gap-3" aria-label="FindBack AI Home">
-            <div className="flex h-9 w-9 items-center justify-center rounded-md border border-border bg-muted">
-              <FileSearch className="h-4 w-4" />
+          <Link to="/Home" className="flex items-center gap-3" aria-label={`${BRAND_NAME} Home`}>
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-[linear-gradient(180deg,#ffffff,#eef2ff)] shadow-[0_10px_22px_rgba(15,23,42,0.08)] dark:border-slate-700 dark:bg-slate-900 dark:shadow-[0_14px_28px_rgba(2,8,23,0.28)]">
+              <img src={schoolMark} alt="" className="h-6 w-6 object-contain" />
             </div>
             <div className="min-w-0">
-              <p className="text-sm font-semibold leading-none text-foreground">FindBack AI</p>
-              <p className="mt-1 text-[11px] uppercase tracking-[0.16em] text-muted-foreground">Pleasant Valley HS</p>
+              <p className="text-sm font-semibold leading-none text-foreground [text-shadow:0_2px_8px_rgba(15,23,42,0.06)]">{BRAND_NAME}</p>
+              <p className="mt-1 text-[11px] uppercase tracking-[0.16em] text-muted-foreground">{SCHOOL_NAME}</p>
             </div>
           </Link>
 
@@ -135,10 +176,10 @@ export default function Navbar() {
                 key={to}
                 to={to}
                 aria-current={isActive(to) ? "page" : undefined}
-                className={`inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium ${
+                className={`inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium transition-all ${
                   isActive(to)
-                    ? "bg-muted text-foreground"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                    ? "bg-[linear-gradient(180deg,#ffffff,#f8fafc)] text-foreground shadow-[0_10px_18px_rgba(15,23,42,0.05)] dark:bg-none dark:bg-slate-800 dark:text-white dark:shadow-[0_12px_24px_rgba(2,8,23,0.22)]"
+                    : "text-muted-foreground hover:bg-white/80 hover:text-foreground hover:shadow-[0_10px_18px_rgba(15,23,42,0.04)] dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white dark:hover:shadow-[0_12px_24px_rgba(2,8,23,0.18)]"
                 }`}
               >
                 <Icon className="h-4 w-4" />
@@ -148,8 +189,7 @@ export default function Navbar() {
           </div>
 
           <div className="flex items-center gap-2">
-            {isAdminUser ? (
-              <div className="hidden md:flex items-center rounded-md border border-border bg-muted/70 p-1">
+            <div className="hidden md:flex items-center rounded-md border border-border bg-muted/70 p-1">
                 <button
                   onClick={() => setIsAdminMode(false)}
                   aria-pressed={!isAdmin}
@@ -160,7 +200,7 @@ export default function Navbar() {
                   Student
                 </button>
                 <button
-                  onClick={() => setIsAdminMode(true)}
+                  onClick={handleAdminView}
                   aria-pressed={isAdmin}
                   className={`rounded px-3 py-1.5 text-xs font-semibold ${
                     isAdmin ? "bg-background text-foreground" : "text-muted-foreground hover:text-foreground"
@@ -168,12 +208,7 @@ export default function Navbar() {
                 >
                   Admin
                 </button>
-              </div>
-            ) : (
-              <div className="hidden md:flex items-center rounded-md border border-border bg-muted px-3 py-1.5 text-xs font-semibold text-muted-foreground">
-                Student View
-              </div>
-            )}
+            </div>
 
             <Link to="/ReportFound" className="hidden md:block">
               <Button size="sm" className="gap-2">
@@ -216,10 +251,24 @@ export default function Navbar() {
                     Dyslexic Reading
                   </DropdownMenuRadioItem>
                 </DropdownMenuRadioGroup>
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel className="text-xs uppercase tracking-[0.14em] text-slate-500">
+                  Contrast
+                </DropdownMenuLabel>
+                <DropdownMenuRadioGroup value={contrastMode} onValueChange={setContrastMode}>
+                  <DropdownMenuRadioItem value="default" className="gap-2">
+                    <Contrast className="w-4 h-4" />
+                    Standard Contrast
+                  </DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="high" className="gap-2">
+                    <Contrast className="w-4 h-4" />
+                    High Contrast
+                  </DropdownMenuRadioItem>
+                </DropdownMenuRadioGroup>
               </DropdownMenuContent>
             </DropdownMenu>
 
-            {isAdminUser && (
+            {user && hasAdminAccess && (
               <Link to="/AdminDashboard" className="hidden xl:block">
                 <Button size="sm" variant="outline" className="gap-2">
                   <LayoutDashboard className="h-4 w-4" />
@@ -254,7 +303,7 @@ export default function Navbar() {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-52">
                   <DropdownMenuLabel className="text-xs uppercase tracking-[0.14em] text-slate-500">
-                    {isAdminUser ? "Admin Account" : "Student Account"}
+                    {hasAdminAccess ? "Admin Access Unlocked" : "Signed In"}
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem asChild>
@@ -263,12 +312,18 @@ export default function Navbar() {
                       My Dashboard
                     </Link>
                   </DropdownMenuItem>
-                  {isAdminUser && (
+                  {hasAdminAccess && (
                     <DropdownMenuItem asChild>
                       <Link to="/AdminDashboard" className="flex items-center gap-2">
                         <Shield className="w-4 h-4" />
                         Admin Panel
                       </Link>
+                    </DropdownMenuItem>
+                  )}
+                  {hasAdminAccess && (
+                    <DropdownMenuItem onClick={handleLockAdminAccess} className="flex items-center gap-2">
+                      <Shield className="w-4 h-4" />
+                      Lock Admin Access
                     </DropdownMenuItem>
                   )}
                   <DropdownMenuSeparator />
@@ -307,8 +362,7 @@ export default function Navbar() {
       {mobileOpen && (
         <div className="border-t bg-background lg:hidden">
           <div className="page-shell space-y-3 py-4">
-            {isAdminUser ? (
-              <div className="flex items-center rounded-md border border-border bg-muted p-1">
+            <div className="flex items-center rounded-md border border-border bg-muted p-1">
                 <button
                   onClick={() => setIsAdminMode(false)}
                   aria-pressed={!isAdmin}
@@ -319,7 +373,7 @@ export default function Navbar() {
                   Student
                 </button>
                 <button
-                  onClick={() => setIsAdminMode(true)}
+                  onClick={handleAdminView}
                   aria-pressed={isAdmin}
                   className={`flex-1 rounded px-3 py-2 text-xs font-semibold ${
                     isAdmin ? "bg-background text-foreground" : "text-muted-foreground"
@@ -327,12 +381,7 @@ export default function Navbar() {
                 >
                   Admin
                 </button>
-              </div>
-            ) : (
-              <div className="rounded-md border border-border bg-muted px-4 py-3 text-sm text-muted-foreground">
-                Student view is active. Sign in with the demo admin account to access moderation tools.
-              </div>
-            )}
+            </div>
 
             <div className="grid gap-2">
               {navLinks.map(({ to, label, icon: Icon }) => (
@@ -369,7 +418,7 @@ export default function Navbar() {
                 </Link>
               )}
 
-              {isAdminUser && (
+              {user && hasAdminAccess && (
                 <Link
                   to="/AdminDashboard"
                   className="flex items-center gap-3 rounded-md border border-border px-4 py-3 text-sm font-medium text-foreground"
@@ -414,7 +463,28 @@ export default function Navbar() {
                 <Type className="h-3.5 w-3.5" />
                 {readingMode === "dyslexic" ? "Dyslexic Reading On" : "Dyslexic Reading Off"}
               </button>
+              <button
+                type="button"
+                onClick={() => setContrastMode(contrastMode === "high" ? "default" : "high")}
+                className={`mt-2 flex w-full items-center justify-center gap-2 rounded-md px-3 py-2 text-xs font-semibold ${
+                  contrastMode === "high" ? "bg-muted text-foreground" : "text-muted-foreground hover:bg-muted"
+                }`}
+              >
+                <Contrast className="h-3.5 w-3.5" />
+                {contrastMode === "high" ? "High Contrast On" : "High Contrast Off"}
+              </button>
             </div>
+
+            {user && hasAdminAccess && (
+              <button
+                type="button"
+                onClick={handleLockAdminAccess}
+                className="flex w-full items-center gap-3 rounded-md border border-border px-4 py-3 text-left text-sm font-medium text-foreground"
+              >
+                <Shield className="h-4 w-4" />
+                Lock Admin Access
+              </button>
+            )}
 
             {user ? (
               <button

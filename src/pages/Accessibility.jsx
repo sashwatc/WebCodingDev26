@@ -1,5 +1,5 @@
 /**
- * FindBack AI - Accessibility Statement Page
+ * Lost Then Found - Accessibility Statement Page
  * Summarizes the current accessibility implementation and the standards used to guide it.
  */
 
@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { CheckCircle2 } from "lucide-react";
+import { BRAND_NAME, SCHOOL_NAME, SUPPORT_EMAIL } from "@/lib/constants";
 
 const implementedFeatures = [
   "Semantic landmarks and heading structure across routed pages",
@@ -19,6 +20,7 @@ const implementedFeatures = [
   "Labels, helper copy, and validation feedback on key form fields",
   "Alt text on meaningful item images and descriptive button labels",
   "Reduced-motion support that respects user preferences",
+  "Optional dyslexic reading mode and optional high-contrast display mode",
   "Responsive layouts that remain usable when zoomed and on smaller screens",
   "Status labels that communicate meaning with text, not color alone",
 ];
@@ -30,8 +32,8 @@ export default function Accessibility() {
         <Badge variant="outline" className="mb-3">Accessibility</Badge>
         <h1 className="text-4xl font-bold text-slate-900 mb-3">Accessibility Statement</h1>
         <p className="text-slate-500 max-w-2xl mx-auto leading-relaxed">
-          FindBack AI is designed to be usable by students, staff, and community members with a wide range of
-          access needs. This statement reflects the implementation reviewed on March 16, 2026.
+          {BRAND_NAME} is designed to be usable by students, staff, and community members at {SCHOOL_NAME} with a wide
+          range of access needs. This statement reflects the current judging build.
         </p>
       </div>
 
@@ -70,7 +72,7 @@ export default function Accessibility() {
               <Link to="/Sources">
                 <Button variant="outline">View cited standards</Button>
               </Link>
-              <a href="mailto:lostandfound@school.edu">
+              <a href={`mailto:${SUPPORT_EMAIL}`}>
                 <Button variant="outline">Contact for support</Button>
               </a>
             </div>

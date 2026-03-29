@@ -10,6 +10,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import { BRAND_NAME } from "@/lib/constants";
 
 const faqs = [
   {
@@ -41,7 +42,7 @@ const faqs = [
     a: "The app is designed to collect only what is needed for a lost-and-found workflow. In this standalone build, submitted data stays on the current device rather than syncing to a hosted server.",
   },
   {
-    q: "Can staff members use FindBack AI too?",
+    q: `Can staff members use ${BRAND_NAME} too?`,
     a: "Yes. The workflow is designed for both students and staff, with an additional admin mode for review and moderation tasks.",
   },
   {
