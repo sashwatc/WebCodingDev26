@@ -3,7 +3,8 @@
  * Prioritizes direct filtering and quick record review.
  */
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { appClient } from "@/api/appClient";
 import { Badge } from "@/components/ui/badge";
@@ -16,7 +17,9 @@ import { CATEGORIES, COLORS, LOCATIONS } from "@/lib/constants";
 import { Grid3X3, List, Package, Search as SearchIcon, X } from "lucide-react";
 
 export default function Search() {
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const queryFromUrl = searchParams.get("q") || "";
+  const [searchQuery, setSearchQuery] = useState(queryFromUrl);
   const [viewMode, setViewMode] = useState("list");
   const [filters, setFilters] = useState({
     category: "all",
@@ -24,6 +27,10 @@ export default function Search() {
     location: "all",
     sort: "newest",
   });
+
+  useEffect(() => {
+    setSearchQuery(queryFromUrl);
+  }, [queryFromUrl]);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["searchRecords"],
@@ -134,6 +141,9 @@ export default function Search() {
 
   const clearFilters = () => {
     setSearchQuery("");
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.delete("q");
+    setSearchParams(nextParams);
     setFilters({
       category: "all",
       color: "all",
@@ -177,7 +187,17 @@ export default function Search() {
               <SearchIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
               <Input
                 value={searchQuery}
-                onChange={(event) => setSearchQuery(event.target.value)}
+                onChange={(event) => {
+                  const nextQuery = event.target.value;
+                  setSearchQuery(nextQuery);
+                  const nextParams = new URLSearchParams(searchParams);
+                  if (nextQuery.trim()) {
+                    nextParams.set("q", nextQuery);
+                  } else {
+                    nextParams.delete("q");
+                  }
+                  setSearchParams(nextParams);
+                }}
                 className="pl-9"
                 placeholder='Try "airpods", "black bottle", or "library"'
                 aria-label="Search found items"

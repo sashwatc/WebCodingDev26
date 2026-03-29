@@ -1,15 +1,16 @@
 /**
  * FindBack AI - Home Page
- * Centers the homepage around one primary action and moves secondary tools lower.
+ * Leads with search, then surfaces the two main reporting actions.
  */
 
-import React from "react";
-import { Link } from "react-router-dom";
+import React, { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { appClient } from "@/api/appClient";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { WebGLShader } from "@/components/ui/web-gl-shader";
 import StatusBadge from "@/components/ui/StatusBadge";
 import { useAuth } from "@/lib/AuthContext";
@@ -26,8 +27,10 @@ import {
 } from "lucide-react";
 
 export default function Home() {
+  const navigate = useNavigate();
   const { user, hasAdminAccess } = useAuth();
   const { isAdminMode, theme } = useMode();
+  const [homeSearchQuery, setHomeSearchQuery] = useState("");
 
   const { data: foundItems = [] } = useQuery({
     queryKey: ["homeFoundItems"],
@@ -58,13 +61,18 @@ export default function Home() {
   const recentApprovedItems = approvedItems.slice(0, 5);
   const recentActivity = auditLogs.slice(0, 4);
   const isAdminWorkspace = hasAdminAccess && isAdminMode;
-  const sampleItem = recentApprovedItems[0] || null;
 
   const publicStats = [
     { label: "Available Items", value: approvedItems.length, helper: "approved public listings", icon: Package },
     { label: "Matched Reports", value: matchedReports.length, helper: "reports with suggested matches", icon: Search },
     { label: "Returned Items", value: returnedItems.length, helper: "completed handoffs", icon: CheckCircle2 },
   ];
+
+  const handleHomeSearch = (event) => {
+    event.preventDefault();
+    const query = homeSearchQuery.trim();
+    navigate(query ? `/Search?q=${encodeURIComponent(query)}` : "/Search");
+  };
 
   const moreTools = [
     user
@@ -108,67 +116,88 @@ export default function Home() {
           </p>
         </section>
 
-        <section className="mb-8 grid gap-4 lg:grid-cols-[minmax(0,1.3fr)_minmax(320px,0.7fr)]">
-          <div className="hero-panel bg-white p-6">
-            <div className="flex flex-col gap-5">
+        <section className="mb-8 space-y-4">
+          <div className="hero-panel bg-white p-5 sm:p-6">
+            <form onSubmit={handleHomeSearch} className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Primary Action</p>
-                <h2 className="section-heading mt-2 text-2xl tracking-tight">
-                  Search approved items before filing a new report.
-                </h2>
-                <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-600">
-                  Use the public inventory first. If the item is already there, the student can move directly into the
-                  claim process instead of creating a duplicate report.
+                <label className="mb-1.5 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+                  Search Inventory
+                </label>
+                <div className="relative">
+                  <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
+                  <Input
+                    value={homeSearchQuery}
+                    onChange={(event) => setHomeSearchQuery(event.target.value)}
+                    className="h-14 rounded-xl border-slate-300 bg-white pl-12 text-base"
+                    placeholder='Try "airpods", "black bottle", or "library"'
+                    aria-label="Search the found item inventory"
+                  />
+                </div>
+                <p className="mt-2 text-sm text-slate-600">
+                  Start with search before filing a new report. If the item is already listed, you can go straight to the claim flow.
                 </p>
               </div>
 
-              <div className="flex flex-wrap gap-2">
-                <Badge variant="outline">{approvedItems.length} approved listings</Badge>
-                <Badge variant="outline">{matchedReports.length} reports already matched</Badge>
-                <Badge variant="outline">{returnedItems.length} returns completed</Badge>
-              </div>
-
-              <div className="flex flex-wrap gap-3">
-                <Link to="/Search">
-                  <Button size="lg" className="gap-2 bg-[hsl(222,65%,18%)] text-white hover:bg-[hsl(222,65%,15%)]">
-                    <Search className="h-4 w-4" />
-                    Search Found Items
-                  </Button>
-                </Link>
-                <Link to={sampleItem ? `/ItemDetails?id=${sampleItem.id}` : "/Search"}>
-                  <Button size="lg" variant="outline">
-                    {sampleItem ? "View a live item" : "Browse current items"}
-                  </Button>
-                </Link>
-              </div>
-            </div>
+              <Button
+                type="submit"
+                size="lg"
+                className="h-14 gap-2 bg-[hsl(222,65%,18%)] px-6 text-white hover:bg-[hsl(222,65%,15%)]"
+              >
+                <Search className="h-4 w-4" />
+                Search Found Items
+              </Button>
+            </form>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1">
+          <div className="grid gap-4 lg:grid-cols-2">
             <Link to="/ReportLost" className="block">
-              <div className="surface-card bg-white p-5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_24px_44px_rgba(15,23,42,0.08)]">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-semibold text-slate-900">Can&apos;t find it?</p>
-                    <p className="mt-1 text-sm text-slate-600">
-                      Submit a lost-item report and check suggested matches.
-                    </p>
+              <div className="surface-card bg-white p-6 sm:p-7 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_24px_44px_rgba(15,23,42,0.08)] min-h-[220px]">
+                <div className="flex h-full flex-col justify-between gap-6">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Lost Item</p>
+                      <h2 className="mt-3 text-2xl font-semibold tracking-tight text-slate-950">Can&apos;t find it?</h2>
+                      <p className="mt-3 max-w-xl text-base leading-7 text-slate-600">
+                        Submit a lost-item report, keep the case active, and review suggested matches as new items come in.
+                      </p>
+                    </div>
+                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-50 text-amber-700">
+                      <AlertTriangle className="h-6 w-6" />
+                    </div>
                   </div>
-                  <AlertTriangle className="h-5 w-5 text-slate-500" />
+
+                  <div className="flex items-center justify-between gap-4">
+                    <span className="text-sm font-medium text-slate-500">Report what was lost and track matches.</span>
+                    <Button variant="outline" size="lg" className="shrink-0">
+                      Report Lost Item
+                    </Button>
+                  </div>
                 </div>
               </div>
             </Link>
 
             <Link to="/ReportFound" className="block">
-              <div className="surface-card bg-white p-5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_24px_44px_rgba(15,23,42,0.08)]">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-semibold text-slate-900">Found something?</p>
-                    <p className="mt-1 text-sm text-slate-600">
-                      Create a moderated record so the owner can search for it.
-                    </p>
+              <div className="surface-card bg-white p-6 sm:p-7 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_24px_44px_rgba(15,23,42,0.08)] min-h-[220px]">
+                <div className="flex h-full flex-col justify-between gap-6">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Found Item</p>
+                      <h2 className="mt-3 text-2xl font-semibold tracking-tight text-slate-950">Found something?</h2>
+                      <p className="mt-3 max-w-xl text-base leading-7 text-slate-600">
+                        Create a moderated item record with photos and details so the owner can recognize it quickly.
+                      </p>
+                    </div>
+                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-sky-50 text-sky-700">
+                      <PlusCircle className="h-6 w-6" />
+                    </div>
                   </div>
-                  <PlusCircle className="h-5 w-5 text-slate-500" />
+
+                  <div className="flex items-center justify-between gap-4">
+                    <span className="text-sm font-medium text-slate-500">Send it into the approval and matching flow.</span>
+                    <Button variant="outline" size="lg" className="shrink-0">
+                      Report Found Item
+                    </Button>
+                  </div>
                 </div>
               </div>
             </Link>

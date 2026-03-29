@@ -43,7 +43,7 @@ import {
   BRAND_NAME,
   SCHOOL_NAME,
 } from "@/lib/constants";
-import schoolMark from "@/assets/pvhs-mark.svg";
+import schoolMark from "@/assets/Spartan_Head.png";
 
 export default function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
