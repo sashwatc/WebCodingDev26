@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const Item = require("../models/Item");
+const itemStore = require("../lib/itemStore");
 
 function parseDate(value) {
   if (!value) {
@@ -99,12 +99,12 @@ async function applyPatchOperations(item, payload = {}) {
       item.ratings.push(nextRating);
     }
 
-    item.markModified("ratings");
+    item.markModified?.("ratings");
   }
 
   if (payload.removeRatingByClaimId) {
     item.ratings = item.ratings.filter((rating) => rating.claimId !== payload.removeRatingByClaimId);
-    item.markModified("ratings");
+    item.markModified?.("ratings");
   }
 }
 
@@ -112,7 +112,7 @@ router.get("/", async (req, res) => {
   console.log("GET /api/items hit");
 
   try {
-    const items = await Item.find().sort({ createdAt: -1 });
+    const items = await itemStore.list();
     res.json(items);
   } catch (error) {
     res.status(500).json({
@@ -126,8 +126,7 @@ router.post("/", async (req, res) => {
   console.log("POST /api/items body:", req.body);
 
   try {
-    const newItem = new Item(normalizeItemPayload(req.body));
-    const savedItem = await newItem.save();
+    const savedItem = await itemStore.create(normalizeItemPayload(req.body));
     res.status(201).json(savedItem);
   } catch (error) {
     const statusCode = error.name === "ValidationError" ? 400 : 500;
@@ -143,7 +142,7 @@ router.patch("/:id", async (req, res) => {
   console.log(`PATCH /api/items/${req.params.id} body:`, req.body);
 
   try {
-    const item = await Item.findById(req.params.id);
+    const item = await itemStore.findById(req.params.id);
 
     if (!item) {
       return res.status(404).json({
@@ -154,7 +153,7 @@ router.patch("/:id", async (req, res) => {
     Object.assign(item, normalizeItemPayload(req.body));
     await applyPatchOperations(item, req.body);
 
-    const updatedItem = await item.save();
+    const updatedItem = await itemStore.save(item);
     res.json(updatedItem);
   } catch (error) {
     const statusCode = error.statusCode || (error.name === "ValidationError" ? 400 : 500);
@@ -170,7 +169,7 @@ router.delete("/:id", async (req, res) => {
   console.log(`DELETE /api/items/${req.params.id} hit`);
 
   try {
-    const deletedItem = await Item.findByIdAndDelete(req.params.id);
+    const deletedItem = await itemStore.remove(req.params.id);
 
     if (!deletedItem) {
       return res.status(404).json({

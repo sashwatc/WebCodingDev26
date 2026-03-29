@@ -6,11 +6,14 @@ const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
 
-const itemRoutes = require("./routes/items");
-
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 5001;
 const mongoUri = process.env.MONGO_URI;
+const usingLocalItemStore = !mongoUri;
+
+process.env.USE_LOCAL_ITEM_STORE = usingLocalItemStore ? "true" : "false";
+
+const itemRoutes = require("./routes/items");
 
 app.use(cors());
 app.use(express.json());
@@ -21,22 +24,24 @@ app.get("/", (req, res) => {
 
 app.use("/api/items", itemRoutes);
 
-if (!mongoUri) {
-  console.error("MONGO_URI is missing in ../.env");
-  process.exit(1);
-}
-
-console.log("MONGO_URI loaded:", Boolean(mongoUri));
-
-mongoose
-  .connect(mongoUri)
-  .then(() => {
-    console.log("MongoDB connected");
-    app.listen(PORT, () => {
-      console.log(`Server running on port ${PORT}`);
-    });
-  })
-  .catch((error) => {
-    console.error("MongoDB connection failed:", error.message);
-    process.exit(1);
+if (usingLocalItemStore) {
+  console.log(`Starting API on port ${PORT} using local item store`);
+  app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
   });
+} else {
+  console.log("MONGO_URI loaded:", true);
+
+  mongoose
+    .connect(mongoUri)
+    .then(() => {
+      console.log("MongoDB connected");
+      app.listen(PORT, () => {
+        console.log(`Server running on port ${PORT}`);
+      });
+    })
+    .catch((error) => {
+      console.error("MongoDB connection failed:", error.message);
+      process.exit(1);
+    });
+}

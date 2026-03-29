@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite build && concurrently -k -n build,serve \"vite build --watch\" \"vite preview --host 0.0.0.0 --port 4173\"",
+    "dev": "vite build && concurrently -k -n api,build,serve \"npm run server\" \"vite build --watch\" \"vite preview --host 0.0.0.0 --port 4173\"",
     "dev:vite": "vite",
     "server": "node server.js",
     "server:dev": "node --watch server.js",

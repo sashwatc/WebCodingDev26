@@ -15,6 +15,7 @@ node_modules
 dist
 dist-ssr
 *.local
+*.local.json
 test-results
 
 # Editor directories and files
