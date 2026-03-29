@@ -4,7 +4,7 @@
  * and description cleanup. Items go into moderation queue by default.
  */
 
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -32,7 +32,7 @@ import {
   LockKeyhole,
 } from "lucide-react";
 
-const createInitialForm = (user) => ({
+const createInitialForm = () => ({
   title: "",
   category: "",
   subcategory: "",
@@ -46,9 +46,9 @@ const createInitialForm = (user) => ({
   condition: "good",
   photo_urls: [],
   distinguishing_features: "",
-  finder_name: user?.full_name || "",
-  finder_email: user?.email || "",
-  finder_role: ["student", "staff", "admin"].includes(user?.role) ? user.role : "student",
+  finder_name: "",
+  finder_email: "",
+  finder_role: "student",
   privacy_consent: false,
   terms_acknowledged: false,
   ai_description: "",
@@ -61,23 +61,12 @@ export default function ReportFound() {
   const { user } = useAuth();
   const [step, setStep] = useState(1);
   const [aiProcessing, setAiProcessing] = useState(false);
-  const [form, setForm] = useState(() => createInitialForm(user));
+  const [form, setForm] = useState(() => createInitialForm());
   const [errors, setErrors] = useState({});
   const [generatedTags, setGeneratedTags] = useState([]);
 
-  useEffect(() => {
-    if (!user) return;
-
-    setForm((prev) => ({
-      ...prev,
-      finder_name: user.full_name || "",
-      finder_email: user.email || "",
-      finder_role: ["student", "staff", "admin"].includes(user.role) ? user.role : "student",
-    }));
-  }, [user]);
-
   const resetForm = () => {
-    setForm(createInitialForm(user));
+    setForm(createInitialForm());
     setGeneratedTags([]);
     setErrors({});
   };
@@ -146,8 +135,12 @@ export default function ReportFound() {
       queryClient.invalidateQueries();
       setStep(2);
     },
-    onError: () => {
-      toast({ title: "Error", description: "Failed to submit. Please try again.", variant: "destructive" });
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to submit. Please try again.",
+        variant: "destructive",
+      });
     },
   });
 
@@ -158,16 +151,7 @@ export default function ReportFound() {
       return;
     }
 
-    const submissionData = user
-      ? {
-          ...form,
-          finder_name: user.full_name || form.finder_name,
-          finder_email: user.email || form.finder_email,
-          finder_role: ["student", "staff", "admin"].includes(user.role) ? user.role : form.finder_role,
-        }
-      : form;
-
-    submitMutation.mutate(submissionData);
+    submitMutation.mutate(form);
   };
 
   if (step === 2) {
@@ -456,55 +440,54 @@ export default function ReportFound() {
             <div className="space-y-2">
               <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-950">
                 <User className="h-5 w-5 text-primary" />
-                {user ? "Confirm submission" : "Your information"}
+                Your information
               </h2>
               <p className="text-sm text-slate-600">
                 Contact details are stored only so staff can verify the record if needed.
               </p>
             </div>
 
-            {user ? (
+            {user && (
               <div className="soft-panel px-4 py-4 text-sm text-slate-700">
-                Reporting as <span className="font-semibold text-slate-900">{user.full_name}</span> ({user.email})
+                Signed in as <span className="font-semibold text-slate-900">{user.full_name}</span>. Contact fields stay
+                blank unless you choose to fill them in.
               </div>
-            ) : (
-              <>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div>
-                    <Label htmlFor="finder_name">Your name *</Label>
-                    <Input
-                      id="finder_name"
-                      value={form.finder_name}
-                      onChange={(event) => updateField("finder_name", event.target.value)}
-                      className={errors.finder_name ? "border-red-400" : ""}
-                    />
-                    {errors.finder_name && <p className="mt-1 text-xs text-red-500">{errors.finder_name}</p>}
-                  </div>
-                  <div>
-                    <Label htmlFor="finder_email">Your email *</Label>
-                    <Input
-                      id="finder_email"
-                      type="email"
-                      value={form.finder_email}
-                      onChange={(event) => updateField("finder_email", event.target.value)}
-                      className={errors.finder_email ? "border-red-400" : ""}
-                    />
-                    {errors.finder_email && <p className="mt-1 text-xs text-red-500">{errors.finder_email}</p>}
-                  </div>
-                </div>
-                <div>
-                  <Label>Your role</Label>
-                  <Select value={form.finder_role} onValueChange={(value) => updateField("finder_role", value)}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="student">Student</SelectItem>
-                      <SelectItem value="staff">Staff</SelectItem>
-                      <SelectItem value="admin">Admin</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </>
             )}
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <Label htmlFor="finder_name">Your name {!user ? "*" : "(optional)"}</Label>
+                <Input
+                  id="finder_name"
+                  value={form.finder_name}
+                  onChange={(event) => updateField("finder_name", event.target.value)}
+                  className={errors.finder_name ? "border-red-400" : ""}
+                />
+                {errors.finder_name && <p className="mt-1 text-xs text-red-500">{errors.finder_name}</p>}
+              </div>
+              <div>
+                <Label htmlFor="finder_email">Your email {!user ? "*" : "(optional)"}</Label>
+                <Input
+                  id="finder_email"
+                  type="email"
+                  value={form.finder_email}
+                  onChange={(event) => updateField("finder_email", event.target.value)}
+                  className={errors.finder_email ? "border-red-400" : ""}
+                />
+                {errors.finder_email && <p className="mt-1 text-xs text-red-500">{errors.finder_email}</p>}
+              </div>
+            </div>
+            <div>
+              <Label>Your role</Label>
+              <Select value={form.finder_role} onValueChange={(value) => updateField("finder_role", value)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="student">Student</SelectItem>
+                  <SelectItem value="staff">Staff</SelectItem>
+                  <SelectItem value="admin">Admin</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
             <div className="space-y-3 rounded-[18px] border border-slate-200 bg-slate-50 px-4 py-4">
               <div className="flex items-start gap-3">

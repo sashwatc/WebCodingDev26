@@ -2,6 +2,7 @@ import { BRAND_NAME, getDemoRoleForEmail } from "@/lib/constants";
 
 const STORAGE_KEY = "findback-app-db";
 const AUTH_STORAGE_KEY = "findback-auth-user";
+const FOUND_ITEMS_API_URL = "http://localhost:5001/api/items";
 const authListeners = new Set();
 
 const CATEGORY_LABELS = {
@@ -850,6 +851,283 @@ function createEntityApi(entityName) {
   };
 }
 
+async function requestFoundItemsApi(path = "", options = {}) {
+  const response = await fetch(`${FOUND_ITEMS_API_URL}${path}`, {
+    headers: {
+      "Content-Type": "application/json",
+      ...(options.headers || {}),
+    },
+    ...options,
+  });
+
+  const responseText = await response.text();
+  let payload = null;
+
+  if (responseText) {
+    try {
+      payload = JSON.parse(responseText);
+    } catch {
+      payload = { message: responseText };
+    }
+  }
+
+  if (!response.ok) {
+    throw new Error(payload?.error || payload?.message || "Failed to fetch items.");
+  }
+
+  return payload;
+}
+
+function normalizeRating(record = {}) {
+  return {
+    claim_id: record.claim_id || record.claimId || "",
+    rating: Number(record.rating || 0),
+    review: record.review || record.claimant_review || "",
+    claimant_name: record.claimant_name || record.claimantName || "",
+    reviewer_email: record.reviewer_email || record.reviewerEmail || "",
+    review_status: record.review_status || record.status || "pending",
+    review_submitted_at: record.review_submitted_at || record.submittedAt || "",
+    review_reviewed_at: record.review_reviewed_at || record.reviewedAt || "",
+  };
+}
+
+function normalizeFoundItem(record = {}) {
+  const imageUrl = record.imageUrl || record.image_url || "";
+  const photoUrls = Array.isArray(record.photo_urls)
+    ? clone(record.photo_urls)
+    : Array.isArray(record.photoUrls)
+      ? clone(record.photoUrls)
+      : imageUrl
+        ? [imageUrl]
+        : [];
+
+  return {
+    ...record,
+    id: record.id || record._id || "",
+    title: record.title || "",
+    description: record.description || "",
+    category: record.category || "",
+    subcategory: record.subcategory || "",
+    color: record.color || "",
+    brand: record.brand || "",
+    location_found: record.location_found || record.locationFound || "",
+    date_found: record.date_found || record.dateFound || "",
+    time_found: record.time_found || record.timeFound || "",
+    photo_urls: photoUrls,
+    imageUrl,
+    photoUrls,
+    status: record.status || "pending_review",
+    record_type: record.record_type || record.item_type || record.itemType || "found",
+    created_date: record.created_date || record.createdAt || "",
+    updated_date: record.updated_date || record.updatedAt || "",
+    ai_description: record.ai_description || record.aiDescription || "",
+    distinguishing_features: record.distinguishing_features || record.distinguishingFeatures || "",
+    tags: Array.isArray(record.tags) ? clone(record.tags) : [],
+    finder_name: record.finder_name || record.finderName || "",
+    finder_email: record.finder_email || record.finderEmail || "",
+    finder_role: record.finder_role || record.finderRole || "",
+    storage_location: record.storage_location || record.storageLocation || "",
+    condition: record.condition || "",
+    priority: record.priority || "",
+    item_code: record.item_code || record.itemCode || "",
+    assigned_to: record.assigned_to || record.assignedTo || "",
+    is_flagged: Boolean(record.is_flagged ?? record.isFlagged),
+    claim_confirmed: Boolean(record.claim_confirmed ?? record.claimConfirmed),
+    claim_confirmed_at: record.claim_confirmed_at || record.claimConfirmedAt || "",
+    ratings: Array.isArray(record.ratings) ? record.ratings.map((rating) => normalizeRating(rating)) : [],
+  };
+}
+
+function hasAnyKey(record, keys) {
+  return keys.some((key) => Object.prototype.hasOwnProperty.call(record, key));
+}
+
+function serializeFoundItem(record = {}, { partial = false } = {}) {
+  const values = {
+    title: record.title,
+    description: record.description,
+    category: record.category,
+    subcategory: record.subcategory,
+    color: record.color,
+    brand: record.brand,
+    locationFound: record.location_found,
+    dateFound: record.date_found,
+    timeFound: record.time_found,
+    imageUrl: Array.isArray(record.photo_urls) ? record.photo_urls[0] || "" : record.imageUrl,
+    photoUrls: Array.isArray(record.photo_urls) ? clone(record.photo_urls) : undefined,
+    storageLocation: record.storage_location,
+    condition: record.condition,
+    distinguishingFeatures: record.distinguishing_features,
+    finderName: record.finder_name,
+    finderEmail: record.finder_email,
+    finderRole: record.finder_role,
+    aiDescription: record.ai_description,
+    tags: Array.isArray(record.tags) ? clone(record.tags) : undefined,
+    status: record.status,
+    itemType: record.record_type || record.item_type,
+    priority: record.priority,
+    itemCode: record.item_code,
+    assignedTo: record.assigned_to,
+    isFlagged: record.is_flagged,
+    claimConfirmed: record.claim_confirmed,
+    claimConfirmedAt: record.claim_confirmed_at,
+    ratings: Array.isArray(record.ratings)
+      ? record.ratings.map((rating) => ({
+          claimId: rating.claim_id || rating.claimId || "",
+          rating: rating.rating,
+          review: rating.review || "",
+          claimantName: rating.claimant_name || rating.claimantName || "",
+          reviewerEmail: rating.reviewer_email || rating.reviewerEmail || "",
+          status: rating.review_status || rating.status || "pending",
+          submittedAt: rating.review_submitted_at || rating.submittedAt || "",
+          reviewedAt: rating.review_reviewed_at || rating.reviewedAt || "",
+        }))
+      : undefined,
+  };
+
+  if (!partial) {
+    return {
+      title: values.title || "",
+      description: values.description || "",
+      category: values.category || "",
+      subcategory: values.subcategory || "",
+      color: values.color || "",
+      brand: values.brand || "",
+      locationFound: values.locationFound || "",
+      dateFound: values.dateFound || "",
+      timeFound: values.timeFound || "",
+      imageUrl: values.imageUrl || "",
+      photoUrls: values.photoUrls || [],
+      storageLocation: values.storageLocation || "",
+      condition: values.condition || "",
+      distinguishingFeatures: values.distinguishingFeatures || "",
+      finderName: values.finderName || "",
+      finderEmail: values.finderEmail || "",
+      finderRole: values.finderRole || "",
+      aiDescription: values.aiDescription || "",
+      tags: values.tags || [],
+      status: values.status || "pending_review",
+      itemType: values.itemType || "found",
+      priority: values.priority || "",
+      itemCode: values.itemCode || "",
+      assignedTo: values.assignedTo || "",
+      isFlagged: Boolean(values.isFlagged),
+      claimConfirmed: Boolean(values.claimConfirmed),
+      claimConfirmedAt: values.claimConfirmedAt || "",
+      ratings: values.ratings || [],
+    };
+  }
+
+  return Object.fromEntries(
+    Object.entries({
+      title: hasAnyKey(record, ["title"]) ? values.title : undefined,
+      description: hasAnyKey(record, ["description"]) ? values.description : undefined,
+      category: hasAnyKey(record, ["category"]) ? values.category : undefined,
+      subcategory: hasAnyKey(record, ["subcategory"]) ? values.subcategory : undefined,
+      color: hasAnyKey(record, ["color"]) ? values.color : undefined,
+      brand: hasAnyKey(record, ["brand"]) ? values.brand : undefined,
+      locationFound: hasAnyKey(record, ["location_found", "locationFound"]) ? values.locationFound : undefined,
+      dateFound: hasAnyKey(record, ["date_found", "dateFound"]) ? values.dateFound : undefined,
+      timeFound: hasAnyKey(record, ["time_found", "timeFound"]) ? values.timeFound : undefined,
+      imageUrl: hasAnyKey(record, ["imageUrl", "image_url", "photo_urls", "photoUrls"]) ? values.imageUrl : undefined,
+      photoUrls: hasAnyKey(record, ["photo_urls", "photoUrls"]) ? values.photoUrls || [] : undefined,
+      storageLocation: hasAnyKey(record, ["storage_location", "storageLocation"]) ? values.storageLocation : undefined,
+      condition: hasAnyKey(record, ["condition"]) ? values.condition : undefined,
+      distinguishingFeatures: hasAnyKey(record, ["distinguishing_features", "distinguishingFeatures"]) ? values.distinguishingFeatures : undefined,
+      finderName: hasAnyKey(record, ["finder_name", "finderName"]) ? values.finderName : undefined,
+      finderEmail: hasAnyKey(record, ["finder_email", "finderEmail"]) ? values.finderEmail : undefined,
+      finderRole: hasAnyKey(record, ["finder_role", "finderRole"]) ? values.finderRole : undefined,
+      aiDescription: hasAnyKey(record, ["ai_description", "aiDescription"]) ? values.aiDescription : undefined,
+      tags: hasAnyKey(record, ["tags"]) ? values.tags || [] : undefined,
+      status: hasAnyKey(record, ["status"]) ? values.status : undefined,
+      itemType: hasAnyKey(record, ["record_type", "item_type", "itemType"]) ? values.itemType : undefined,
+      priority: hasAnyKey(record, ["priority"]) ? values.priority : undefined,
+      itemCode: hasAnyKey(record, ["item_code", "itemCode"]) ? values.itemCode : undefined,
+      assignedTo: hasAnyKey(record, ["assigned_to", "assignedTo"]) ? values.assignedTo : undefined,
+      isFlagged: hasAnyKey(record, ["is_flagged", "isFlagged"]) ? Boolean(values.isFlagged) : undefined,
+      claimConfirmed: hasAnyKey(record, ["claim_confirmed", "claimConfirmed"]) ? Boolean(values.claimConfirmed) : undefined,
+      claimConfirmedAt: hasAnyKey(record, ["claim_confirmed_at", "claimConfirmedAt"]) ? values.claimConfirmedAt : undefined,
+      ratings: hasAnyKey(record, ["ratings"]) ? values.ratings || [] : undefined,
+    }).filter(([, value]) => value !== undefined)
+  );
+}
+
+function createFoundItemApi() {
+  return {
+    async list(sort, limit) {
+      const records = await requestFoundItemsApi();
+      const normalizedRecords = records.map((record) => normalizeFoundItem(record));
+      return clone(limitRecords(sortRecords(normalizedRecords, sort), limit));
+    },
+
+    async filter(filters = {}, sort, limit) {
+      const records = await requestFoundItemsApi();
+      const filteredRecords = records
+        .map((record) => normalizeFoundItem(record))
+        .filter((record) => matchRecord(record, filters));
+
+      return clone(limitRecords(sortRecords(filteredRecords, sort), limit));
+    },
+
+    async create(data) {
+      const createdRecord = await requestFoundItemsApi("", {
+        method: "POST",
+        body: JSON.stringify(serializeFoundItem(data)),
+      });
+
+      return clone(normalizeFoundItem({ ...data, ...createdRecord }));
+    },
+
+    async update(id, updates) {
+      const updatedRecord = await requestFoundItemsApi(`/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(serializeFoundItem(updates, { partial: true })),
+      });
+
+      return clone(normalizeFoundItem(updatedRecord));
+    },
+
+    async delete(id) {
+      const response = await requestFoundItemsApi(`/${id}`, {
+        method: "DELETE",
+      });
+
+      return Boolean(response?.success);
+    },
+
+    async upsertRating(id, rating) {
+      const updatedRecord = await requestFoundItemsApi(`/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          upsertRating: {
+            claimId: rating.claim_id || rating.claimId || "",
+            rating: rating.rating,
+            review: rating.review || "",
+            claimantName: rating.claimant_name || rating.claimantName || "",
+            reviewerEmail: rating.reviewer_email || rating.reviewerEmail || "",
+            status: rating.review_status || rating.status || "pending",
+            submittedAt: rating.review_submitted_at || rating.submittedAt || "",
+            reviewedAt: rating.review_reviewed_at || rating.reviewedAt || "",
+          },
+        }),
+      });
+
+      return clone(normalizeFoundItem(updatedRecord));
+    },
+
+    async removeRating(id, claimId) {
+      const updatedRecord = await requestFoundItemsApi(`/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          removeRatingByClaimId: claimId,
+        }),
+      });
+
+      return clone(normalizeFoundItem(updatedRecord));
+    },
+  };
+}
+
 async function uploadFileLocally({ file }) {
   if (typeof FileReader === "undefined") {
     return { file_url: "" };
@@ -1081,7 +1359,7 @@ function createAppClient() {
       },
     },
     entities: {
-      FoundItem: createEntityApi("FoundItem"),
+      FoundItem: createFoundItemApi(),
       LostReport: createEntityApi("LostReport"),
       Claim: createEntityApi("Claim"),
       Notification: createEntityApi("Notification"),

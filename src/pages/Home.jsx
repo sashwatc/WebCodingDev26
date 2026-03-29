@@ -58,6 +58,7 @@ export default function Home() {
   const recentApprovedItems = approvedItems.slice(0, 5);
   const recentActivity = auditLogs.slice(0, 4);
   const isAdminWorkspace = hasAdminAccess && isAdminMode;
+  const sampleItem = recentApprovedItems[0] || null;
 
   const publicStats = [
     { label: "Available Items", value: approvedItems.length, helper: "approved public listings", icon: Package },
@@ -129,13 +130,15 @@ export default function Home() {
 
               <div className="flex flex-wrap gap-3">
                 <Link to="/Search">
-                  <Button size="lg" className="gap-2">
+                  <Button size="lg" className="gap-2 bg-[hsl(222,65%,18%)] text-white hover:bg-[hsl(222,65%,15%)]">
                     <Search className="h-4 w-4" />
                     Search Found Items
                   </Button>
                 </Link>
-                <Link to="/ItemDetails?id=found_002">
-                  <Button size="lg" variant="outline">View a sample item</Button>
+                <Link to={sampleItem ? `/ItemDetails?id=${sampleItem.id}` : "/Search"}>
+                  <Button size="lg" variant="outline">
+                    {sampleItem ? "View a live item" : "Browse current items"}
+                  </Button>
                 </Link>
               </div>
             </div>
@@ -226,13 +229,13 @@ export default function Home() {
         </div>
 
         <div className="space-y-6">
-          <div className="surface-card">
-            <div className="border-b px-5 py-4">
-              <h2 className="section-heading">More tools</h2>
-              <p className="mt-1 text-sm text-slate-600">
-                Lower-priority actions live here so the homepage can stay focused on search first.
-              </p>
-            </div>
+              <div className="surface-card">
+                <div className="border-b px-5 py-4">
+                  <h2 className="section-heading">Quick actions</h2>
+                  <p className="mt-1 text-sm text-slate-600">
+                    Supporting actions stay here so the homepage remains easy to scan.
+                  </p>
+                </div>
             <div className="divide-y">
               {moreTools.map((tool) => (
                 <Link key={tool.title} to={tool.to} className="block px-5 py-4 hover:bg-slate-50">
@@ -276,7 +279,7 @@ export default function Home() {
               <div className="surface-card">
                 <div className="border-b px-5 py-4">
                   <h2 className="section-heading">Recent admin activity</h2>
-                  <p className="mt-1 text-sm text-slate-600">Latest changes recorded in the local demo workspace.</p>
+                  <p className="mt-1 text-sm text-slate-600">Latest moderation and workflow changes recorded in this workspace.</p>
                 </div>
                 {recentActivity.length > 0 ? (
                   <div className="divide-y">

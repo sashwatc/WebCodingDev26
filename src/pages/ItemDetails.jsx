@@ -24,6 +24,31 @@ import {
   Brain, ChevronLeft, ChevronRight, Star
 } from "lucide-react";
 
+function normalizeLostReport(report = {}) {
+  return {
+    id: report.id || "",
+    title: report.item_type || "Lost item report",
+    description: report.description || "",
+    ai_description: "",
+    category: report.category || "",
+    color: report.color || "",
+    brand: report.brand || "",
+    location_found: report.last_seen_location || "",
+    date_found: report.date_lost || "",
+    time_found: "",
+    photo_urls: report.photo_url ? [report.photo_url] : [],
+    status: report.status || "open",
+    record_type: "lost",
+    tags: [report.color, report.brand].filter(Boolean),
+    created_date: report.created_date || "",
+    updated_date: report.updated_date || "",
+    distinguishing_features: report.extra_notes || "",
+    matching_count: report.matched_items?.length || 0,
+    matched_items: report.matched_items || [],
+    contact_name: report.contact_name || "",
+  };
+}
+
 export default function ItemDetails() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -31,21 +56,35 @@ export default function ItemDetails() {
   const { isAdminMode } = useMode();
   const urlParams = new URLSearchParams(location.search);
   const itemId = urlParams.get("id");
+  const itemTypeParam = urlParams.get("type");
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
 
-  const { data: item, isLoading } = useQuery({
-    queryKey: ["foundItem", itemId],
-    queryFn: () => appClient.entities.FoundItem.filter({ id: itemId }),
+  const { data: item, isLoading, error } = useQuery({
+    queryKey: ["itemDetails", itemTypeParam || "found", itemId],
+    queryFn: async () => {
+      if (itemTypeParam === "lost") {
+        const reports = await appClient.entities.LostReport.filter({ id: itemId });
+        return reports[0] ? normalizeLostReport(reports[0]) : null;
+      }
+
+      const foundItems = await appClient.entities.FoundItem.filter({ id: itemId });
+      if (foundItems[0]) {
+        return foundItems[0];
+      }
+
+      const reports = await appClient.entities.LostReport.filter({ id: itemId });
+      return reports[0] ? normalizeLostReport(reports[0]) : null;
+    },
     enabled: !!itemId,
-    select: (data) => data?.[0],
   });
 
   const isAdmin = hasAdminAccess && isAdminMode;
+  const isLostReport = item?.record_type === "lost";
 
   const { data: itemClaims = [] } = useQuery({
     queryKey: ["itemReviews", itemId],
     queryFn: () => appClient.entities.Claim.filter({ found_item_id: itemId }, "-review_reviewed_at", 20),
-    enabled: !!itemId,
+    enabled: !!itemId && itemTypeParam !== "lost",
   });
 
   // Fetch matching lost reports for this item
@@ -57,7 +96,7 @@ export default function ItemDetails() {
         r.matched_items?.some(m => m.found_item_id === itemId)
       );
     },
-    enabled: !!itemId && isAdmin,
+    enabled: !!itemId && isAdmin && !isLostReport,
   });
 
   if (isLoading) {
@@ -76,6 +115,17 @@ export default function ItemDetails() {
     );
   }
 
+  if (error) {
+    return (
+      <div className="max-w-lg mx-auto px-4 py-20 text-center">
+        <Package className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+        <h2 className="text-xl font-bold text-slate-900 mb-2">Unable to load item</h2>
+        <p className="text-slate-500 mb-4">{error.message}</p>
+        <Button onClick={() => navigate("/Search")}>Back to Search</Button>
+      </div>
+    );
+  }
+
   if (!item) {
     return (
       <div className="max-w-lg mx-auto px-4 py-20 text-center">
@@ -88,10 +138,34 @@ export default function ItemDetails() {
   }
 
   const photos = item.photo_urls || [];
-  const approvedReviews = itemClaims.filter((claim) => claim.review_status === "approved" && claim.claimant_rating);
+  const approvedRatings = (item.ratings || [])
+    .filter((rating) => rating.review_status === "approved" && rating.rating)
+    .map((rating) => ({
+      id: rating.claim_id || `${item.id}-${rating.review_submitted_at || rating.rating}`,
+      claimant_name: rating.claimant_name || "Verified claimant",
+      claimant_rating: rating.rating,
+      claimant_review: rating.review || "",
+    }));
+  const fallbackApprovedReviews = itemClaims
+    .filter((claim) => claim.review_status === "approved" && claim.claimant_rating)
+    .map((claim) => ({
+      id: claim.id,
+      claimant_name: claim.claimant_name,
+      claimant_rating: claim.claimant_rating,
+      claimant_review: claim.claimant_review || "",
+    }));
+  const approvedReviews = approvedRatings.length > 0 ? approvedRatings : fallbackApprovedReviews;
   const averageRating = approvedReviews.length
-    ? (approvedReviews.reduce((sum, claim) => sum + claim.claimant_rating, 0) / approvedReviews.length).toFixed(1)
+    ? (approvedReviews.reduce((sum, review) => sum + review.claimant_rating, 0) / approvedReviews.length).toFixed(1)
     : null;
+  const typeBadgeClasses = isLostReport
+    ? "border-rose-200 bg-rose-100 text-rose-700"
+    : "border-sky-200 bg-sky-100 text-sky-700";
+  const locationLabel = isLostReport ? "Last Seen" : "Found At";
+  const dateLabel = isLostReport ? "Date Lost" : "Date Found";
+  const privacyNote = isLostReport
+    ? "Lost reports stay visible so other users can compare their found item against them."
+    : "Finder contact info and exact storage location are kept private. Submit a claim to verify ownership.";
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-8">
@@ -157,6 +231,9 @@ export default function ItemDetails() {
         <div className="md:col-span-2 space-y-5">
           <div>
             <div className="flex items-center gap-2 mb-2">
+              <Badge variant="secondary" className={typeBadgeClasses}>
+                {isLostReport ? "Lost" : "Found"}
+              </Badge>
               <StatusBadge status={item.status} />
               {item.item_code && (
                 <Badge variant="outline" className="font-mono text-xs">{item.item_code}</Badge>
@@ -180,8 +257,8 @@ export default function ItemDetails() {
           <div className="grid grid-cols-2 gap-3">
             {[
               { icon: Tag, label: "Category", value: getCategoryLabel(item.category) },
-              { icon: MapPin, label: "Found At", value: item.location_found },
-              { icon: Calendar, label: "Date Found", value: item.date_found ? format(new Date(item.date_found), "MMM d, yyyy") : "N/A" },
+              { icon: MapPin, label: locationLabel, value: item.location_found },
+              { icon: Calendar, label: dateLabel, value: item.date_found ? format(new Date(item.date_found), "MMM d, yyyy") : "N/A" },
               { icon: Clock, label: "Time", value: item.time_found || "N/A" },
             ].map(({ icon: Icon, label, value }) => (
               <div key={label} className="bg-slate-50 rounded-lg p-3">
@@ -231,7 +308,7 @@ export default function ItemDetails() {
             </div>
           )}
 
-          {approvedReviews.length > 0 && (
+          {!isLostReport && approvedReviews.length > 0 && (
             <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
               <div className="flex items-center justify-between gap-4">
                 <div>
@@ -278,7 +355,7 @@ export default function ItemDetails() {
           <Separator />
 
           {/* Admin-only: Storage Location */}
-          {isAdmin && item.storage_location && (
+          {isAdmin && !isLostReport && item.storage_location && (
             <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
               <div className="flex items-center gap-1.5 mb-1">
                 <Shield className="w-4 h-4 text-amber-600" />
@@ -289,7 +366,7 @@ export default function ItemDetails() {
           )}
 
           {/* Claim Button */}
-          {item.status === "approved" && (
+          {!isLostReport && item.status === "approved" && (
             <Link to={`/ClaimItem?id=${item.id}`} className="block">
               <Button size="lg" className="w-full bg-[hsl(174,60%,40%)] hover:bg-[hsl(174,60%,35%)] text-white gap-2 shadow-md">
                 <CheckCircle2 className="w-5 h-5" />
@@ -298,11 +375,16 @@ export default function ItemDetails() {
             </Link>
           )}
 
+          {isLostReport && item.matching_count > 0 && (
+            <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800">
+              {item.matching_count} possible match{item.matching_count > 1 ? "es are" : " is"} already attached to this lost report.
+            </div>
+          )}
+
           {/* Privacy Note */}
           <div className="bg-slate-50 rounded-lg p-3 text-xs text-slate-400">
             <Shield className="w-3.5 h-3.5 inline mr-1" />
-            Finder contact info and exact storage location are kept private. 
-            Submit a claim to verify ownership.
+            {privacyNote}
           </div>
 
           {/* Share/Print for demo */}
@@ -318,7 +400,7 @@ export default function ItemDetails() {
       </div>
 
       {/* Admin: Match Panel */}
-      {isAdmin && matchingReports.length > 0 && (
+      {isAdmin && !isLostReport && matchingReports.length > 0 && (
         <Card className="mt-8 border-l-4 border-l-purple-500">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">

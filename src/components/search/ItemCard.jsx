@@ -16,6 +16,12 @@ import { format } from "date-fns";
 
 export default function ItemCard({ item, viewMode = "grid" }) {
   const imageUrl = item.photo_urls?.[0];
+  const isLostReport = item.record_type === "lost";
+  const detailHref = isLostReport ? `/ItemDetails?type=lost&id=${item.id}` : `/ItemDetails?id=${item.id}`;
+  const detailLabel = isLostReport ? "View Report" : "View Item";
+  const typeBadgeClasses = isLostReport
+    ? "border-rose-200 bg-rose-100 text-rose-700"
+    : "border-sky-200 bg-sky-100 text-sky-700";
 
   if (viewMode === "list") {
     return (
@@ -35,6 +41,9 @@ export default function ItemCard({ item, viewMode = "grid" }) {
             <div className="flex-1 min-w-0">
               <div className="mb-2 flex flex-wrap items-center gap-2">
                 <h3 className="font-semibold text-slate-900">{item.title}</h3>
+                <Badge variant="secondary" className={typeBadgeClasses}>
+                  {isLostReport ? "Lost" : "Found"}
+                </Badge>
                 <StatusBadge status={item.status} />
                 <Badge variant="outline" className="text-xs">{getCategoryLabel(item.category)}</Badge>
               </div>
@@ -51,9 +60,9 @@ export default function ItemCard({ item, viewMode = "grid" }) {
               </p>
             </div>
 
-            <Link to={`/ItemDetails?id=${item.id}`} className="sm:self-center">
+            <Link to={detailHref} className="sm:self-center">
               <Button size="sm" variant="outline" className="gap-1">
-                <Eye className="w-3.5 h-3.5" /> View
+                <Eye className="w-3.5 h-3.5" /> {detailLabel}
               </Button>
             </Link>
           </div>
@@ -64,7 +73,7 @@ export default function ItemCard({ item, viewMode = "grid" }) {
 
   // Grid view
   return (
-    <Link to={`/ItemDetails?id=${item.id}`} className="block group">
+    <Link to={detailHref} className="block group">
       <Card className="h-full overflow-hidden border-slate-200 shadow-none">
         <div className="relative aspect-[4/3] overflow-hidden bg-slate-100">
           {imageUrl ? (
@@ -76,6 +85,11 @@ export default function ItemCard({ item, viewMode = "grid" }) {
           )}
           <div className="absolute left-3 top-3">
             <StatusBadge status={item.status} />
+          </div>
+          <div className="absolute left-3 top-12">
+            <Badge variant="secondary" className={typeBadgeClasses}>
+              {isLostReport ? "Lost" : "Found"}
+            </Badge>
           </div>
           {item.color && (
             <div className="absolute right-3 top-3">
@@ -101,7 +115,7 @@ export default function ItemCard({ item, viewMode = "grid" }) {
             <Badge variant="outline" className="text-xs">{getCategoryLabel(item.category)}</Badge>
             <Button size="sm" variant="outline" className="gap-1">
               <Eye className="w-3.5 h-3.5" />
-              View Item
+              {detailLabel}
             </Button>
           </div>
           {/* Tags */}

@@ -72,6 +72,13 @@ export default function AdminItemsQueue({ items, filterStatus = "all" }) {
       queryClient.invalidateQueries({ queryKey: ["adminFoundItems"] });
       toast({ title: "Updated", description: "Item updated successfully." });
     },
+    onError: (error) => {
+      toast({
+        title: "Update failed",
+        description: error.message || "The item could not be updated.",
+        variant: "destructive",
+      });
+    },
   });
 
   const deleteMutation = useMutation({
@@ -88,6 +95,13 @@ export default function AdminItemsQueue({ items, filterStatus = "all" }) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["adminFoundItems"] });
       toast({ title: "Deleted", description: "Item removed." });
+    },
+    onError: (error) => {
+      toast({
+        title: "Delete failed",
+        description: error.message || "The item could not be removed.",
+        variant: "destructive",
+      });
     },
   });
 

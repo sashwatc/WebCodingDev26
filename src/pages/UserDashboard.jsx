@@ -58,11 +58,17 @@ export default function UserDashboard() {
 
   const confirmReceivedMutation = useMutation({
     mutationFn: async (claim) => {
+      const confirmedAt = new Date().toISOString();
+
       await appClient.entities.Claim.update(claim.id, {
         status: "completed",
-        received_confirmed_at: new Date().toISOString(),
+        received_confirmed_at: confirmedAt,
       });
-      await appClient.entities.FoundItem.update(claim.found_item_id, { status: "returned" });
+      await appClient.entities.FoundItem.update(claim.found_item_id, {
+        status: "returned",
+        claim_confirmed: true,
+        claim_confirmed_at: confirmedAt,
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries();
@@ -71,15 +77,35 @@ export default function UserDashboard() {
         description: "The claim has been marked complete and the item is now recorded as returned.",
       });
     },
+    onError: (error) => {
+      toast({
+        title: "Unable to confirm return",
+        description: error.message || "Please try again.",
+        variant: "destructive",
+      });
+    },
   });
 
   const submitReviewMutation = useMutation({
-    mutationFn: async ({ claimId, rating, review }) => {
-      await appClient.entities.Claim.update(claimId, {
+    mutationFn: async ({ claim, rating, review }) => {
+      const submittedAt = new Date().toISOString();
+
+      await appClient.entities.Claim.update(claim.id, {
         claimant_rating: rating,
         claimant_review: review.trim(),
         review_status: "pending",
-        review_submitted_at: new Date().toISOString(),
+        review_submitted_at: submittedAt,
+        review_reviewed_at: "",
+      });
+
+      await appClient.entities.FoundItem.upsertRating(claim.found_item_id, {
+        claim_id: claim.id,
+        rating,
+        review: review.trim(),
+        claimant_name: claim.claimant_name,
+        reviewer_email: claim.claimant_email,
+        review_status: "pending",
+        review_submitted_at: submittedAt,
         review_reviewed_at: "",
       });
     },
@@ -88,6 +114,13 @@ export default function UserDashboard() {
       toast({
         title: "Rating submitted",
         description: "Your rating is now waiting for admin approval.",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Unable to submit rating",
+        description: error.message || "Please try again.",
+        variant: "destructive",
       });
     },
   });
@@ -356,7 +389,7 @@ export default function UserDashboard() {
                                 }
                                 onClick={() =>
                                   submitReviewMutation.mutate({
-                                    claimId: claim.id,
+                                    claim,
                                     rating: reviewDrafts[claim.id]?.rating ?? claim.claimant_rating ?? 0,
                                     review: reviewDrafts[claim.id]?.review ?? claim.claimant_review ?? "",
                                   })

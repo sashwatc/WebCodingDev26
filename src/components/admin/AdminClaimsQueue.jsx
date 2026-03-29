@@ -64,12 +64,29 @@ export default function AdminClaimsQueue({ claims }) {
   const updateMutation = useMutation({
     mutationFn: async ({ claim, data, action, notifyUser = null }) => {
       await appClient.entities.Claim.update(claim.id, data);
+      const nextClaim = { ...claim, ...data };
 
       if (data.status) {
         const relatedItemStatus = getRelatedItemStatus(data.status);
         if (relatedItemStatus) {
           await appClient.entities.FoundItem.update(claim.found_item_id, { status: relatedItemStatus });
         }
+      }
+
+      if (
+        nextClaim.claimant_rating &&
+        (data.review_status || data.claimant_rating || data.claimant_review || data.review_reviewed_at)
+      ) {
+        await appClient.entities.FoundItem.upsertRating(claim.found_item_id, {
+          claim_id: claim.id,
+          rating: nextClaim.claimant_rating,
+          review: nextClaim.claimant_review || "",
+          claimant_name: nextClaim.claimant_name || "",
+          reviewer_email: nextClaim.claimant_email || "",
+          review_status: nextClaim.review_status || "pending",
+          review_submitted_at: nextClaim.review_submitted_at || "",
+          review_reviewed_at: nextClaim.review_reviewed_at || "",
+        });
       }
 
       if (notifyUser) {
@@ -99,6 +116,13 @@ export default function AdminClaimsQueue({ claims }) {
       setDetailDialog(null);
       queryClient.invalidateQueries();
       toast({ title: "Claim updated" });
+    },
+    onError: (error) => {
+      toast({
+        title: "Claim update failed",
+        description: error.message || "The claim could not be updated.",
+        variant: "destructive",
+      });
     },
   });
 

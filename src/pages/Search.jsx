@@ -25,18 +25,61 @@ export default function Search() {
     sort: "newest",
   });
 
-  const { data: allItems = [], isLoading } = useQuery({
-    queryKey: ["searchFoundItems"],
-    queryFn: () => appClient.entities.FoundItem.list("-created_date", 200),
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["searchRecords"],
+    queryFn: async () => {
+      const [foundItems, lostReports] = await Promise.all([
+        appClient.entities.FoundItem.list("-created_date", 200),
+        appClient.entities.LostReport.list("-created_date", 200),
+      ]);
+
+      return { foundItems, lostReports };
+    },
   });
 
-  const approvedItems = useMemo(
-    () => allItems.filter((item) => item.status === "approved"),
-    [allItems]
+  const foundItems = data?.foundItems || [];
+  const lostReports = data?.lostReports || [];
+
+  const publicFoundItems = useMemo(
+    () =>
+      foundItems.filter(
+        (item) => item.record_type !== "lost" && item.status === "approved" && !["claimed", "returned", "archived"].includes(item.status)
+      ),
+    [foundItems]
+  );
+
+  const publicLostReports = useMemo(
+    () =>
+      lostReports
+        .filter((report) => !["resolved", "closed"].includes(report.status))
+        .map((report) => ({
+          id: report.id,
+          title: report.item_type || "Lost item report",
+          description: report.description || "",
+          ai_description: "",
+          category: report.category || "",
+          color: report.color || "",
+          brand: report.brand || "",
+          location_found: report.last_seen_location || "",
+          date_found: report.date_lost || "",
+          photo_urls: report.photo_url ? [report.photo_url] : [],
+          status: report.status || "open",
+          record_type: "lost",
+          tags: [report.color, report.brand].filter(Boolean),
+          created_date: report.created_date || "",
+          updated_date: report.updated_date || "",
+          matching_count: report.matched_items?.length || 0,
+        })),
+    [lostReports]
+  );
+
+  const searchableRecords = useMemo(
+    () => [...publicFoundItems, ...publicLostReports],
+    [publicFoundItems, publicLostReports]
   );
 
   const filteredItems = useMemo(() => {
-    let items = [...approvedItems];
+    let items = [...searchableRecords];
 
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
@@ -50,6 +93,7 @@ export default function Search() {
           item.location_found,
           item.subcategory,
           item.distinguishing_features,
+          item.record_type,
           ...(item.tags || []),
         ]
           .filter(Boolean)
@@ -79,7 +123,7 @@ export default function Search() {
     });
 
     return items;
-  }, [approvedItems, filters, searchQuery]);
+  }, [filters, searchQuery, searchableRecords]);
 
   const activeFilterBadges = [
     filters.category !== "all" ? CATEGORIES.find((category) => category.value === filters.category)?.label : null,
@@ -100,14 +144,26 @@ export default function Search() {
 
   const hasActiveFilters = activeFilterBadges.length > 0;
 
+  if (error) {
+    return (
+      <div className="page-shell py-10">
+        <div className="surface-card p-6 text-center">
+          <Package className="mx-auto mb-4 h-10 w-10 text-slate-300" />
+          <h2 className="text-lg font-semibold text-slate-950">Unable to load search results.</h2>
+          <p className="mt-2 text-sm text-slate-600">{error.message}</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="page-shell py-10">
       <div className="page-header">
         <span className="page-kicker">Search</span>
-        <h1 className="page-title">Search approved found-item records.</h1>
+        <h1 className="page-title">Search found items and active lost reports.</h1>
         <p className="page-subtitle">
-          Search matches titles, descriptions, tags, brand, color, and found location. Only approved items appear in
-          this public view.
+          Search matches titles, descriptions, tags, brand, color, and location. Claimed or returned found items stay
+          out of the public results, while unresolved lost reports remain visible.
         </p>
       </div>
 
@@ -204,7 +260,8 @@ export default function Search() {
 
         <div className="mt-4 flex flex-col gap-3 border-t pt-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-wrap items-center gap-2">
-            <Badge variant="outline">{approvedItems.length} approved items</Badge>
+            <Badge variant="outline">{publicFoundItems.length} available found items</Badge>
+            <Badge variant="outline">{publicLostReports.length} active lost reports</Badge>
             {hasActiveFilters &&
               activeFilterBadges.map((badge) => (
                 <Badge key={badge} variant="secondary">
