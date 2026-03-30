@@ -11,7 +11,6 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -19,6 +18,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { appClient } from "@/api/appClient";
 import { CATEGORIES, LOCATIONS, COLORS, URGENCY_LEVELS } from "@/lib/constants";
 import { findMatches } from "@/lib/ai-services";
+import { ConsentCheckboxField } from "@/components/shared/ConsentCheckboxField";
 import PhotoUploader from "@/components/shared/PhotoUploader";
 import {
   AlertTriangle,
@@ -333,19 +333,14 @@ export default function ReportLost() {
                 <Input id="student_id" placeholder="Optional — helps verify identity" value={form.student_id} onChange={(event) => updateField("student_id", event.target.value)} />
               </div>
 
-              <div className="rounded-[18px] border border-amber-200 bg-amber-50 px-4 py-4">
-                <div className="flex items-start gap-3">
-                  <Checkbox
-                    id="confirm_accuracy"
-                    checked={form.confirm_accuracy}
-                    onCheckedChange={(value) => updateField("confirm_accuracy", value)}
-                  />
-                  <label htmlFor="confirm_accuracy" className="text-sm leading-6 text-amber-900">
-                    I confirm this lost-item report is accurate to the best of my knowledge. *
-                  </label>
-                </div>
-                {errors.confirm_accuracy && <p className="mt-2 text-xs text-red-500">{errors.confirm_accuracy}</p>}
-              </div>
+              <ConsentCheckboxField
+                id="confirm_accuracy"
+                checked={form.confirm_accuracy}
+                onCheckedChange={(value) => updateField("confirm_accuracy", value)}
+                error={errors.confirm_accuracy}
+                tone="amber">
+                I confirm this lost-item report is accurate to the best of my knowledge. *
+              </ConsentCheckboxField>
             </CardContent>
           </Card>
 

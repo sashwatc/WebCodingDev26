@@ -106,8 +106,8 @@ export default function Home() {
         <WebGLShader variant="blue-flow" theme={theme} className={theme === "dark" ? "opacity-60" : "opacity-100"} />
       </div>
 
-      <div className="page-shell relative z-10 py-10">
-        <section className="page-header">
+      <div className="page-shell relative z-10 pb-10 pt-7">
+        <section className="page-header mb-5">
           <span className="page-kicker">PVHS Lost-and-Found System</span>
           <h1 className="page-title">Search approved items before filing a new report.</h1>
           <p className="page-subtitle">
@@ -118,11 +118,12 @@ export default function Home() {
 
         <section className="mb-8 space-y-4">
           <div className="hero-panel bg-white p-5 sm:p-6">
-            <form onSubmit={handleHomeSearch} className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
-              <div>
-                <label className="mb-1.5 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
-                  Search Inventory
-                </label>
+            <form onSubmit={handleHomeSearch} className="space-y-3">
+              <label className="block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+                Search Inventory
+              </label>
+
+              <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
                 <div className="relative">
                   <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
                   <Input
@@ -133,19 +134,20 @@ export default function Home() {
                     aria-label="Search the found item inventory"
                   />
                 </div>
-                <p className="mt-2 text-sm text-slate-600">
-                  Start with search before filing a new report. If the item is already listed, you can go straight to the claim flow.
-                </p>
+
+                <Button
+                  type="submit"
+                  size="lg"
+                  className="h-14 gap-2 bg-[hsl(222,65%,18%)] px-6 text-white hover:bg-[hsl(222,65%,15%)]"
+                >
+                  <Search className="h-4 w-4" />
+                  Search Found Items
+                </Button>
               </div>
 
-              <Button
-                type="submit"
-                size="lg"
-                className="h-14 gap-2 bg-[hsl(222,65%,18%)] px-6 text-white hover:bg-[hsl(222,65%,15%)]"
-              >
-                <Search className="h-4 w-4" />
-                Search Found Items
-              </Button>
+              <p className="text-sm text-slate-600">
+                Start with search before filing a new report. If the item is already listed, you can go straight to the claim flow.
+              </p>
             </form>
           </div>
 

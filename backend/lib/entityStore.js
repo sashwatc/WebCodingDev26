@@ -1,5 +1,7 @@
 const fs = require("fs");
 const path = require("path");
+const createSupabaseStore = require("./supabaseStore");
+const { isLocalMode, isSupabaseMode } = require("./dataBackend");
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
@@ -7,10 +9,6 @@ function clone(value) {
 
 function createId(prefix) {
   return `${prefix}_${Math.random().toString(36).slice(2, 10)}`;
-}
-
-function isLocalMode() {
-  return process.env.USE_LOCAL_ITEM_STORE === "true";
 }
 
 function matchRecord(record, filters = {}) {
@@ -30,6 +28,11 @@ function matchRecord(record, filters = {}) {
 
 function createEntityStore({ entityName, seedRecords = [], modelPath, idPrefix }) {
   const dataFile = path.resolve(__dirname, `../data/${entityName}.local.json`);
+  const supabaseStore = createSupabaseStore({
+    tableName: `${entityName.replace(/([a-z0-9])([A-Z])/g, "$1_$2").toLowerCase()}s`,
+    seedRecords,
+    idPrefix,
+  });
 
   function ensureLocalDataFile() {
     const dataDir = path.dirname(dataFile);
@@ -70,6 +73,11 @@ function createEntityStore({ entityName, seedRecords = [], modelPath, idPrefix }
         return;
       }
 
+      if (isSupabaseMode()) {
+        await supabaseStore.ensureSeedData();
+        return;
+      }
+
       const Model = await getMongoModel();
       const count = await Model.countDocuments();
 
@@ -83,6 +91,10 @@ function createEntityStore({ entityName, seedRecords = [], modelPath, idPrefix }
         return clone(readLocalRecords());
       }
 
+      if (isSupabaseMode()) {
+        return supabaseStore.list();
+      }
+
       const Model = await getMongoModel();
       return Model.find().lean();
     },
@@ -93,6 +105,10 @@ function createEntityStore({ entityName, seedRecords = [], modelPath, idPrefix }
         return record ? clone(record) : null;
       }
 
+      if (isSupabaseMode()) {
+        return supabaseStore.findById(id);
+      }
+
       const Model = await getMongoModel();
       return Model.findOne({ id }).lean();
     },
@@ -101,6 +117,10 @@ function createEntityStore({ entityName, seedRecords = [], modelPath, idPrefix }
       if (isLocalMode()) {
         const record = readLocalRecords().find((entry) => matchRecord(entry, filters));
         return record ? clone(record) : null;
+      }
+
+      if (isSupabaseMode()) {
+        return supabaseStore.findOne(filters);
       }
 
       const Model = await getMongoModel();
@@ -121,6 +141,10 @@ function createEntityStore({ entityName, seedRecords = [], modelPath, idPrefix }
         records.unshift(record);
         writeLocalRecords(records);
         return clone(record);
+      }
+
+      if (isSupabaseMode()) {
+        return supabaseStore.create(record);
       }
 
       const Model = await getMongoModel();
@@ -149,6 +173,10 @@ function createEntityStore({ entityName, seedRecords = [], modelPath, idPrefix }
         records[index] = nextRecord;
         writeLocalRecords(records);
         return clone(nextRecord);
+      }
+
+      if (isSupabaseMode()) {
+        return supabaseStore.save(record);
       }
 
       const Model = await getMongoModel();
@@ -182,6 +210,10 @@ function createEntityStore({ entityName, seedRecords = [], modelPath, idPrefix }
         return clone(deleted);
       }
 
+      if (isSupabaseMode()) {
+        return supabaseStore.remove(id);
+      }
+
       const Model = await getMongoModel();
       return Model.findOneAndDelete({ id }).lean();
     },
@@ -212,6 +244,10 @@ function createEntityStore({ entityName, seedRecords = [], modelPath, idPrefix }
         records.unshift(createdRecord);
         writeLocalRecords(records);
         return clone(createdRecord);
+      }
+
+      if (isSupabaseMode()) {
+        return supabaseStore.upsert(match, data);
       }
 
       const Model = await getMongoModel();

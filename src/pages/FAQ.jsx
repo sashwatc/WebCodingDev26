@@ -35,11 +35,11 @@ const faqs = [
   },
   {
     q: "Is this build connected to a live backend?",
-    a: "No. This judging build is intentionally self-contained. Records and sign-in state are stored in the current browser so the full experience can run locally without external services.",
+    a: "It can be. The app supports a hosted Supabase backend for shared data and uploads, and it also keeps a local fallback mode for offline judging or development.",
   },
   {
     q: "Is my information private?",
-    a: "The app is designed to collect only what is needed for a lost-and-found workflow. In this standalone build, submitted data stays on the current device rather than syncing to a hosted server.",
+    a: "The app is designed to collect only what is needed for a lost-and-found workflow. In hosted mode, records are stored through the configured backend. In offline judging mode, data can stay in the local fallback store instead.",
   },
   {
     q: `Can staff members use ${BRAND_NAME} too?`,

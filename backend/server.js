@@ -7,12 +7,14 @@ const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
 const { ensureSeedData } = require("./lib/stores");
+const { getDataBackendMode, isMongoMode, isSupabaseMode } = require("./lib/dataBackend");
+const { ensureSupabaseStorageBucket } = require("./lib/supabase");
 
 const app = express();
 const PORT = process.env.PORT || 5001;
 const mongoUri = process.env.MONGO_URI;
 const frontendUrl = String(process.env.FRONTEND_URL || "").replace(/\/$/, "");
-const usingLocalItemStore = !mongoUri;
+const dataBackendMode = getDataBackendMode();
 const ROOT_DIR = path.resolve(__dirname, "..");
 const DIST_DIR = path.join(ROOT_DIR, "dist");
 const INDEX_FILE = path.join(DIST_DIR, "index.html");
@@ -24,11 +26,10 @@ const LOCAL_DEV_ORIGINS = new Set([
   "http://127.0.0.1:4173",
 ]);
 
-process.env.USE_LOCAL_ITEM_STORE = usingLocalItemStore ? "true" : "false";
-
 const itemRoutes = require("./routes/items");
 const entityRoutes = require("./routes/entities");
 const authRoutes = require("./routes/auth");
+const uploadRoutes = require("./routes/uploads");
 
 app.use(
   cors({
@@ -53,18 +54,19 @@ app.use(
     },
   })
 );
-app.use(express.json());
+app.use(express.json({ limit: "20mb" }));
 
 app.get("/api/health", (req, res) => {
   res.json({
     ok: true,
-    itemStore: usingLocalItemStore ? "local" : "mongo",
+    dataBackend: dataBackendMode,
   });
 });
 
 app.use("/api/items", itemRoutes);
 app.use("/api/entities", entityRoutes);
 app.use("/api/auth", authRoutes);
+app.use("/api/uploads", uploadRoutes);
 
 if (hasBuiltClient) {
   app.use(express.static(DIST_DIR));
@@ -84,12 +86,15 @@ if (hasBuiltClient) {
 
 async function startServer() {
   try {
-    if (usingLocalItemStore) {
-      console.log(`Starting API on port ${PORT} using local data store`);
-    } else {
+    if (isMongoMode()) {
       console.log("MONGO_URI loaded:", true);
       await mongoose.connect(mongoUri);
       console.log("MongoDB connected");
+    } else if (isSupabaseMode()) {
+      console.log("Supabase mode enabled");
+      await ensureSupabaseStorageBucket();
+    } else {
+      console.log(`Starting API on port ${PORT} using local data store`);
     }
 
     await ensureSeedData();
@@ -102,7 +107,12 @@ async function startServer() {
       console.log(`Server running on port ${PORT}`);
     });
   } catch (error) {
-    console.error(usingLocalItemStore ? "Startup failed:" : "MongoDB connection failed:", error.message);
+    const errorLabel = isMongoMode()
+      ? "MongoDB connection failed:"
+      : isSupabaseMode()
+        ? "Supabase startup failed:"
+        : "Startup failed:";
+    console.error(errorLabel, error.message);
     process.exit(1);
   }
 }

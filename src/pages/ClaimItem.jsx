@@ -10,12 +10,12 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { appClient } from "@/api/appClient";
 import { scoreClaimRisk } from "@/lib/ai-services";
+import { ConsentCheckboxField } from "@/components/shared/ConsentCheckboxField";
 import PhotoUploader from "@/components/shared/PhotoUploader";
 import StatusBadge from "@/components/ui/StatusBadge";
 import { useAuth } from "@/lib/AuthContext";
@@ -338,19 +338,15 @@ export default function ClaimItem() {
           </section>
 
           <section className="space-y-5">
-            <div className="rounded-[18px] border border-amber-200 bg-amber-50 px-4 py-4">
-              <div className="flex items-start gap-3">
-                <Checkbox
-                  id="truthful"
-                  checked={form.truthful}
-                  onCheckedChange={(value) => updateField("truthful", value)}
-                />
-                <label htmlFor="truthful" className="text-sm leading-6 text-amber-900">
-                  I confirm that the information provided is truthful and accurate. I understand that false claims may lead to disciplinary action. *
-                </label>
-              </div>
-            </div>
-            {errors.truthful && <p className="text-xs text-red-500">{errors.truthful}</p>}
+            <ConsentCheckboxField
+              id="truthful"
+              checked={form.truthful}
+              onCheckedChange={(value) => updateField("truthful", value)}
+              error={errors.truthful}
+              tone="amber">
+              I confirm that the information provided is truthful and accurate. I understand that false claims may
+              lead to disciplinary action. *
+            </ConsentCheckboxField>
 
             <Button type="submit" size="lg" disabled={submitMutation.isPending} className="w-full gap-2">
               {submitMutation.isPending ? <Loader2 className="h-5 w-5 animate-spin" /> : <Shield className="h-5 w-5" />}

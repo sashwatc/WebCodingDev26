@@ -34,12 +34,12 @@ const highlights = [
   {
     icon: Shield,
     title: "Privacy-aware design",
-    description: "Sensitive storage information is restricted to authenticated admin views, and the privacy copy reflects the current standalone browser-based build.",
+    description: "Sensitive storage information is restricted to authenticated admin views, and the data model is designed for school workflow auditing and recovery review.",
   },
   {
     icon: MonitorSmartphone,
-    title: "Portable judging build",
-    description: "The current version runs without external services so judges can open it locally and experience the full workflow on any device size.",
+    title: "Hosted or portable deployment",
+    description: "The app can run with a hosted Supabase backend for shared data or fall back to local seeded records for offline judging demos.",
   },
 ];
 
@@ -48,7 +48,7 @@ const technicalNotes = [
   "TanStack Query for cached entity reads, invalidation, and async UI refresh",
   "Radix-based UI primitives for accessible dialogs, menus, tabs, and drawers",
   "Framer Motion with reduced-motion support for intentional but restrained animation",
-  "Browser localStorage for a self-contained demo data layer and local sign-in state",
+  "Express API routes backed by Supabase tables and storage, with local fallback for offline judging",
 ];
 
 export default function About() {
@@ -86,7 +86,7 @@ export default function About() {
             </div>
             <p className="text-sm text-slate-600 leading-relaxed">
               The project emphasizes original workflows and application logic rather than relying on a premade site template.
-              The judging build keeps persistence local so the full experience is runnable without provisioning a backend.
+              The hosted path uses Supabase for shared persistence, while the judging fallback still works locally without extra infrastructure.
             </p>
             <div className="space-y-3">
               {technicalNotes.map((note) => (

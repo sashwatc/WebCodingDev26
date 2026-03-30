@@ -10,7 +10,6 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/use-toast";
@@ -18,6 +17,7 @@ import { appClient } from "@/api/appClient";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { CATEGORIES, LOCATIONS, COLORS, CONDITIONS, generateItemCode } from "@/lib/constants";
 import { generateTags, cleanupDescription } from "@/lib/ai-services";
+import { ConsentCheckboxField } from "@/components/shared/ConsentCheckboxField";
 import PhotoUploader from "@/components/shared/PhotoUploader";
 import { useAuth } from "@/lib/AuthContext";
 import {
@@ -490,29 +490,22 @@ export default function ReportFound() {
             </div>
 
             <div className="space-y-3 rounded-[18px] border border-slate-200 bg-slate-50 px-4 py-4">
-              <div className="flex items-start gap-3">
-                <Checkbox
-                  id="privacy"
-                  checked={form.privacy_consent}
-                  onCheckedChange={(value) => updateField("privacy_consent", value)}
-                />
-                <label htmlFor="privacy" className="text-sm leading-6 text-slate-700">
-                  I consent to my contact information being stored in this demo build and used only for reuniting the item with its owner. *
-                </label>
-              </div>
-              {errors.privacy_consent && <p className="text-xs text-red-500">{errors.privacy_consent}</p>}
+              <ConsentCheckboxField
+                id="privacy"
+                checked={form.privacy_consent}
+                onCheckedChange={(value) => updateField("privacy_consent", value)}
+                error={errors.privacy_consent}>
+                I consent to my contact information being stored in this demo build and used only for reuniting the
+                item with its owner. *
+              </ConsentCheckboxField>
 
-              <div className="flex items-start gap-3">
-                <Checkbox
-                  id="terms"
-                  checked={form.terms_acknowledged}
-                  onCheckedChange={(value) => updateField("terms_acknowledged", value)}
-                />
-                <label htmlFor="terms" className="text-sm leading-6 text-slate-700">
-                  I confirm that this record is accurate to the best of my knowledge. *
-                </label>
-              </div>
-              {errors.terms_acknowledged && <p className="text-xs text-red-500">{errors.terms_acknowledged}</p>}
+              <ConsentCheckboxField
+                id="terms"
+                checked={form.terms_acknowledged}
+                onCheckedChange={(value) => updateField("terms_acknowledged", value)}
+                error={errors.terms_acknowledged}>
+                I confirm that this record is accurate to the best of my knowledge. *
+              </ConsentCheckboxField>
             </div>
 
             <Button type="submit" size="lg" disabled={isSubmitting} className="w-full gap-2">

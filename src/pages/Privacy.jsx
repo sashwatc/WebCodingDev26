@@ -16,7 +16,7 @@ const sections = [
   },
   {
     title: "2. Where Data Is Stored",
-    body: "This standalone judging build stores records in the current browser using local storage. Data is not synced to a remote school server, and it is not shared across devices.",
+    body: "In hosted deployments, records and uploaded photos are stored through the app backend in Supabase. In offline judging mode, the app can fall back to local seeded records for demonstration.",
   },
   {
     title: "3. How Information Is Used",
@@ -28,7 +28,7 @@ const sections = [
   },
   {
     title: "5. Data Retention in Demo Mode",
-    body: "Because data is stored locally, clearing browser storage or switching devices can remove access to the saved records on that device. This behavior is intentional for a portable judging build.",
+    body: "Hosted deployments keep data in the configured backend. Offline judging mode may rely on local fallback files, which can be reset independently from a hosted deployment.",
   },
   {
     title: "6. Contact and References",

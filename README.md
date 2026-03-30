@@ -6,7 +6,7 @@ Lost Then Found is a React-based PVHS lost-and-found website built for the FBLA 
 
 - Custom school lost-and-found workflow with pages for home, search, report found, report lost, item details, claiming, user dashboard, admin dashboard, FAQ, privacy, accessibility, sources, and project documentation
 - Responsive layouts designed for phones, tablets, and desktops
-- Local sign-in and local data persistence so the judging build runs without external services
+- Supabase-ready backend routing for all entities, uploads, and sign-in records, with local fallback for offline judging
 - Intelligent matching helpers for lost reports, suggested tags, and claim risk scoring
 - Accessibility improvements including a skip link, route announcements, keyboard-friendly components, reduced-motion support, and visible focus treatment
 
@@ -65,14 +65,25 @@ npm start
 This serves both:
 
 - the built frontend
-- the `/api/items` backend routes
+- the `/api/*` backend routes
 
 from the same deployment and same origin, which means the website can load backend items without extra proxy setup.
 
 ### Data Storage
 
-- If `MONGO_URI` is set, found items are stored in MongoDB.
-- If `MONGO_URI` is not set, the backend automatically uses a local seeded item store so the deployed site still works out of the box.
+- If `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are set, the full app data layer uses Supabase.
+- If Supabase is not configured but `MONGO_URI` is set, found items and entities fall back to MongoDB-backed collections.
+- If neither hosted backend is configured, the app uses local seeded JSON files so the judging build still works offline.
+
+### Supabase Setup
+
+1. Create a Supabase project.
+2. Run [schema.sql](/Users/arjuntambe/WebCodingDev26/supabase/schema.sql) in the Supabase SQL editor.
+3. Add the variables from [.env.example](/Users/arjuntambe/WebCodingDev26/.env.example) to your deployment:
+   `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and optionally `SUPABASE_STORAGE_BUCKET`.
+4. Start the app with `npm start` or `npm run dev`.
+
+The server automatically creates the configured storage bucket if it does not already exist and uploads item photos there.
 
 ### Split Frontend / Backend Deployments
 
@@ -86,10 +97,9 @@ VITE_API_URL=https://your-api.example.com npm run build
 
 ## Judging Build Notes
 
-- This version is intentionally standalone.
-- Records and sign-in state are stored in the current browser using local storage.
+- The app can run against Supabase for hosted deployments or local seeded files for offline judging.
 - The application logic, page flows, seeded records, and content are customized for this project rather than assembled from a generic website template.
-- Admin views require sign-in plus the admin unlock password in this judging build.
+- Admin views require sign-in plus the admin unlock password in this build.
 
 ## Accessibility
 

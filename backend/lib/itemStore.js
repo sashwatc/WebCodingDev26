@@ -1,6 +1,8 @@
 const fs = require("fs");
 const path = require("path");
 const mongoose = require("mongoose");
+const createSupabaseStore = require("./supabaseStore");
+const { isLocalMode, isSupabaseMode } = require("./dataBackend");
 
 const seedItems = require("../data/seedItems");
 
@@ -9,10 +11,6 @@ const DATA_FILE = path.join(DATA_DIR, "items.local.json");
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
-}
-
-function isLocalMode() {
-  return process.env.USE_LOCAL_ITEM_STORE === "true";
 }
 
 function ensureLocalDataFile() {
@@ -46,6 +44,17 @@ async function getMongoModel() {
   return require("../models/Item");
 }
 
+const supabaseStore = createSupabaseStore({
+  tableName: "found_items",
+  seedRecords: seedItems,
+  idPrefix: "found",
+  defaults: {
+    imageUrl: "",
+    photoUrls: [],
+    ratings: [],
+  },
+});
+
 function buildMongoIdQuery(id) {
   const query = [{ id }];
 
@@ -74,6 +83,10 @@ function normalizeLocalItem(record = {}) {
 }
 
 async function list() {
+  if (isSupabaseMode()) {
+    return supabaseStore.list();
+  }
+
   if (!isLocalMode()) {
     const Item = await getMongoModel();
     return Item.find().sort({ createdAt: -1 }).lean();
@@ -87,6 +100,15 @@ async function create(data) {
     const error = new Error("title and description are required");
     error.name = "ValidationError";
     throw error;
+  }
+
+  if (isSupabaseMode()) {
+    return supabaseStore.create({
+      imageUrl: "",
+      photoUrls: [],
+      ratings: [],
+      ...clone(data),
+    });
   }
 
   if (!isLocalMode()) {
@@ -112,6 +134,10 @@ async function create(data) {
 }
 
 async function findById(id) {
+  if (isSupabaseMode()) {
+    return supabaseStore.findById(id);
+  }
+
   if (!isLocalMode()) {
     const Item = await getMongoModel();
     return Item.findOne(buildMongoIdQuery(id));
@@ -122,6 +148,15 @@ async function findById(id) {
 }
 
 async function save(item) {
+  if (isSupabaseMode()) {
+    return supabaseStore.save({
+      imageUrl: "",
+      photoUrls: [],
+      ratings: [],
+      ...clone(item),
+    });
+  }
+
   if (!isLocalMode()) {
     const Item = await getMongoModel();
     const doc = await Item.findOne(buildMongoIdQuery(item.id || item._id));
@@ -158,6 +193,10 @@ async function save(item) {
 }
 
 async function remove(id) {
+  if (isSupabaseMode()) {
+    return supabaseStore.remove(id);
+  }
+
   if (!isLocalMode()) {
     const Item = await getMongoModel();
     return Item.findOneAndDelete(buildMongoIdQuery(id)).lean();
@@ -178,6 +217,11 @@ async function remove(id) {
 async function ensureSeedData() {
   if (isLocalMode()) {
     ensureLocalDataFile();
+    return;
+  }
+
+  if (isSupabaseMode()) {
+    await supabaseStore.ensureSeedData();
     return;
   }
 

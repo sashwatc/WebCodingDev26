@@ -68,7 +68,7 @@ export default function SignInDialog() {
         <DialogHeader>
           <DialogTitle>Sign In</DialogTitle>
           <DialogDescription>
-            This is a browser-only sign-in. Your session is stored on this device.
+            Sign in with your name and school email to load your dashboard activity and claims.
           </DialogDescription>
         </DialogHeader>
 

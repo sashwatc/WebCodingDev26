@@ -6,6 +6,7 @@ const API_BASE_URL = String(import.meta.env.VITE_API_URL || "").replace(/\/$/, "
 const FOUND_ITEMS_API_URL = `${API_BASE_URL}/api/items`;
 const ENTITY_API_BASE_URL = `${API_BASE_URL}/api/entities`;
 const AUTH_API_BASE_URL = `${API_BASE_URL}/api/auth`;
+const UPLOAD_API_URL = `${API_BASE_URL}/api/uploads`;
 const authListeners = new Set();
 
 const CATEGORY_LABELS = {
@@ -473,7 +474,7 @@ function createSeedData() {
         id: "notif_002",
         user_email: "jordan.kim@pleasantvalley.edu",
         title: "Demo mode enabled",
-        message: "This standalone version uses in-browser sample data instead of a hosted backend.",
+        message: "This build can run with a hosted backend or local seeded data depending on deployment setup.",
         type: "system",
         is_read: false,
         link: "/Home",
@@ -525,7 +526,7 @@ function createSeedData() {
         entity_type: "system",
         entity_id: "local-demo",
         performed_by: "system",
-        details: "Initialized sample records for standalone development.",
+        details: "Initialized sample records for local fallback mode.",
         previous_value: "",
         new_value: "",
         created_date: daysAgo(10),
@@ -1171,17 +1172,38 @@ function createFoundItemApi() {
   };
 }
 
-async function uploadFileLocally({ file }) {
+async function readFileAsDataUrl(file) {
   if (typeof FileReader === "undefined") {
-    return { file_url: "" };
+    return "";
   }
 
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onload = () => resolve({ file_url: reader.result });
+    reader.onload = () => resolve(String(reader.result || ""));
     reader.onerror = () => reject(new Error("Failed to read file"));
     reader.readAsDataURL(file);
   });
+}
+
+async function uploadFile({ file }) {
+  const dataUrl = await readFileAsDataUrl(file);
+
+  if (!dataUrl) {
+    return { file_url: "" };
+  }
+
+  try {
+    return await requestApi(UPLOAD_API_URL, {
+      method: "POST",
+      body: JSON.stringify({
+        file_name: file?.name || "upload",
+        content_type: file?.type || "",
+        data_url: dataUrl,
+      }),
+    });
+  } catch {
+    return { file_url: dataUrl };
+  }
 }
 
 function tokenize(text) {
@@ -1316,7 +1338,7 @@ async function ensureLocalUserNotification(user) {
   await addNotification({
     user_email: user.email,
     title: `Welcome to ${BRAND_NAME}`,
-    message: "Your browser-only account is ready. Reports, claims, and notifications now follow this email on this device.",
+    message: "Your account is ready. Reports, claims, and notifications now follow this email in the app data store.",
     type: "system",
     link: "/UserDashboard",
   });
@@ -1326,7 +1348,7 @@ async function ensureLocalUserNotification(user) {
     entity_type: "user",
     entity_id: user.id,
     performed_by: user.email,
-    details: "Local browser session started.",
+    details: "Application session started.",
   });
 }
 
@@ -1423,7 +1445,7 @@ function createAppClient() {
     },
     integrations: {
       Core: {
-        UploadFile: uploadFileLocally,
+        UploadFile: uploadFile,
         async InvokeLLM({ prompt }) {
           return createInvokeLlmResponse(prompt);
         },

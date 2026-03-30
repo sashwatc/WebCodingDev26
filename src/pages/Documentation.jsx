@@ -82,21 +82,20 @@ export default function Documentation() {
         <div className="space-y-6">
           <Card className="border-slate-200">
             <CardHeader>
-              <CardTitle>Judging Build Notes</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3 text-sm text-slate-600 leading-relaxed">
-              <p>
-                This version is intentionally self-contained for judging. Records and sign-in state are stored in the current browser so the app can run without external services.
-              </p>
-              <p>
+            <CardTitle>Judging Build Notes</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3 text-sm text-slate-600 leading-relaxed">
+            <p>
+                The app can run in two modes: a hosted Supabase-backed deployment for shared data, or a local fallback mode for offline judging and demos.
+            </p>
+            <p>
                 The application logic, page layouts, workflows, seeded data, and copy were customized for the lost-and-found scenario rather than assembled from a website theme.
-              </p>
-              <p>
-                Restricted moderation tools require sign-in plus the admin unlock password in this standalone build,
-                so the admin workflow can be demonstrated without exposing private views to every user.
-              </p>
-            </CardContent>
-          </Card>
+            </p>
+            <p>
+                Restricted moderation tools still require sign-in plus the admin unlock password, so the admin workflow can be demonstrated without exposing private views to every user.
+            </p>
+          </CardContent>
+        </Card>
 
           <Card className="border-slate-200">
             <CardHeader>
