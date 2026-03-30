@@ -6,19 +6,20 @@
 
 import React from "react";
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { MapPin, Calendar, Eye, Package } from "lucide-react";
 import StatusBadge from "@/components/ui/StatusBadge";
-import { getCategoryLabel } from "@/lib/constants";
-import { format } from "date-fns";
+import { formatLocalizedDate, translateCategory, translateColor, translateLocation } from "@/lib/i18n-helpers";
 
 export default function ItemCard({ item, viewMode = "grid" }) {
+  const { t } = useTranslation();
   const imageUrl = item.photo_urls?.[0];
   const isLostReport = item.record_type === "lost";
   const detailHref = isLostReport ? `/ItemDetails?type=lost&id=${item.id}` : `/ItemDetails?id=${item.id}`;
-  const detailLabel = isLostReport ? "View Report" : "View Item";
+  const detailLabel = isLostReport ? t("common.view_report") : t("common.view_item");
   const typeBadgeClasses = isLostReport
     ? "border-rose-200 bg-rose-100 text-rose-700"
     : "border-sky-200 bg-sky-100 text-sky-700";
@@ -42,17 +43,17 @@ export default function ItemCard({ item, viewMode = "grid" }) {
               <div className="mb-2 flex flex-wrap items-center gap-2">
                 <h3 className="font-semibold text-slate-900">{item.title}</h3>
                 <Badge variant="secondary" className={typeBadgeClasses}>
-                  {isLostReport ? "Lost" : "Found"}
+                  {isLostReport ? t("common.lost") : t("common.found")}
                 </Badge>
                 <StatusBadge status={item.status} />
-                <Badge variant="outline" className="text-xs">{getCategoryLabel(item.category)}</Badge>
+                <Badge variant="outline" className="text-xs">{translateCategory(t, item.category)}</Badge>
               </div>
               <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500">
                 <span className="flex items-center gap-1">
-                  <MapPin className="w-3 h-3" /> {item.location_found}
+                  <MapPin className="w-3 h-3" /> {translateLocation(t, item.location_found) || t("common.unknown_location")}
                 </span>
                 <span className="flex items-center gap-1">
-                  <Calendar className="w-3 h-3" /> {item.date_found ? format(new Date(item.date_found), "MMM d") : "N/A"}
+                  <Calendar className="w-3 h-3" /> {item.date_found ? formatLocalizedDate(item.date_found, "MMM d") : t("common.not_available")}
                 </span>
               </div>
               <p className="mt-3 line-clamp-2 text-sm leading-6 text-slate-600">
@@ -88,12 +89,12 @@ export default function ItemCard({ item, viewMode = "grid" }) {
           </div>
           <div className="absolute left-3 top-12">
             <Badge variant="secondary" className={typeBadgeClasses}>
-              {isLostReport ? "Lost" : "Found"}
+              {isLostReport ? t("common.lost") : t("common.found")}
             </Badge>
           </div>
           {item.color && (
             <div className="absolute right-3 top-3">
-              <Badge variant="outline" className="bg-white text-slate-700">{item.color}</Badge>
+              <Badge variant="outline" className="bg-white text-slate-700">{translateColor(t, item.color)}</Badge>
             </div>
           )}
         </div>
@@ -101,9 +102,9 @@ export default function ItemCard({ item, viewMode = "grid" }) {
         <CardContent className="p-5">
           <div className="mb-3 flex items-center justify-between gap-3 text-xs text-slate-500">
             <span className="inline-flex items-center gap-1">
-              <MapPin className="w-3 h-3" /> {item.location_found}
+              <MapPin className="w-3 h-3" /> {translateLocation(t, item.location_found) || t("common.unknown_location")}
             </span>
-            <span>{item.date_found ? format(new Date(item.date_found), "MMM d") : ""}</span>
+            <span>{item.date_found ? formatLocalizedDate(item.date_found, "MMM d") : ""}</span>
           </div>
           <h3 className="mb-2 line-clamp-2 text-lg font-semibold text-slate-900">
             {item.title}
@@ -112,7 +113,7 @@ export default function ItemCard({ item, viewMode = "grid" }) {
             {item.ai_description || item.description}
           </p>
           <div className="mb-4 flex items-center justify-between gap-3">
-            <Badge variant="outline" className="text-xs">{getCategoryLabel(item.category)}</Badge>
+            <Badge variant="outline" className="text-xs">{translateCategory(t, item.category)}</Badge>
             <Button size="sm" variant="outline" className="gap-1">
               <Eye className="w-3.5 h-3.5" />
               {detailLabel}

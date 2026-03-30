@@ -5,6 +5,7 @@
  */
 
 import React, { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -29,7 +30,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { appClient } from "@/api/appClient";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import StatusBadge from "@/components/ui/StatusBadge";
-import { format } from "date-fns";
+import { formatLocalizedDate, translateLocation, translateStatus } from "@/lib/i18n-helpers";
 import {
   CheckCircle2,
   XCircle,
@@ -50,6 +51,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 export default function AdminItemsQueue({ items, filterStatus = "all" }) {
+  const { t } = useTranslation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
@@ -70,12 +72,12 @@ export default function AdminItemsQueue({ items, filterStatus = "all" }) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["adminFoundItems"] });
-      toast({ title: "Updated", description: "Item updated successfully." });
+      toast({ title: t("admin_items_queue.updated"), description: t("admin_items_queue.updated_description") });
     },
     onError: (error) => {
       toast({
-        title: "Update failed",
-        description: error.message || "The item could not be updated.",
+        title: t("admin_items_queue.update_failed"),
+        description: error.message || t("admin_items_queue.update_failed_description"),
         variant: "destructive",
       });
     },
@@ -94,12 +96,12 @@ export default function AdminItemsQueue({ items, filterStatus = "all" }) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["adminFoundItems"] });
-      toast({ title: "Deleted", description: "Item removed." });
+      toast({ title: t("admin_items_queue.deleted"), description: t("admin_items_queue.deleted_description") });
     },
     onError: (error) => {
       toast({
-        title: "Delete failed",
-        description: error.message || "The item could not be removed.",
+        title: t("admin_items_queue.delete_failed"),
+        description: error.message || t("admin_items_queue.delete_failed_description"),
         variant: "destructive",
       });
     },
@@ -124,7 +126,7 @@ export default function AdminItemsQueue({ items, filterStatus = "all" }) {
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <Input
-              placeholder="Search items by title, finder, or item code"
+              placeholder={t("admin_items_queue.search_placeholder")}
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               className="pl-9"
@@ -136,23 +138,23 @@ export default function AdminItemsQueue({ items, filterStatus = "all" }) {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Statuses</SelectItem>
-              <SelectItem value="pending_review">Pending Review</SelectItem>
-              <SelectItem value="approved">Approved</SelectItem>
-              <SelectItem value="claimed">Claimed</SelectItem>
-              <SelectItem value="returned">Returned</SelectItem>
-              <SelectItem value="archived">Archived</SelectItem>
+              <SelectItem value="all">{t("admin_items_queue.all_statuses")}</SelectItem>
+              <SelectItem value="pending_review">{translateStatus(t, "pending_review")}</SelectItem>
+              <SelectItem value="approved">{translateStatus(t, "approved")}</SelectItem>
+              <SelectItem value="claimed">{translateStatus(t, "claimed")}</SelectItem>
+              <SelectItem value="returned">{translateStatus(t, "returned")}</SelectItem>
+              <SelectItem value="archived">{translateStatus(t, "archived")}</SelectItem>
             </SelectContent>
           </Select>
         </div>
       </div>
 
-      <p className="text-sm text-slate-600">{filtered.length} item{filtered.length !== 1 ? "s" : ""}</p>
+      <p className="text-sm text-slate-600">{t("admin_items_queue.count", { count: filtered.length })}</p>
 
       {filtered.length === 0 ? (
         <div className="surface-card px-6 py-14 text-center">
           <Package className="mx-auto mb-3 h-10 w-10 text-slate-300" />
-          <p className="text-sm text-slate-500">No items match the current filters.</p>
+          <p className="text-sm text-slate-500">{t("admin_items_queue.no_items")}</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -178,12 +180,12 @@ export default function AdminItemsQueue({ items, filterStatus = "all" }) {
                       <div className="flex flex-wrap items-center gap-2">
                         <h3 className="text-base font-semibold text-slate-950">{item.title}</h3>
                         <StatusBadge status={item.status} />
-                        {item.is_flagged && <Badge className="border-red-200 bg-red-100 text-red-700">Flagged</Badge>}
+                        {item.is_flagged && <Badge className="border-red-200 bg-red-100 text-red-700">{t("admin_items_queue.flagged")}</Badge>}
                         {item.item_code && <Badge variant="outline" className="font-mono">{item.item_code}</Badge>}
                       </div>
                       <p className="mt-2 text-sm leading-6 text-slate-600">{item.description}</p>
                       <p className="mt-3 text-xs uppercase tracking-[0.14em] text-slate-500">
-                        {item.location_found} • {item.date_found ? format(new Date(item.date_found), "MMM d") : ""} • {item.finder_name || "Unknown finder"}
+                        {translateLocation(t, item.location_found)} • {item.date_found ? formatLocalizedDate(item.date_found, "MMM d") : ""} • {item.finder_name || t("admin_items_queue.unknown_finder")}
                       </p>
                     </div>
                   </div>
@@ -199,7 +201,7 @@ export default function AdminItemsQueue({ items, filterStatus = "all" }) {
                           disabled={updateMutation.isPending}
                         >
                           <CheckCircle2 className="h-3.5 w-3.5" />
-                          Approve
+                          {t("admin_items_queue.approve")}
                         </Button>
                         <Button
                           size="sm"
@@ -209,7 +211,7 @@ export default function AdminItemsQueue({ items, filterStatus = "all" }) {
                           disabled={updateMutation.isPending}
                         >
                           <XCircle className="h-3.5 w-3.5" />
-                          Reject
+                          {t("admin_items_queue.reject")}
                         </Button>
                       </>
                     )}
@@ -223,28 +225,28 @@ export default function AdminItemsQueue({ items, filterStatus = "all" }) {
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem onClick={() => updateMutation.mutate({ id: item.id, data: { status: "approved" }, action: "Status → Approved" })}>
                           <CheckCircle2 className="mr-2 h-4 w-4" />
-                          Mark Approved
+                          {t("admin_items_queue.mark_approved")}
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => updateMutation.mutate({ id: item.id, data: { status: "returned" }, action: "Status → Returned" })}>
                           <CheckCircle2 className="mr-2 h-4 w-4 text-emerald-700" />
-                          Mark Returned
+                          {t("admin_items_queue.mark_returned")}
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => updateMutation.mutate({ id: item.id, data: { status: "archived" }, action: "Status → Archived" })}>
                           <Archive className="mr-2 h-4 w-4" />
-                          Archive
+                          {t("admin_items_queue.archive")}
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => updateMutation.mutate({ id: item.id, data: { is_flagged: !item.is_flagged }, action: item.is_flagged ? "Unflagged" : "Flagged" })}>
                           <Flag className="mr-2 h-4 w-4" />
-                          {item.is_flagged ? "Unflag" : "Flag"}
+                          {item.is_flagged ? t("admin_items_queue.unflag") : t("admin_items_queue.flag")}
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => { setNoteDialog(item); setAdminNote(""); }}>
                           <MessageSquare className="mr-2 h-4 w-4" />
-                          Add Note
+                          {t("admin_items_queue.add_note")}
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem onClick={() => deleteMutation.mutate(item.id)} className="text-red-700">
                           <Trash2 className="mr-2 h-4 w-4" />
-                          Delete
+                          {t("admin_items_queue.delete")}
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -259,12 +261,12 @@ export default function AdminItemsQueue({ items, filterStatus = "all" }) {
       <Dialog open={!!noteDialog} onOpenChange={() => setNoteDialog(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Add Admin Note</DialogTitle>
-            <DialogDescription>For: {noteDialog?.title}</DialogDescription>
+            <DialogTitle>{t("admin_items_queue.add_admin_note")}</DialogTitle>
+            <DialogDescription>{t("admin_items_queue.for_item", { title: noteDialog?.title || "" })}</DialogDescription>
           </DialogHeader>
-          <Textarea placeholder="Enter note..." value={adminNote} onChange={(event) => setAdminNote(event.target.value)} rows={3} />
+          <Textarea placeholder={t("admin_items_queue.note_placeholder")} value={adminNote} onChange={(event) => setAdminNote(event.target.value)} rows={3} />
           <DialogFooter>
-            <Button variant="outline" onClick={() => setNoteDialog(null)}>Cancel</Button>
+            <Button variant="outline" onClick={() => setNoteDialog(null)}>{t("common.cancel")}</Button>
             <Button
               onClick={async () => {
                 if (noteDialog && adminNote.trim()) {
@@ -276,11 +278,11 @@ export default function AdminItemsQueue({ items, filterStatus = "all" }) {
                     details: adminNote,
                   });
                   setNoteDialog(null);
-                  toast({ title: "Note saved" });
+                  toast({ title: t("admin_items_queue.note_saved") });
                 }
               }}
             >
-              Save Note
+              {t("admin_items_queue.save_note")}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -5,6 +5,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
 import { appClient } from "@/api/appClient";
 import { Badge } from "@/components/ui/badge";
@@ -14,9 +15,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import ItemCard from "@/components/search/ItemCard";
 import { CATEGORIES, COLORS, LOCATIONS } from "@/lib/constants";
+import { translateCategory, translateColor, translateLocation } from "@/lib/i18n-helpers";
 import { Grid3X3, List, Package, Search as SearchIcon, X } from "lucide-react";
 
 export default function Search() {
+  const { t } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
   const queryFromUrl = searchParams.get("q") || "";
   const [searchQuery, setSearchQuery] = useState(queryFromUrl);
@@ -61,7 +64,7 @@ export default function Search() {
         .filter((report) => !["resolved", "closed"].includes(report.status))
         .map((report) => ({
           id: report.id,
-          title: report.item_type || "Lost item report",
+          title: report.item_type || t("item_details.lost_item_report"),
           description: report.description || "",
           ai_description: "",
           category: report.category || "",
@@ -77,7 +80,7 @@ export default function Search() {
           updated_date: report.updated_date || "",
           matching_count: report.matched_items?.length || 0,
         })),
-    [lostReports]
+    [lostReports, t]
   );
 
   const searchableRecords = useMemo(
@@ -133,10 +136,10 @@ export default function Search() {
   }, [filters, searchQuery, searchableRecords]);
 
   const activeFilterBadges = [
-    filters.category !== "all" ? CATEGORIES.find((category) => category.value === filters.category)?.label : null,
-    filters.color !== "all" ? filters.color : null,
-    filters.location !== "all" ? filters.location : null,
-    searchQuery ? `Query: ${searchQuery}` : null,
+    filters.category !== "all" ? translateCategory(t, filters.category) : null,
+    filters.color !== "all" ? translateColor(t, filters.color) : null,
+    filters.location !== "all" ? translateLocation(t, filters.location) : null,
+    searchQuery ? t("search.query_badge", { query: searchQuery }) : null,
   ].filter(Boolean);
 
   const clearFilters = () => {
@@ -159,7 +162,7 @@ export default function Search() {
       <div className="page-shell py-10">
         <div className="surface-card p-6 text-center">
           <Package className="mx-auto mb-4 h-10 w-10 text-slate-300" />
-          <h2 className="text-lg font-semibold text-slate-950">Unable to load search results.</h2>
+          <h2 className="text-lg font-semibold text-slate-950">{t("search.unable_to_load")}</h2>
           <p className="mt-2 text-sm text-slate-600">{error.message}</p>
         </div>
       </div>
@@ -169,19 +172,16 @@ export default function Search() {
   return (
     <div className="page-shell py-10">
       <div className="page-header">
-        <span className="page-kicker">Search</span>
-        <h1 className="page-title">Search found items and active lost reports.</h1>
-        <p className="page-subtitle">
-          Search matches titles, descriptions, tags, brand, color, and location. Claimed or returned found items stay
-          out of the public results, while unresolved lost reports remain visible.
-        </p>
+        <span className="page-kicker">{t("search.kicker")}</span>
+        <h1 className="page-title">{t("search.title")}</h1>
+        <p className="page-subtitle">{t("search.subtitle")}</p>
       </div>
 
       <section className="hero-panel mb-6 p-5">
         <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_repeat(4,minmax(0,1fr))]">
           <div>
             <label className="mb-1.5 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
-              Search
+              {t("search.search_label")}
             </label>
             <div className="relative">
               <SearchIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -199,25 +199,25 @@ export default function Search() {
                   setSearchParams(nextParams);
                 }}
                 className="pl-9"
-                placeholder='Try "airpods", "black bottle", or "library"'
-                aria-label="Search found items"
+                placeholder={t("search.search_placeholder")}
+                aria-label={t("search.search_aria")}
               />
             </div>
           </div>
 
           <div>
             <label className="mb-1.5 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
-              Category
+              {t("common.category")}
             </label>
             <Select value={filters.category} onValueChange={(value) => setFilters((current) => ({ ...current, category: value }))}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All categories</SelectItem>
+                <SelectItem value="all">{t("search.all_categories")}</SelectItem>
                 {CATEGORIES.map((category) => (
                   <SelectItem key={category.value} value={category.value}>
-                    {category.label}
+                    {translateCategory(t, category.value)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -226,17 +226,17 @@ export default function Search() {
 
           <div>
             <label className="mb-1.5 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
-              Color
+              {t("common.color")}
             </label>
             <Select value={filters.color} onValueChange={(value) => setFilters((current) => ({ ...current, color: value }))}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All colors</SelectItem>
+                <SelectItem value="all">{t("search.all_colors")}</SelectItem>
                 {COLORS.map((color) => (
                   <SelectItem key={color} value={color}>
-                    {color}
+                    {translateColor(t, color)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -245,17 +245,17 @@ export default function Search() {
 
           <div>
             <label className="mb-1.5 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
-              Location
+              {t("common.location")}
             </label>
             <Select value={filters.location} onValueChange={(value) => setFilters((current) => ({ ...current, location: value }))}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All locations</SelectItem>
+                <SelectItem value="all">{t("search.all_locations")}</SelectItem>
                 {LOCATIONS.map((location) => (
                   <SelectItem key={location} value={location}>
-                    {location}
+                    {translateLocation(t, location)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -264,15 +264,15 @@ export default function Search() {
 
           <div>
             <label className="mb-1.5 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
-              Sort
+              {t("common.sort")}
             </label>
             <Select value={filters.sort} onValueChange={(value) => setFilters((current) => ({ ...current, sort: value }))}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="newest">Newest first</SelectItem>
-                <SelectItem value="oldest">Oldest first</SelectItem>
+                <SelectItem value="newest">{t("search.newest_first")}</SelectItem>
+                <SelectItem value="oldest">{t("search.oldest_first")}</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -280,8 +280,8 @@ export default function Search() {
 
         <div className="mt-4 flex flex-col gap-3 border-t pt-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-wrap items-center gap-2">
-            <Badge variant="outline">{publicFoundItems.length} available found items</Badge>
-            <Badge variant="outline">{publicLostReports.length} active lost reports</Badge>
+            <Badge variant="outline">{t("search.available_found_items", { count: publicFoundItems.length })}</Badge>
+            <Badge variant="outline">{t("search.active_lost_reports", { count: publicLostReports.length })}</Badge>
             {hasActiveFilters &&
               activeFilterBadges.map((badge) => (
                 <Badge key={badge} variant="secondary">
@@ -294,14 +294,14 @@ export default function Search() {
             {hasActiveFilters && (
               <Button variant="outline" size="sm" onClick={clearFilters} className="gap-1">
                 <X className="h-3.5 w-3.5" />
-                Clear filters
+                {t("search.clear_filters")}
               </Button>
             )}
             <div className="flex items-center rounded-md border">
               <Button
                 variant={viewMode === "list" ? "secondary" : "ghost"}
                 size="icon"
-                aria-label="List view"
+                aria-label={t("search.list_view")}
                 onClick={() => setViewMode("list")}
                 className="h-9 w-9 rounded-r-none"
               >
@@ -310,7 +310,7 @@ export default function Search() {
               <Button
                 variant={viewMode === "grid" ? "secondary" : "ghost"}
                 size="icon"
-                aria-label="Grid view"
+                aria-label={t("search.grid_view")}
                 onClick={() => setViewMode("grid")}
                 className="h-9 w-9 rounded-l-none border-l"
               >
@@ -322,7 +322,7 @@ export default function Search() {
       </section>
 
       <div className="mb-4 text-sm text-slate-600">
-        {isLoading ? "Loading items..." : `${filteredItems.length} result${filteredItems.length !== 1 ? "s" : ""}`}
+        {isLoading ? t("common.loading") : t("search.results_count", { count: filteredItems.length })}
       </div>
 
       {isLoading && (
@@ -340,13 +340,13 @@ export default function Search() {
       {!isLoading && filteredItems.length === 0 && (
         <div className="surface-card px-5 py-10 text-center">
           <Package className="mx-auto mb-3 h-10 w-10 text-slate-300" />
-          <h2 className="section-heading">No matching items found</h2>
+          <h2 className="section-heading">{t("search.no_matching_items")}</h2>
           <p className="mt-2 text-sm text-slate-600">
-            Try a broader description or remove one of the filters.
+            {t("search.broaden_search")}
           </p>
           {hasActiveFilters && (
             <Button variant="outline" className="mt-4" onClick={clearFilters}>
-              Clear filters
+              {t("search.clear_filters")}
             </Button>
           )}
         </div>

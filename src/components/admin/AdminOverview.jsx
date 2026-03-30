@@ -4,6 +4,7 @@
  */
 
 import React from "react";
+import { useTranslation } from "react-i18next";
 import {
   Package,
   CheckCircle2,
@@ -13,7 +14,6 @@ import {
   BarChart3,
   AlertTriangle,
 } from "lucide-react";
-import { format } from "date-fns";
 import {
   BarChart,
   Bar,
@@ -27,8 +27,10 @@ import {
   Cell,
 } from "recharts";
 import { CATEGORIES } from "@/lib/constants";
+import { formatLocalizedDate, translateCategory } from "@/lib/i18n-helpers";
 
 export default function AdminOverview({ foundItems, lostReports, claims, auditLogs }) {
+  const { t } = useTranslation();
   const stats = {
     total: foundItems.length,
     pending: foundItems.filter((item) => item.status === "pending_review").length,
@@ -43,7 +45,7 @@ export default function AdminOverview({ foundItems, lostReports, claims, auditLo
   };
 
   const categoryData = CATEGORIES.map((category) => ({
-    name: category.label.split(" ")[0],
+    name: translateCategory(t, category.value).split(" ")[0],
     count: foundItems.filter((item) => item.category === category.value).length,
   }))
     .filter((entry) => entry.count > 0)
@@ -51,10 +53,10 @@ export default function AdminOverview({ foundItems, lostReports, claims, auditLo
     .slice(0, 6);
 
   const statusData = [
-    { name: "Pending", value: stats.pending, color: "#c98b12" },
-    { name: "Approved", value: stats.approved, color: "#17315f" },
-    { name: "Claimed", value: stats.claimed, color: "#2b5aa5" },
-    { name: "Returned", value: stats.returned, color: "#64748b" },
+    { name: t("statuses.pending_review"), value: stats.pending, color: "#c98b12" },
+    { name: t("statuses.approved"), value: stats.approved, color: "#17315f" },
+    { name: t("statuses.claimed"), value: stats.claimed, color: "#2b5aa5" },
+    { name: t("statuses.returned"), value: stats.returned, color: "#64748b" },
   ].filter((entry) => entry.value > 0);
 
   const recentLogs = auditLogs.slice(0, 8);
@@ -64,27 +66,27 @@ export default function AdminOverview({ foundItems, lostReports, claims, auditLo
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {[
           {
-            label: "Total Items",
+            label: t("admin_overview.total_items"),
             value: stats.total,
-            helper: `${stats.approved} approved`,
+            helper: t("admin_overview.approved_helper", { count: stats.approved }),
             icon: Package,
           },
           {
-            label: "Pending Review",
+            label: t("admin_overview.pending_review"),
             value: stats.pending,
-            helper: `${stats.openReports} open lost reports`,
+            helper: t("admin_overview.open_lost_reports_helper", { count: stats.openReports }),
             icon: Clock,
           },
           {
-            label: "Items Returned",
+            label: t("admin_overview.items_returned"),
             value: stats.returned,
-            helper: `${stats.returnRate}% return rate`,
+            helper: t("admin_overview.return_rate_helper", { count: stats.returnRate }),
             icon: CheckCircle2,
           },
           {
-            label: "Active Claims",
+            label: t("admin_overview.active_claims"),
             value: stats.activeClaims,
-            helper: `${stats.claimed} currently claimed`,
+            helper: t("admin_overview.claimed_helper", { count: stats.claimed }),
             icon: FileCheck,
           },
         ].map((stat) => (
@@ -104,8 +106,8 @@ export default function AdminOverview({ foundItems, lostReports, claims, auditLo
           <div className="mb-6 flex items-center gap-2">
             <BarChart3 className="h-4 w-4 text-primary" />
             <div>
-              <h3 className="text-sm font-semibold uppercase tracking-[0.16em] text-slate-500">Items by Category</h3>
-              <p className="mt-1 text-sm text-slate-600">Top categories in the current inventory.</p>
+              <h3 className="text-sm font-semibold uppercase tracking-[0.16em] text-slate-500">{t("admin_overview.items_by_category")}</h3>
+              <p className="mt-1 text-sm text-slate-600">{t("admin_overview.items_by_category_description")}</p>
             </div>
           </div>
 
@@ -121,7 +123,7 @@ export default function AdminOverview({ foundItems, lostReports, claims, auditLo
             </ResponsiveContainer>
           ) : (
             <div className="flex min-h-[240px] items-center justify-center rounded-[18px] border border-dashed border-slate-200 bg-slate-50 text-sm text-slate-500">
-              No category data yet.
+              {t("admin_overview.no_category_data")}
             </div>
           )}
         </div>
@@ -130,8 +132,8 @@ export default function AdminOverview({ foundItems, lostReports, claims, auditLo
           <div className="mb-6 flex items-center gap-2">
             <TrendingUp className="h-4 w-4 text-primary" />
             <div>
-              <h3 className="text-sm font-semibold uppercase tracking-[0.16em] text-slate-500">Status Distribution</h3>
-              <p className="mt-1 text-sm text-slate-600">A quick read on how items are progressing through the system.</p>
+              <h3 className="text-sm font-semibold uppercase tracking-[0.16em] text-slate-500">{t("admin_overview.status_distribution")}</h3>
+              <p className="mt-1 text-sm text-slate-600">{t("admin_overview.status_distribution_description")}</p>
             </div>
           </div>
 
@@ -162,14 +164,14 @@ export default function AdminOverview({ foundItems, lostReports, claims, auditLo
                 ))}
 
                 <div className="rounded-[16px] border border-slate-200 bg-white px-4 py-4">
-                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Return Rate</p>
+                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">{t("admin_overview.return_rate")}</p>
                   <p className="mt-2 text-2xl font-semibold text-slate-950">{stats.returnRate}%</p>
                 </div>
               </div>
             </div>
           ) : (
             <div className="flex min-h-[240px] items-center justify-center rounded-[18px] border border-dashed border-slate-200 bg-slate-50 text-sm text-slate-500">
-              No status data yet.
+              {t("admin_overview.no_status_data")}
             </div>
           )}
         </div>
@@ -179,8 +181,8 @@ export default function AdminOverview({ foundItems, lostReports, claims, auditLo
         <div className="mb-5 flex items-center gap-2">
           <AlertTriangle className="h-4 w-4 text-primary" />
           <div>
-            <h3 className="text-sm font-semibold uppercase tracking-[0.16em] text-slate-500">Recent Activity</h3>
-            <p className="mt-1 text-sm text-slate-600">Latest moderation and system events.</p>
+            <h3 className="text-sm font-semibold uppercase tracking-[0.16em] text-slate-500">{t("admin_overview.recent_activity")}</h3>
+            <p className="mt-1 text-sm text-slate-600">{t("admin_overview.recent_activity_description")}</p>
           </div>
         </div>
 
@@ -198,14 +200,14 @@ export default function AdminOverview({ foundItems, lostReports, claims, auditLo
                   <p className="mt-2 text-xs uppercase tracking-[0.14em] text-slate-500">{log.performed_by}</p>
                 </div>
                 <span className="text-[11px] font-medium text-slate-500">
-                  {log.created_date ? format(new Date(log.created_date), "MMM d, h:mm a") : ""}
+                  {log.created_date ? formatLocalizedDate(log.created_date, "MMM d, h:mm a") : ""}
                 </span>
               </div>
             ))}
           </div>
         ) : (
           <div className="rounded-[18px] border border-dashed border-slate-200 bg-slate-50 px-4 py-10 text-center text-sm text-slate-500">
-            No activity logged yet.
+            {t("admin_overview.no_activity_logged")}
           </div>
         )}
       </div>

@@ -5,6 +5,7 @@
 
 import React, { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import {
   AlertTriangle,
@@ -39,6 +40,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useMode } from "@/lib/ModeContext";
 import { useAuth } from "@/lib/AuthContext";
 import { useToast } from "@/components/ui/use-toast";
+import LanguageSwitcher from "@/components/layout/LanguageSwitcher";
 import {
   BRAND_NAME,
   SCHOOL_NAME,
@@ -46,6 +48,7 @@ import {
 import schoolMark from "@/assets/Spartan_Head.png";
 
 export default function Navbar() {
+  const { t } = useTranslation();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const location = useLocation();
@@ -95,9 +98,9 @@ export default function Navbar() {
   const isActive = (path) => location.pathname === path;
 
   const navLinks = [
-    { to: "/Home", label: "Home", icon: Home },
-    { to: "/Search", label: "Search Items", icon: Search },
-    { to: "/ReportLost", label: "Report Lost", icon: AlertTriangle },
+    { to: "/Home", label: t("common.home"), icon: Home },
+    { to: "/Search", label: t("common.search_items"), icon: Search },
+    { to: "/ReportLost", label: t("common.report_lost_item"), icon: AlertTriangle },
   ];
 
   const handleSignIn = async () => {
@@ -105,7 +108,7 @@ export default function Navbar() {
       await navigateToLogin();
     } catch (error) {
       toast({
-        title: "Sign in unavailable",
+        title: t("navbar.sign_in_unavailable"),
         description: error.message,
         variant: "destructive",
       });
@@ -117,8 +120,8 @@ export default function Navbar() {
       await logout();
     } catch (error) {
       toast({
-        title: "Sign out failed",
-        description: error.message || "Please try again.",
+        title: t("navbar.sign_out_failed"),
+        description: error.message || t("navbar.please_try_again"),
         variant: "destructive",
       });
     }
@@ -146,8 +149,8 @@ export default function Navbar() {
     setIsAdminMode(false);
     revokeAdminAccess();
     toast({
-      title: "Admin access locked",
-      description: "Moderation tools were locked for this browser session.",
+      title: t("navbar.admin_access_locked"),
+      description: t("navbar.admin_access_locked_description"),
     });
   };
 
@@ -158,9 +161,9 @@ export default function Navbar() {
         scrolled ? "shadow-[0_18px_36px_rgba(15,23,42,0.08)]" : ""
       }`}
     >
-      <nav className="page-shell" aria-label="Main navigation">
+      <nav className="page-shell" aria-label={t("navbar.main_navigation")}>
         <div className="flex min-h-16 items-center justify-between gap-4 py-2">
-          <Link to="/Home" className="flex items-center gap-3" aria-label={`${BRAND_NAME} Home`}>
+          <Link to="/Home" className="flex items-center gap-3" aria-label={t("navbar.brand_home", { brand: BRAND_NAME })}>
             <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-[linear-gradient(180deg,#ffffff,#eef2ff)] shadow-[0_10px_22px_rgba(15,23,42,0.08)] dark:border-slate-700 dark:bg-slate-900 dark:shadow-[0_14px_28px_rgba(2,8,23,0.28)]">
               <img src={schoolMark} alt="" className="h-6 w-6 object-contain" />
             </div>
@@ -197,7 +200,7 @@ export default function Navbar() {
                     !isAdmin ? "bg-background text-foreground" : "text-muted-foreground hover:text-foreground"
                   }`}
                 >
-                  Student
+                  {t("navbar.student")}
                 </button>
                 <button
                   onClick={handleAdminView}
@@ -206,14 +209,14 @@ export default function Navbar() {
                     isAdmin ? "bg-background text-foreground" : "text-muted-foreground hover:text-foreground"
                   }`}
                 >
-                  Admin
+                  {t("navbar.admin")}
                 </button>
             </div>
 
             <Link to="/ReportFound" className="hidden md:block">
               <Button size="sm" className="gap-2">
                 <PlusCircle className="h-4 w-4" />
-                Report Found Item
+                {t("common.report_found_item")}
               </Button>
             </Link>
 
@@ -225,46 +228,53 @@ export default function Navbar() {
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-60">
                 <DropdownMenuLabel className="text-xs uppercase tracking-[0.14em] text-slate-500">
-                  Appearance
+                  {t("navbar.appearance")}
                 </DropdownMenuLabel>
                 <DropdownMenuRadioGroup value={theme} onValueChange={setTheme}>
                   <DropdownMenuRadioItem value="light" className="gap-2">
                     <Sun className="w-4 h-4" />
-                    Light Mode
+                    {t("navbar.light_mode")}
                   </DropdownMenuRadioItem>
                   <DropdownMenuRadioItem value="dark" className="gap-2">
                     <Moon className="w-4 h-4" />
-                    Dark Mode
+                    {t("navbar.dark_mode")}
                   </DropdownMenuRadioItem>
                 </DropdownMenuRadioGroup>
                 <DropdownMenuSeparator />
                 <DropdownMenuLabel className="text-xs uppercase tracking-[0.14em] text-slate-500">
-                  Reading
+                  {t("navbar.reading")}
                 </DropdownMenuLabel>
                 <DropdownMenuRadioGroup value={readingMode} onValueChange={setReadingMode}>
                   <DropdownMenuRadioItem value="default" className="gap-2">
                     <Type className="w-4 h-4" />
-                    Standard Reading
+                    {t("navbar.standard_reading")}
                   </DropdownMenuRadioItem>
                   <DropdownMenuRadioItem value="dyslexic" className="gap-2">
                     <Type className="w-4 h-4" />
-                    Dyslexic Reading
+                    {t("navbar.dyslexic_reading")}
                   </DropdownMenuRadioItem>
                 </DropdownMenuRadioGroup>
                 <DropdownMenuSeparator />
                 <DropdownMenuLabel className="text-xs uppercase tracking-[0.14em] text-slate-500">
-                  Contrast
+                  {t("navbar.contrast")}
                 </DropdownMenuLabel>
                 <DropdownMenuRadioGroup value={contrastMode} onValueChange={setContrastMode}>
                   <DropdownMenuRadioItem value="default" className="gap-2">
                     <Contrast className="w-4 h-4" />
-                    Standard Contrast
+                    {t("navbar.standard_contrast")}
                   </DropdownMenuRadioItem>
                   <DropdownMenuRadioItem value="high" className="gap-2">
                     <Contrast className="w-4 h-4" />
-                    High Contrast
+                    {t("navbar.high_contrast")}
                   </DropdownMenuRadioItem>
                 </DropdownMenuRadioGroup>
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel className="text-xs uppercase tracking-[0.14em] text-slate-500">
+                  {t("navbar.language")}
+                </DropdownMenuLabel>
+                <div className="px-2 py-1.5">
+                  <LanguageSwitcher />
+                </div>
               </DropdownMenuContent>
             </DropdownMenu>
 
@@ -272,13 +282,13 @@ export default function Navbar() {
               <Link to="/AdminDashboard" className="hidden xl:block">
                 <Button size="sm" variant="outline" className="gap-2">
                   <LayoutDashboard className="h-4 w-4" />
-                  Dashboard
+                  {t("common.dashboard")}
                 </Button>
               </Link>
             )}
 
             {user && (
-              <Link to="/UserDashboard" aria-label="Notifications">
+              <Link to="/UserDashboard" aria-label={t("navbar.notifications")}>
                 <Button variant="outline" size="icon" className="relative">
                   <Bell className="h-4 w-4" />
                   {notifications.length > 0 && (
@@ -303,32 +313,32 @@ export default function Navbar() {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-52">
                   <DropdownMenuLabel className="text-xs uppercase tracking-[0.14em] text-slate-500">
-                    {hasAdminAccess ? "Admin Access Unlocked" : "Signed In"}
+                    {hasAdminAccess ? t("navbar.admin_access_unlocked") : t("navbar.signed_in")}
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem asChild>
                     <Link to="/UserDashboard" className="flex items-center gap-2">
                       <User className="w-4 h-4" />
-                      My Dashboard
+                      {t("navbar.my_dashboard")}
                     </Link>
                   </DropdownMenuItem>
                   {hasAdminAccess && (
                     <DropdownMenuItem asChild>
                       <Link to="/AdminDashboard" className="flex items-center gap-2">
                         <Shield className="w-4 h-4" />
-                        Admin Panel
+                        {t("navbar.admin_panel")}
                       </Link>
                     </DropdownMenuItem>
                   )}
                   {hasAdminAccess && (
                     <DropdownMenuItem onClick={handleLockAdminAccess} className="flex items-center gap-2">
                       <Shield className="w-4 h-4" />
-                      Lock Admin Access
+                      {t("navbar.lock_admin_access")}
                     </DropdownMenuItem>
                   )}
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={handleSignOut} className="text-red-600">
-                    Sign Out
+                    {t("common.sign_out")}
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -341,7 +351,7 @@ export default function Navbar() {
                 className="hidden sm:inline-flex"
                 onClick={handleSignIn}
               >
-                Sign In
+                {t("common.sign_in")}
               </Button>
             )}
 
@@ -350,7 +360,7 @@ export default function Navbar() {
               size="icon"
               className="lg:hidden"
               onClick={() => setMobileOpen(!mobileOpen)}
-              aria-label={mobileOpen ? "Close menu" : "Open menu"}
+              aria-label={mobileOpen ? t("navbar.close_menu") : t("navbar.open_menu")}
               aria-expanded={mobileOpen}
             >
               {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
@@ -370,7 +380,7 @@ export default function Navbar() {
                     !isAdmin ? "bg-background text-foreground" : "text-muted-foreground"
                   }`}
                 >
-                  Student
+                  {t("navbar.student")}
                 </button>
                 <button
                   onClick={handleAdminView}
@@ -379,10 +389,9 @@ export default function Navbar() {
                     isAdmin ? "bg-background text-foreground" : "text-muted-foreground"
                   }`}
                 >
-                  Admin
+                  {t("navbar.admin")}
                 </button>
             </div>
-
             <div className="grid gap-2">
               {navLinks.map(({ to, label, icon: Icon }) => (
                 <Link
@@ -405,7 +414,7 @@ export default function Navbar() {
                 className="flex items-center gap-3 rounded-md border border-border bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground"
               >
                 <PlusCircle className="h-4 w-4" />
-                Report Found Item
+                {t("common.report_found_item")}
               </Link>
 
               {user && (
@@ -414,7 +423,7 @@ export default function Navbar() {
                   className="flex items-center gap-3 rounded-md border border-border px-4 py-3 text-sm font-medium text-foreground"
                 >
                   <LayoutDashboard className="h-4 w-4" />
-                  My Dashboard
+                  {t("navbar.my_dashboard")}
                 </Link>
               )}
 
@@ -424,13 +433,19 @@ export default function Navbar() {
                   className="flex items-center gap-3 rounded-md border border-border px-4 py-3 text-sm font-medium text-foreground"
                 >
                   <Shield className="h-4 w-4" />
-                  Admin Dashboard
+                  {t("navbar.admin_dashboard")}
                 </Link>
               )}
             </div>
 
             <div className="rounded-md border border-border p-3">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Display Settings</p>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">{t("navbar.display_settings")}</p>
+              <div className="mt-3">
+                <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                  {t("navbar.language")}
+                </p>
+                <LanguageSwitcher />
+              </div>
               <div className="mt-3 grid grid-cols-2 gap-2">
                 <button
                   type="button"
@@ -440,7 +455,7 @@ export default function Navbar() {
                   }`}
                 >
                   <Sun className="h-3.5 w-3.5" />
-                  Light
+                  {t("navbar.light")}
                 </button>
                 <button
                   type="button"
@@ -450,7 +465,7 @@ export default function Navbar() {
                   }`}
                 >
                   <Moon className="h-3.5 w-3.5" />
-                  Dark
+                  {t("navbar.dark")}
                 </button>
               </div>
               <button
@@ -461,7 +476,7 @@ export default function Navbar() {
                 }`}
               >
                 <Type className="h-3.5 w-3.5" />
-                {readingMode === "dyslexic" ? "Dyslexic Reading On" : "Dyslexic Reading Off"}
+                {readingMode === "dyslexic" ? t("navbar.dyslexic_reading_on") : t("navbar.dyslexic_reading_off")}
               </button>
               <button
                 type="button"
@@ -471,7 +486,7 @@ export default function Navbar() {
                 }`}
               >
                 <Contrast className="h-3.5 w-3.5" />
-                {contrastMode === "high" ? "High Contrast On" : "High Contrast Off"}
+                {contrastMode === "high" ? t("navbar.high_contrast_on") : t("navbar.high_contrast_off")}
               </button>
             </div>
 
@@ -482,7 +497,7 @@ export default function Navbar() {
                 className="flex w-full items-center gap-3 rounded-md border border-border px-4 py-3 text-left text-sm font-medium text-foreground"
               >
                 <Shield className="h-4 w-4" />
-                Lock Admin Access
+                {t("navbar.lock_admin_access")}
               </button>
             )}
 
@@ -493,7 +508,7 @@ export default function Navbar() {
                 className="flex w-full items-center gap-3 rounded-md border border-border px-4 py-3 text-left text-sm font-medium text-foreground"
               >
                 <User className="h-4 w-4" />
-                Sign Out
+                {t("common.sign_out")}
               </button>
             ) : (
               <button
@@ -502,7 +517,7 @@ export default function Navbar() {
                 className="flex w-full items-center gap-3 rounded-md border border-border px-4 py-3 text-left text-sm font-medium text-foreground"
               >
                 <User className="h-4 w-4" />
-                Sign In
+                {t("common.sign_in")}
               </button>
             )}
           </div>

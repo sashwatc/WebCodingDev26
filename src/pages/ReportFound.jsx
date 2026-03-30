@@ -6,6 +6,7 @@
 
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
@@ -17,6 +18,7 @@ import { appClient } from "@/api/appClient";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { CATEGORIES, LOCATIONS, COLORS, CONDITIONS, generateItemCode } from "@/lib/constants";
 import { generateTags, cleanupDescription } from "@/lib/ai-services";
+import { translateCategory, translateColor, translateCondition, translateLocation } from "@/lib/i18n-helpers";
 import { ConsentCheckboxField } from "@/components/shared/ConsentCheckboxField";
 import PhotoUploader from "@/components/shared/PhotoUploader";
 import { useAuth } from "@/lib/AuthContext";
@@ -55,6 +57,7 @@ const createInitialForm = () => ({
 });
 
 export default function ReportFound() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -78,15 +81,15 @@ export default function ReportFound() {
 
   const validate = () => {
     const errs = {};
-    if (!form.title.trim()) errs.title = "Item title is required";
-    if (!form.category) errs.category = "Please select a category";
-    if (!form.description.trim()) errs.description = "Description is required";
-    if (!form.date_found) errs.date_found = "Date found is required";
-    if (!form.location_found) errs.location_found = "Location is required";
-    if (!user && !form.finder_name.trim()) errs.finder_name = "Your name is required";
-    if (!user && !form.finder_email.trim()) errs.finder_email = "Email is required";
-    if (!form.privacy_consent) errs.privacy_consent = "Privacy consent is required";
-    if (!form.terms_acknowledged) errs.terms_acknowledged = "Please acknowledge the terms";
+    if (!form.title.trim()) errs.title = t("report_found.item_title_required");
+    if (!form.category) errs.category = t("report_found.category_required");
+    if (!form.description.trim()) errs.description = t("report_found.description_required");
+    if (!form.date_found) errs.date_found = t("report_found.date_found_required");
+    if (!form.location_found) errs.location_found = t("report_found.location_required");
+    if (!user && !form.finder_name.trim()) errs.finder_name = t("report_found.your_name_required");
+    if (!user && !form.finder_email.trim()) errs.finder_email = t("report_found.email_required");
+    if (!form.privacy_consent) errs.privacy_consent = t("report_found.privacy_consent_required");
+    if (!form.terms_acknowledged) errs.terms_acknowledged = t("report_found.terms_required");
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
@@ -106,8 +109,8 @@ export default function ReportFound() {
     updateField("ai_description", cleaned);
     setAiProcessing(false);
     toast({
-      title: "Description enhanced",
-      description: "A cleaner version of your description was suggested.",
+      title: t("report_found.description_enhanced"),
+      description: t("report_found.description_enhanced_message"),
     });
   };
 
@@ -137,8 +140,8 @@ export default function ReportFound() {
     },
     onError: (error) => {
       toast({
-        title: "Error",
-        description: error.message || "Failed to submit. Please try again.",
+        title: t("report_found.error"),
+        description: error.message || t("report_found.submit_failed"),
         variant: "destructive",
       });
     },
@@ -147,7 +150,7 @@ export default function ReportFound() {
   const handleSubmit = (event) => {
     event.preventDefault();
     if (!validate()) {
-      toast({ title: "Missing fields", description: "Please fill in all required fields.", variant: "destructive" });
+      toast({ title: t("report_found.missing_fields"), description: t("report_found.missing_fields_message"), variant: "destructive" });
       return;
     }
 
@@ -161,9 +164,9 @@ export default function ReportFound() {
           <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-md bg-emerald-50">
             <CheckCircle2 className="h-8 w-8 text-emerald-700" />
           </div>
-          <h1 className="text-2xl font-semibold text-slate-950">Item submitted for review.</h1>
+          <h1 className="text-2xl font-semibold text-slate-950">{t("report_found.submitted_title")}</h1>
           <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-slate-600">
-            Your report is now in the moderation queue. After approval, it will become searchable for claimants while private storage details remain restricted to administrators.
+            {t("report_found.submitted_description")}
           </p>
           <div className="mt-8 flex flex-wrap justify-center gap-3">
             <Button
@@ -172,10 +175,10 @@ export default function ReportFound() {
                 setStep(1);
               }}
             >
-              Submit Another
+              {t("report_found.submit_another")}
             </Button>
             <Button variant="outline" onClick={() => navigate("/Search")}>
-              View Search Page
+              {t("report_found.view_search_page")}
             </Button>
           </div>
         </div>
@@ -188,12 +191,9 @@ export default function ReportFound() {
   return (
     <div className="page-shell max-w-5xl py-10">
       <div className="page-header">
-        <span className="page-kicker">Report Found Item</span>
-        <h1 className="page-title">Create a clear found-item record.</h1>
-        <p className="page-subtitle">
-          Enter the details students will search for later, keep storage information private, and send the item into
-          the admin review queue.
-        </p>
+        <span className="page-kicker">{t("report_found.kicker")}</span>
+        <h1 className="page-title">{t("report_found.title")}</h1>
+        <p className="page-subtitle">{t("report_found.subtitle")}</p>
       </div>
 
       <div className="mb-6 surface-card p-5">
@@ -201,9 +201,9 @@ export default function ReportFound() {
           <div className="flex items-start gap-3">
             <Shield className="mt-0.5 h-5 w-5 text-primary" />
             <div>
-              <p className="font-semibold text-slate-900">Public listing, private storage</p>
+              <p className="font-semibold text-slate-900">{t("report_found.public_listing_title")}</p>
               <p className="mt-1 text-sm leading-6 text-slate-600">
-                Search pages stay public, but the storage or pickup field is restricted to administrators.
+                {t("report_found.public_listing_description")}
               </p>
             </div>
           </div>
@@ -211,9 +211,9 @@ export default function ReportFound() {
           <div className="flex items-start gap-3">
             <LockKeyhole className="mt-0.5 h-5 w-5 text-primary" />
             <div>
-              <p className="font-semibold text-slate-900">Every record is reviewed first</p>
+              <p className="font-semibold text-slate-900">{t("report_found.reviewed_first_title")}</p>
               <p className="mt-1 text-sm leading-6 text-slate-600">
-                Submitted items are saved immediately, but only approved records appear in public search results.
+                {t("report_found.reviewed_first_description")}
               </p>
             </div>
           </div>
@@ -226,18 +226,18 @@ export default function ReportFound() {
             <div className="space-y-2">
               <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-950">
                 <Tag className="h-5 w-5 text-primary" />
-                Item details
+                {t("report_found.item_details")}
               </h2>
               <p className="text-sm text-slate-600">
-                Write the record the way a student would search for it later.
+                {t("report_found.item_details_description")}
               </p>
             </div>
 
             <div>
-              <Label htmlFor="title">Item title *</Label>
+              <Label htmlFor="title">{t("report_found.item_title")}</Label>
               <Input
                 id="title"
-                placeholder="Example: black Nike water bottle"
+                placeholder={t("report_found.item_title_placeholder")}
                 value={form.title}
                 onChange={(event) => updateField("title", event.target.value)}
                 className={errors.title ? "border-red-400" : ""}
@@ -247,24 +247,24 @@ export default function ReportFound() {
 
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
-                <Label>Category *</Label>
+                <Label>{t("common.category")} *</Label>
                 <Select value={form.category} onValueChange={(value) => updateField("category", value)}>
                   <SelectTrigger className={errors.category ? "border-red-400" : ""}>
-                    <SelectValue placeholder="Select category" />
+                    <SelectValue placeholder={t("report_found.select_category")} />
                   </SelectTrigger>
                   <SelectContent>
                     {CATEGORIES.map((category) => (
-                      <SelectItem key={category.value} value={category.value}>{category.label}</SelectItem>
+                      <SelectItem key={category.value} value={category.value}>{translateCategory(t, category.value)}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
                 {errors.category && <p className="mt-1 text-xs text-red-500">{errors.category}</p>}
               </div>
               <div>
-                <Label htmlFor="subcategory">Subcategory</Label>
+                <Label htmlFor="subcategory">{t("report_found.subcategory")}</Label>
                 <Input
                   id="subcategory"
-                  placeholder="Example: water bottle"
+                  placeholder={t("report_found.subcategory_placeholder")}
                   value={form.subcategory}
                   onChange={(event) => updateField("subcategory", event.target.value)}
                 />
@@ -272,10 +272,10 @@ export default function ReportFound() {
             </div>
 
             <div>
-              <Label htmlFor="description">Description *</Label>
+              <Label htmlFor="description">{t("report_found.description_label")}</Label>
               <Textarea
                 id="description"
-                placeholder="Describe color, markings, contents, stickers, damage, or anything a real owner would notice."
+                placeholder={t("report_found.description_placeholder")}
                 rows={4}
                 value={form.description}
                 onChange={(event) => updateField("description", event.target.value)}
@@ -292,12 +292,12 @@ export default function ReportFound() {
                   disabled={aiProcessing}
                 >
                   <Sparkles className="h-3.5 w-3.5" />
-                  Enhance Description
+                  {t("report_found.enhance_description")}
                 </Button>
               )}
               {form.ai_description && (
                 <div className="soft-panel mt-3 px-4 py-3">
-                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">AI suggestion</p>
+                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">{t("report_found.ai_suggestion")}</p>
                   <p className="mt-2 text-sm leading-6 text-slate-700">{form.ai_description}</p>
                 </div>
               )}
@@ -305,21 +305,21 @@ export default function ReportFound() {
 
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
-                <Label>Color</Label>
+                <Label>{t("common.color")}</Label>
                 <Select value={form.color} onValueChange={(value) => updateField("color", value)}>
-                  <SelectTrigger><SelectValue placeholder="Select color" /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder={t("report_found.select_color")} /></SelectTrigger>
                   <SelectContent>
                     {COLORS.map((color) => (
-                      <SelectItem key={color} value={color}>{color}</SelectItem>
+                      <SelectItem key={color} value={color}>{translateColor(t, color)}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
               <div>
-                <Label htmlFor="brand">Brand</Label>
+                <Label htmlFor="brand">{t("common.brand")}</Label>
                 <Input
                   id="brand"
-                  placeholder="Example: Nike, Apple, JanSport"
+                  placeholder={t("report_found.brand_placeholder")}
                   value={form.brand}
                   onChange={(event) => updateField("brand", event.target.value)}
                 />
@@ -328,21 +328,21 @@ export default function ReportFound() {
 
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
-                <Label>Condition</Label>
+                <Label>{t("common.condition")}</Label>
                 <Select value={form.condition} onValueChange={(value) => updateField("condition", value)}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {CONDITIONS.map((condition) => (
-                      <SelectItem key={condition.value} value={condition.value}>{condition.label}</SelectItem>
+                      <SelectItem key={condition.value} value={condition.value}>{translateCondition(t, condition.value)}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
               <div>
-                <Label htmlFor="features">Distinguishing features</Label>
+                <Label htmlFor="features">{t("report_found.distinguishing_features")}</Label>
                 <Input
                   id="features"
-                  placeholder="Scratches, engravings, labels, or stickers"
+                  placeholder={t("report_found.features_placeholder")}
                   value={form.distinguishing_features}
                   onChange={(event) => updateField("distinguishing_features", event.target.value)}
                 />
@@ -355,8 +355,8 @@ export default function ReportFound() {
               <div className="soft-panel px-4 py-4">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
-                    <p className="text-sm font-semibold text-slate-900">Suggested tags</p>
-                    <p className="text-xs text-slate-500">Useful for search, but kept visually lightweight.</p>
+                    <p className="text-sm font-semibold text-slate-900">{t("report_found.suggested_tags")}</p>
+                    <p className="text-xs text-slate-500">{t("report_found.suggested_tags_description")}</p>
                   </div>
                   <Button
                     type="button"
@@ -367,7 +367,7 @@ export default function ReportFound() {
                     disabled={aiProcessing}
                   >
                     {aiProcessing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
-                    Generate Tags
+                    {t("report_found.generate_tags")}
                   </Button>
                 </div>
                 {generatedTags.length > 0 && (
@@ -385,16 +385,16 @@ export default function ReportFound() {
             <div className="space-y-2">
               <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-950">
                 <MapPin className="h-5 w-5 text-primary" />
-                Location and time
+                {t("report_found.location_and_time")}
               </h2>
               <p className="text-sm text-slate-600">
-                Keep the public discovery details clear, then record private storage information separately.
+                {t("report_found.location_and_time_description")}
               </p>
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
-                <Label>Date found *</Label>
+                <Label>{t("report_found.date_found")}</Label>
                 <Input
                   type="date"
                   value={form.date_found}
@@ -404,20 +404,20 @@ export default function ReportFound() {
                 {errors.date_found && <p className="mt-1 text-xs text-red-500">{errors.date_found}</p>}
               </div>
               <div>
-                <Label>Time found (approx.)</Label>
+                <Label>{t("report_found.time_found")}</Label>
                 <Input type="time" value={form.time_found} onChange={(event) => updateField("time_found", event.target.value)} />
               </div>
             </div>
 
             <div>
-              <Label>Location found *</Label>
+              <Label>{t("report_found.location_found")}</Label>
               <Select value={form.location_found} onValueChange={(value) => updateField("location_found", value)}>
                 <SelectTrigger className={errors.location_found ? "border-red-400" : ""}>
-                  <SelectValue placeholder="Select location" />
+                  <SelectValue placeholder={t("report_found.select_location")} />
                 </SelectTrigger>
                 <SelectContent>
                   {LOCATIONS.map((location) => (
-                    <SelectItem key={location} value={location}>{location}</SelectItem>
+                    <SelectItem key={location} value={location}>{translateLocation(t, location)}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -425,14 +425,14 @@ export default function ReportFound() {
             </div>
 
             <div>
-              <Label htmlFor="storage">Storage or pickup location</Label>
+              <Label htmlFor="storage">{t("report_found.storage_location")}</Label>
               <Input
                 id="storage"
-                placeholder="Example: main office lost-and-found cabinet"
+                placeholder={t("report_found.storage_placeholder")}
                 value={form.storage_location}
                 onChange={(event) => updateField("storage_location", event.target.value)}
               />
-              <p className="mt-1 text-xs text-slate-500">This field is visible only to administrators.</p>
+              <p className="mt-1 text-xs text-slate-500">{t("report_found.storage_admin_only")}</p>
             </div>
           </section>
 
@@ -440,23 +440,22 @@ export default function ReportFound() {
             <div className="space-y-2">
               <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-950">
                 <User className="h-5 w-5 text-primary" />
-                Your information
+                {t("report_found.your_information")}
               </h2>
               <p className="text-sm text-slate-600">
-                Contact details are stored only so staff can verify the record if needed.
+                {t("report_found.your_information_description")}
               </p>
             </div>
 
             {user && (
               <div className="soft-panel px-4 py-4 text-sm text-slate-700">
-                Signed in as <span className="font-semibold text-slate-900">{user.full_name}</span>. Contact fields stay
-                blank unless you choose to fill them in.
+                {t("report_found.signed_in_as", { name: user.full_name })}
               </div>
             )}
 
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
-                <Label htmlFor="finder_name">Your name {!user ? "*" : "(optional)"}</Label>
+                <Label htmlFor="finder_name">{`${t("report_found.your_name")} ${!user ? "*" : `(${t("common.optional")})`}`}</Label>
                 <Input
                   id="finder_name"
                   value={form.finder_name}
@@ -466,7 +465,7 @@ export default function ReportFound() {
                 {errors.finder_name && <p className="mt-1 text-xs text-red-500">{errors.finder_name}</p>}
               </div>
               <div>
-                <Label htmlFor="finder_email">Your email {!user ? "*" : "(optional)"}</Label>
+                <Label htmlFor="finder_email">{`${t("report_found.your_email")} ${!user ? "*" : `(${t("common.optional")})`}`}</Label>
                 <Input
                   id="finder_email"
                   type="email"
@@ -478,13 +477,13 @@ export default function ReportFound() {
               </div>
             </div>
             <div>
-              <Label>Your role</Label>
+              <Label>{t("report_found.your_role")}</Label>
               <Select value={form.finder_role} onValueChange={(value) => updateField("finder_role", value)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="student">Student</SelectItem>
-                  <SelectItem value="staff">Staff</SelectItem>
-                  <SelectItem value="admin">Admin</SelectItem>
+                  <SelectItem value="student">{t("report_found.role_student")}</SelectItem>
+                  <SelectItem value="staff">{t("report_found.role_staff")}</SelectItem>
+                  <SelectItem value="admin">{t("report_found.role_admin")}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -495,8 +494,7 @@ export default function ReportFound() {
                 checked={form.privacy_consent}
                 onCheckedChange={(value) => updateField("privacy_consent", value)}
                 error={errors.privacy_consent}>
-                I consent to my contact information being stored in this demo build and used only for reuniting the
-                item with its owner. *
+                {t("report_found.privacy_consent_text")}
               </ConsentCheckboxField>
 
               <ConsentCheckboxField
@@ -504,13 +502,13 @@ export default function ReportFound() {
                 checked={form.terms_acknowledged}
                 onCheckedChange={(value) => updateField("terms_acknowledged", value)}
                 error={errors.terms_acknowledged}>
-                I confirm that this record is accurate to the best of my knowledge. *
+                {t("report_found.terms_text")}
               </ConsentCheckboxField>
             </div>
 
             <Button type="submit" size="lg" disabled={isSubmitting} className="w-full gap-2">
               {isSubmitting ? <Loader2 className="h-5 w-5 animate-spin" /> : <PlusCircle className="h-5 w-5" />}
-              {isSubmitting ? "Submitting and processing..." : "Submit Found Item"}
+              {isSubmitting ? t("report_found.submitting") : t("report_found.submit_button")}
             </Button>
           </section>
         </div>

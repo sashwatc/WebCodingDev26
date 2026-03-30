@@ -6,6 +6,7 @@
 
 import React, { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -16,16 +17,17 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { appClient } from "@/api/appClient";
 import StatusBadge from "@/components/ui/StatusBadge";
 import RecordThumbnail from "@/components/shared/RecordThumbnail";
-import { format } from "date-fns";
 import { useAuth } from "@/lib/AuthContext";
 import { useToast } from "@/components/ui/use-toast";
 import { getPrimaryRecordPhoto } from "@/lib/media";
+import { formatLocalizedDate, translateStatus } from "@/lib/i18n-helpers";
 import {
   AlertTriangle, FileCheck, Bell, Eye,
   Brain, CheckCircle2, Loader2, Star
 } from "lucide-react";
 
 export default function UserDashboard() {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const { user, navigateToLogin } = useAuth();
   const { toast } = useToast();
@@ -81,14 +83,14 @@ export default function UserDashboard() {
     onSuccess: () => {
       queryClient.invalidateQueries();
       toast({
-        title: "Return confirmed",
-        description: "The claim has been marked complete and the item is now recorded as returned.",
+        title: t("user_dashboard.return_confirmed"),
+        description: t("user_dashboard.return_confirmed_message"),
       });
     },
     onError: (error) => {
       toast({
-        title: "Unable to confirm return",
-        description: error.message || "Please try again.",
+        title: t("user_dashboard.unable_to_confirm"),
+        description: error.message || t("navbar.please_try_again"),
         variant: "destructive",
       });
     },
@@ -120,14 +122,14 @@ export default function UserDashboard() {
     onSuccess: () => {
       queryClient.invalidateQueries();
       toast({
-        title: "Rating submitted",
-        description: "Your rating is now waiting for admin approval.",
+        title: t("user_dashboard.rating_submitted"),
+        description: t("user_dashboard.rating_submitted_message"),
       });
     },
     onError: (error) => {
       toast({
-        title: "Unable to submit rating",
-        description: error.message || "Please try again.",
+        title: t("user_dashboard.unable_to_submit_rating"),
+        description: error.message || t("navbar.please_try_again"),
         variant: "destructive",
       });
     },
@@ -155,9 +157,9 @@ export default function UserDashboard() {
         <Card className="border-slate-200 shadow-sm">
           <CardContent className="p-8 text-center">
             <Bell className="w-10 h-10 text-slate-300 mx-auto mb-4" />
-            <h1 className="text-2xl font-bold text-slate-900 mb-2">Sign in to view your dashboard</h1>
+            <h1 className="text-2xl font-bold text-slate-900 mb-2">{t("user_dashboard.sign_in_title")}</h1>
             <p className="text-slate-500 mb-6">
-              Sign in on this device to see your reports, claims, and notifications.
+              {t("user_dashboard.sign_in_description")}
             </p>
             <Button
               className="bg-[hsl(222,65%,18%)] text-white hover:bg-[hsl(222,65%,15%)]"
@@ -166,14 +168,14 @@ export default function UserDashboard() {
                   await navigateToLogin();
                 } catch (error) {
                   toast({
-                    title: "Sign in unavailable",
+                    title: t("user_dashboard.sign_in_unavailable"),
                     description: error.message,
                     variant: "destructive",
                   });
                 }
               }}
             >
-              Sign In
+              {t("common.sign_in")}
             </Button>
           </CardContent>
         </Card>
@@ -184,18 +186,20 @@ export default function UserDashboard() {
   return (
     <div className="max-w-4xl mx-auto px-4 py-10">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-slate-900">My Dashboard</h1>
+        <h1 className="text-3xl font-bold text-slate-900">{t("user_dashboard.title")}</h1>
         <p className="text-slate-500 mt-1">
-          Welcome back{user?.full_name ? `, ${user.full_name.split(" ")[0]}` : ""}. Track your reports and claims here.
+          {t("user_dashboard.welcome", {
+            suffix: user?.full_name ? `, ${user.full_name.split(" ")[0]}` : "",
+          })}
         </p>
       </div>
 
       {/* Quick Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
         {[
-          { label: "Lost Reports", value: lostReports.length, icon: AlertTriangle, color: "text-amber-600 bg-amber-50" },
-          { label: "Active Claims", value: claims.filter(c => !["completed", "rejected"].includes(c.status)).length, icon: FileCheck, color: "text-blue-600 bg-blue-50" },
-          { label: "Unread Alerts", value: notifications.filter(n => !n.is_read).length, icon: Bell, color: "text-red-600 bg-red-50" },
+          { label: t("user_dashboard.lost_reports"), value: lostReports.length, icon: AlertTriangle, color: "text-amber-600 bg-amber-50" },
+          { label: t("user_dashboard.active_claims"), value: claims.filter(c => !["completed", "rejected"].includes(c.status)).length, icon: FileCheck, color: "text-blue-600 bg-blue-50" },
+          { label: t("user_dashboard.unread_alerts"), value: notifications.filter(n => !n.is_read).length, icon: Bell, color: "text-red-600 bg-red-50" },
         ].map(stat => (
           <Card key={stat.label}>
             <CardContent className="p-4 flex items-center gap-3">
@@ -213,9 +217,9 @@ export default function UserDashboard() {
 
       <Tabs defaultValue="reports">
         <TabsList className="mb-4">
-          <TabsTrigger value="reports">My Lost Reports</TabsTrigger>
-          <TabsTrigger value="claims">My Claims</TabsTrigger>
-          <TabsTrigger value="notifications">Notifications</TabsTrigger>
+          <TabsTrigger value="reports">{t("user_dashboard.tab_reports")}</TabsTrigger>
+          <TabsTrigger value="claims">{t("user_dashboard.tab_claims")}</TabsTrigger>
+          <TabsTrigger value="notifications">{t("user_dashboard.tab_notifications")}</TabsTrigger>
         </TabsList>
 
         {/* Lost Reports Tab */}
@@ -223,7 +227,7 @@ export default function UserDashboard() {
           {lrLoading ? (
             <div className="space-y-3">{Array(3).fill(0).map((_, i) => <Skeleton key={i} className="h-20 rounded-lg" />)}</div>
           ) : lostReports.length === 0 ? (
-            <EmptyState icon={AlertTriangle} message="You haven't submitted any lost item reports yet." />
+            <EmptyState icon={AlertTriangle} message={t("user_dashboard.no_lost_reports")} />
           ) : (
             <div className="space-y-3">
               {lostReports.map(report => (
@@ -241,13 +245,15 @@ export default function UserDashboard() {
                         </div>
                         <p className="text-sm text-slate-500 line-clamp-1 mb-2">{report.description}</p>
                         <p className="text-xs text-slate-400">
-                          Reported {report.created_date ? format(new Date(report.created_date), "MMM d, yyyy") : "recently"}
+                          {t("user_dashboard.reported_on", {
+                            date: report.created_date ? formatLocalizedDate(report.created_date, "MMM d, yyyy") : t("home.no_date"),
+                          })}
                         </p>
                       </div>
                       {report.matched_items?.length > 0 && (
                         <Badge className="bg-purple-100 text-purple-800 flex-shrink-0 gap-1">
                           <Brain className="w-3 h-3" />
-                          {report.matched_items.length} match{report.matched_items.length > 1 ? "es" : ""}
+                          {t("user_dashboard.matches", { count: report.matched_items.length })}
                         </Badge>
                       )}
                     </div>
@@ -263,7 +269,7 @@ export default function UserDashboard() {
           {clLoading ? (
             <div className="space-y-3">{Array(3).fill(0).map((_, i) => <Skeleton key={i} className="h-20 rounded-lg" />)}</div>
           ) : claims.length === 0 ? (
-            <EmptyState icon={FileCheck} message="You haven't submitted any claims yet." />
+            <EmptyState icon={FileCheck} message={t("user_dashboard.no_claims")} />
           ) : (
             <div className="space-y-3">
               {claims.map(claim => (
@@ -276,24 +282,26 @@ export default function UserDashboard() {
                       />
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
-                          <h3 className="font-semibold text-slate-900">{claim.found_item_title || "Claim"}</h3>
+                          <h3 className="font-semibold text-slate-900">{claim.found_item_title || t("common.claim")}</h3>
                           <StatusBadge status={claim.status} />
                         </div>
                         <p className="text-sm text-slate-500 line-clamp-1 mb-2">{claim.reason}</p>
                         <p className="text-xs text-slate-400">
-                          Submitted {claim.created_date ? format(new Date(claim.created_date), "MMM d, yyyy") : "recently"}
+                          {t("user_dashboard.submitted_on", {
+                            date: claim.created_date ? formatLocalizedDate(claim.created_date, "MMM d, yyyy") : t("home.no_date"),
+                          })}
                         </p>
                         {claim.admin_notes && (
                           <div className="mt-2 text-xs bg-blue-50 text-blue-700 p-2 rounded">
-                            Admin note: {claim.admin_notes}
+                            {t("user_dashboard.admin_note", { note: claim.admin_notes })}
                           </div>
                         )}
 
                         {claim.status === "approved" && !claim.received_confirmed_at && (
                           <div className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 p-3">
-                            <p className="text-sm font-medium text-emerald-900">Have you received this item back?</p>
+                            <p className="text-sm font-medium text-emerald-900">{t("user_dashboard.received_question")}</p>
                             <p className="mt-1 text-xs text-emerald-700">
-                              Confirm the return once the item is back in your hands so the record can be closed properly.
+                              {t("user_dashboard.received_description")}
                             </p>
                             <Button
                               size="sm"
@@ -306,14 +314,16 @@ export default function UserDashboard() {
                               ) : (
                                 <CheckCircle2 className="w-4 h-4" />
                               )}
-                              Confirm I Received It
+                              {t("user_dashboard.confirm_received")}
                             </Button>
                           </div>
                         )}
 
                         {claim.received_confirmed_at && (
                           <p className="mt-3 text-xs text-emerald-700">
-                            Confirmed received on {format(new Date(claim.received_confirmed_at), "MMM d, yyyy")}
+                            {t("user_dashboard.confirmed_received", {
+                              date: formatLocalizedDate(claim.received_confirmed_at, "MMM d, yyyy"),
+                            })}
                           </p>
                         )}
 
@@ -321,9 +331,9 @@ export default function UserDashboard() {
                           <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3">
                             <div className="flex items-center justify-between gap-3">
                               <div>
-                                <p className="text-sm font-semibold text-slate-900">Leave a rating</p>
+                                <p className="text-sm font-semibold text-slate-900">{t("user_dashboard.leave_rating")}</p>
                                 <p className="text-xs text-slate-500">
-                                  Ratings are reviewed by an admin before they appear publicly.
+                                  {t("user_dashboard.rating_reviewed")}
                                 </p>
                               </div>
                               {claim.review_status && (
@@ -336,7 +346,9 @@ export default function UserDashboard() {
                                         : "bg-amber-100 text-amber-700"
                                   }
                                 >
-                                  Review {claim.review_status}
+                                  {t("user_dashboard.review_status", {
+                                    status: translateStatus(t, claim.review_status),
+                                  })}
                                 </Badge>
                               )}
                             </div>
@@ -353,7 +365,7 @@ export default function UserDashboard() {
                                     key={index}
                                     type="button"
                                     className="rounded-md p-1 transition hover:bg-amber-100"
-                                    aria-label={`Rate ${index + 1} stars`}
+                                    aria-label={t("user_dashboard.rate_stars", { count: index + 1 })}
                                     disabled={claim.review_status === "pending" || claim.review_status === "approved"}
                                     onClick={() =>
                                       setReviewDrafts((prev) => ({
@@ -374,7 +386,7 @@ export default function UserDashboard() {
                             <Textarea
                               rows={3}
                               className="mt-3 bg-white"
-                              placeholder="Optional note about the return experience"
+                              placeholder={t("user_dashboard.rating_placeholder")}
                               disabled={claim.review_status === "pending" || claim.review_status === "approved"}
                               value={(reviewDrafts[claim.id]?.review ?? claim.claimant_review ?? "")}
                               onChange={(event) =>
@@ -390,17 +402,17 @@ export default function UserDashboard() {
 
                             {claim.review_status === "approved" && claim.claimant_review && (
                               <p className="mt-2 text-xs text-emerald-700">
-                                Your approved review is now visible on the item page.
+                                {t("user_dashboard.review_visible")}
                               </p>
                             )}
                             {claim.review_status === "pending" && (
                               <p className="mt-2 text-xs text-amber-700">
-                                Your rating is waiting for admin approval.
+                                {t("user_dashboard.review_pending")}
                               </p>
                             )}
                             {claim.review_status === "rejected" && (
                               <p className="mt-2 text-xs text-red-700">
-                                Your last rating was not approved. Update it below and resubmit.
+                                {t("user_dashboard.review_rejected")}
                               </p>
                             )}
 
@@ -425,7 +437,7 @@ export default function UserDashboard() {
                                 ) : (
                                   <Star className="w-4 h-4" />
                                 )}
-                                Submit Rating
+                                {t("user_dashboard.submit_rating")}
                               </Button>
                             )}
                           </div>
@@ -433,7 +445,7 @@ export default function UserDashboard() {
                       </div>
                       <Link to={`/ItemDetails?id=${claim.found_item_id}`} className="self-start">
                         <Button variant="outline" size="sm" className="gap-1">
-                          <Eye className="w-3.5 h-3.5" /> View Item
+                          <Eye className="w-3.5 h-3.5" /> {t("common.view_item")}
                         </Button>
                       </Link>
                     </div>
@@ -449,7 +461,7 @@ export default function UserDashboard() {
           {notifLoading ? (
             <div className="space-y-3">{Array(3).fill(0).map((_, i) => <Skeleton key={i} className="h-16 rounded-lg" />)}</div>
           ) : notifications.length === 0 ? (
-            <EmptyState icon={Bell} message="No notifications yet." />
+            <EmptyState icon={Bell} message={t("user_dashboard.no_notifications")} />
           ) : (
             <div className="space-y-2">
               {notifications.map(notif => (
@@ -467,7 +479,7 @@ export default function UserDashboard() {
                       <p className="text-xs text-slate-400 mt-0.5">{notif.message}</p>
                     </div>
                     <span className="text-[10px] text-slate-400 flex-shrink-0">
-                      {notif.created_date ? format(new Date(notif.created_date), "MMM d") : ""}
+                      {notif.created_date ? formatLocalizedDate(notif.created_date, "MMM d") : ""}
                     </span>
                   </div>
                 </div>

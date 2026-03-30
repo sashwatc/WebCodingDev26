@@ -6,6 +6,7 @@
 
 import React, { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
@@ -19,6 +20,7 @@ import { ConsentCheckboxField } from "@/components/shared/ConsentCheckboxField";
 import PhotoUploader from "@/components/shared/PhotoUploader";
 import StatusBadge from "@/components/ui/StatusBadge";
 import { useAuth } from "@/lib/AuthContext";
+import { formatLocalizedDate, translateLocation } from "@/lib/i18n-helpers";
 import {
   Loader2,
   Shield,
@@ -42,6 +44,7 @@ const createInitialForm = (user) => ({
 });
 
 export default function ClaimItem() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
@@ -77,10 +80,10 @@ export default function ClaimItem() {
 
   const validate = () => {
     const errs = {};
-    if (!form.claimant_name.trim()) errs.claimant_name = "Name is required";
-    if (!form.claimant_email.trim()) errs.claimant_email = "Email is required";
-    if (!form.reason.trim()) errs.reason = "Please explain why this is yours";
-    if (!form.truthful) errs.truthful = "You must confirm this is truthful";
+    if (!form.claimant_name.trim()) errs.claimant_name = t("claim_item.name_required");
+    if (!form.claimant_email.trim()) errs.claimant_email = t("claim_item.email_required");
+    if (!form.reason.trim()) errs.reason = t("claim_item.reason_required");
+    if (!form.truthful) errs.truthful = t("claim_item.truthful_required");
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
@@ -113,7 +116,7 @@ export default function ClaimItem() {
       setSubmitted(true);
     },
     onError: () => {
-      toast({ title: "Error", description: "Failed to submit claim.", variant: "destructive" });
+      toast({ title: t("claim_item.error"), description: t("claim_item.submit_failed"), variant: "destructive" });
     },
   });
 
@@ -130,13 +133,13 @@ export default function ClaimItem() {
           <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-50">
             <FileCheck className="h-8 w-8 text-emerald-700" />
           </div>
-          <h1 className="text-2xl font-semibold text-slate-950">Claim submitted for review.</h1>
+          <h1 className="text-2xl font-semibold text-slate-950">{t("claim_item.submitted_title")}</h1>
           <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-slate-600">
-            Your ownership details are now in the review queue. The admin team can verify the claim and the return will stay open until you confirm the item was received.
+            {t("claim_item.submitted_description")}
           </p>
           <div className="mt-8 flex flex-wrap justify-center gap-3">
-            <Button onClick={() => navigate("/UserDashboard")}>View My Claims</Button>
-            <Button variant="outline" onClick={() => navigate("/Search")}>Back to Search</Button>
+            <Button onClick={() => navigate("/UserDashboard")}>{t("claim_item.view_my_claims")}</Button>
+            <Button variant="outline" onClick={() => navigate("/Search")}>{t("claim_item.back_to_search")}</Button>
           </div>
         </div>
       </div>
@@ -158,9 +161,9 @@ export default function ClaimItem() {
       <div className="page-shell max-w-2xl py-20">
         <div className="surface-card px-8 py-14 text-center">
           <Package className="mx-auto mb-4 h-12 w-12 text-slate-300" />
-          <h2 className="text-xl font-semibold text-slate-950">Item not found</h2>
-          <p className="mt-2 text-sm text-slate-500">This listing is no longer available or the link is invalid.</p>
-          <Button className="mt-6" onClick={() => navigate("/Search")}>Back to Search</Button>
+          <h2 className="text-xl font-semibold text-slate-950">{t("claim_item.item_not_found")}</h2>
+          <p className="mt-2 text-sm text-slate-500">{t("claim_item.item_not_found_description")}</p>
+          <Button className="mt-6" onClick={() => navigate("/Search")}>{t("claim_item.back_to_search")}</Button>
         </div>
       </div>
     );
@@ -175,15 +178,13 @@ export default function ClaimItem() {
         onClick={() => navigate(-1)}
       >
         <ArrowLeft className="h-4 w-4" />
-        Back
+        {t("common.back")}
       </Button>
 
       <div className="page-header">
-        <span className="page-kicker">Claim Item</span>
-        <h1 className="page-title">Verify that this item belongs to you.</h1>
-        <p className="page-subtitle">
-          Share details that only the owner would know. Claims are reviewed before the return is marked complete.
-        </p>
+        <span className="page-kicker">{t("claim_item.kicker")}</span>
+        <h1 className="page-title">{t("claim_item.title")}</h1>
+        <p className="page-subtitle">{t("claim_item.subtitle")}</p>
       </div>
 
       <div className="mb-6 grid gap-4 lg:grid-cols-[minmax(0,1fr)_260px]">
@@ -207,7 +208,7 @@ export default function ClaimItem() {
                 <StatusBadge status={item.status} />
               </div>
               <p className="mt-1 text-sm text-slate-600">
-                {item.location_found || "Location unknown"} • {item.date_found || "Date unavailable"}
+                {translateLocation(t, item.location_found) || t("common.unknown_location")} • {item.date_found ? formatLocalizedDate(item.date_found, "MMM d, yyyy") : t("common.date_unavailable")}
               </p>
               <p className="mt-3 line-clamp-2 text-sm leading-6 text-slate-600">
                 {item.ai_description || item.description}
@@ -217,19 +218,19 @@ export default function ClaimItem() {
         </div>
 
         <div className="soft-panel p-5">
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Review flow</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">{t("claim_item.review_flow")}</p>
           <div className="mt-4 space-y-3 text-sm text-slate-600">
             <div className="flex items-start gap-3">
               <Search className="mt-0.5 h-4 w-4 text-primary" />
-              <span>Admins compare your details against the item record.</span>
+              <span>{t("claim_item.review_compare")}</span>
             </div>
             <div className="flex items-start gap-3">
               <Clock3 className="mt-0.5 h-4 w-4 text-primary" />
-              <span>Pickup timing can be coordinated after approval.</span>
+              <span>{t("claim_item.review_pickup")}</span>
             </div>
             <div className="flex items-start gap-3">
               <CheckCircle2 className="mt-0.5 h-4 w-4 text-primary" />
-              <span>The claim closes only after you confirm receipt.</span>
+              <span>{t("claim_item.review_close")}</span>
             </div>
           </div>
         </div>
@@ -239,22 +240,22 @@ export default function ClaimItem() {
         <div className="form-shell">
           <section>
             <div className="space-y-2">
-              <h2 className="text-lg font-semibold text-slate-950">Your information</h2>
+              <h2 className="text-lg font-semibold text-slate-950">{t("claim_item.your_information")}</h2>
               <p className="text-sm text-slate-600">
-                These details let staff reach you and confirm identity during pickup.
+                {t("claim_item.your_information_description")}
               </p>
             </div>
 
             {user && (
               <div className="soft-panel flex flex-wrap items-center gap-2 px-4 py-3 text-sm text-slate-700">
-                <Badge variant="secondary" className="bg-slate-200 text-slate-700">Signed in</Badge>
-                Submitting as {user.full_name} ({user.email})
+                <Badge variant="secondary" className="bg-slate-200 text-slate-700">{t("claim_item.signed_in")}</Badge>
+                {t("claim_item.submitting_as", { name: user.full_name, email: user.email })}
               </div>
             )}
 
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
-                <Label htmlFor="c_name">Full Name *</Label>
+                <Label htmlFor="c_name">{t("claim_item.full_name")}</Label>
                 <Input
                   id="c_name"
                   value={form.claimant_name}
@@ -264,7 +265,7 @@ export default function ClaimItem() {
                 {errors.claimant_name && <p className="mt-1 text-xs text-red-500">{errors.claimant_name}</p>}
               </div>
               <div>
-                <Label htmlFor="c_email">Email *</Label>
+                <Label htmlFor="c_email">{t("common.email")} *</Label>
                 <Input
                   id="c_email"
                   type="email"
@@ -277,10 +278,10 @@ export default function ClaimItem() {
             </div>
 
             <div>
-              <Label htmlFor="c_sid">Student ID</Label>
+              <Label htmlFor="c_sid">{t("claim_item.student_id")}</Label>
               <Input
                 id="c_sid"
-                placeholder="Optional, but useful for verification"
+                placeholder={t("claim_item.student_id_placeholder")}
                 value={form.student_id}
                 onChange={(event) => updateField("student_id", event.target.value)}
               />
@@ -289,18 +290,18 @@ export default function ClaimItem() {
 
           <section>
             <div className="space-y-2">
-              <h2 className="text-lg font-semibold text-slate-950">Ownership verification</h2>
+              <h2 className="text-lg font-semibold text-slate-950">{t("claim_item.ownership_verification")}</h2>
               <p className="text-sm text-slate-600">
-                Provide details that would not normally appear in the public listing.
+                {t("claim_item.ownership_description")}
               </p>
             </div>
 
             <div>
-              <Label htmlFor="c_reason">Why do you believe this is yours? *</Label>
+              <Label htmlFor="c_reason">{t("claim_item.reason")}</Label>
               <Textarea
                 id="c_reason"
                 rows={4}
-                placeholder="Describe when you lost it, where you last saw it, and what makes you confident it is yours."
+                placeholder={t("claim_item.reason_placeholder")}
                 value={form.reason}
                 onChange={(event) => updateField("reason", event.target.value)}
                 className={errors.reason ? "border-red-400" : ""}
@@ -309,11 +310,11 @@ export default function ClaimItem() {
             </div>
 
             <div>
-              <Label htmlFor="c_details">Identifying details only you would know</Label>
+              <Label htmlFor="c_details">{t("claim_item.identifying_details")}</Label>
               <Textarea
                 id="c_details"
                 rows={4}
-                placeholder="Scratches, stickers, lock code format, wallpaper, contents, or anything not obvious from the outside."
+                placeholder={t("claim_item.identifying_placeholder")}
                 value={form.identifying_details}
                 onChange={(event) => updateField("identifying_details", event.target.value)}
               />
@@ -323,14 +324,14 @@ export default function ClaimItem() {
               photos={form.proof_photo_url ? [form.proof_photo_url] : []}
               onChange={(urls) => updateField("proof_photo_url", urls[0] || "")}
               maxPhotos={1}
-              label="Supporting photo (optional)"
+              label={t("claim_item.supporting_photo")}
             />
 
             <div>
-              <Label htmlFor="c_pickup">Pickup availability</Label>
+              <Label htmlFor="c_pickup">{t("claim_item.pickup_availability")}</Label>
               <Input
                 id="c_pickup"
-                placeholder="Example: lunch period, after school Monday-Wednesday"
+                placeholder={t("claim_item.pickup_placeholder")}
                 value={form.pickup_availability}
                 onChange={(event) => updateField("pickup_availability", event.target.value)}
               />
@@ -344,13 +345,12 @@ export default function ClaimItem() {
               onCheckedChange={(value) => updateField("truthful", value)}
               error={errors.truthful}
               tone="amber">
-              I confirm that the information provided is truthful and accurate. I understand that false claims may
-              lead to disciplinary action. *
+              {t("claim_item.truthful_text")}
             </ConsentCheckboxField>
 
             <Button type="submit" size="lg" disabled={submitMutation.isPending} className="w-full gap-2">
               {submitMutation.isPending ? <Loader2 className="h-5 w-5 animate-spin" /> : <Shield className="h-5 w-5" />}
-              {submitMutation.isPending ? "Verifying and submitting..." : "Submit Claim"}
+              {submitMutation.isPending ? t("claim_item.verifying") : t("claim_item.submit_button")}
             </Button>
           </section>
         </div>

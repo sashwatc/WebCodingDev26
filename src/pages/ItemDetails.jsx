@@ -6,6 +6,7 @@
 
 import React, { useState } from "react";
 import { useNavigate, Link, useLocation } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -14,10 +15,15 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useQuery } from "@tanstack/react-query";
 import { appClient } from "@/api/appClient";
 import StatusBadge from "@/components/ui/StatusBadge";
-import { getCategoryLabel } from "@/lib/constants";
-import { format } from "date-fns";
 import { useAuth } from "@/lib/AuthContext";
 import { useMode } from "@/lib/ModeContext";
+import {
+  formatLocalizedDate,
+  translateCategory,
+  translateColor,
+  translateCondition,
+  translateLocation,
+} from "@/lib/i18n-helpers";
 import {
   ArrowLeft, MapPin, Calendar, Clock, Tag, Package,
   Shield, Printer, Share2, CheckCircle2,
@@ -50,6 +56,7 @@ function normalizeLostReport(report = {}) {
 }
 
 export default function ItemDetails() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
   const { hasAdminAccess } = useAuth();
@@ -119,9 +126,9 @@ export default function ItemDetails() {
     return (
       <div className="max-w-lg mx-auto px-4 py-20 text-center">
         <Package className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-        <h2 className="text-xl font-bold text-slate-900 mb-2">Unable to load item</h2>
+        <h2 className="text-xl font-bold text-slate-900 mb-2">{t("item_details.unable_to_load")}</h2>
         <p className="text-slate-500 mb-4">{error.message}</p>
-        <Button onClick={() => navigate("/Search")}>Back to Search</Button>
+        <Button onClick={() => navigate("/Search")}>{t("item_details.back_to_search")}</Button>
       </div>
     );
   }
@@ -130,9 +137,9 @@ export default function ItemDetails() {
     return (
       <div className="max-w-lg mx-auto px-4 py-20 text-center">
         <Package className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-        <h2 className="text-xl font-bold text-slate-900 mb-2">Item Not Found</h2>
-        <p className="text-slate-500 mb-4">This item may have been removed or doesn't exist.</p>
-        <Button onClick={() => navigate("/Search")}>Back to Search</Button>
+        <h2 className="text-xl font-bold text-slate-900 mb-2">{t("item_details.item_not_found")}</h2>
+        <p className="text-slate-500 mb-4">{t("item_details.item_not_found_description")}</p>
+        <Button onClick={() => navigate("/Search")}>{t("item_details.back_to_search")}</Button>
       </div>
     );
   }
@@ -142,7 +149,7 @@ export default function ItemDetails() {
     .filter((rating) => rating.review_status === "approved" && rating.rating)
     .map((rating) => ({
       id: rating.claim_id || `${item.id}-${rating.review_submitted_at || rating.rating}`,
-      claimant_name: rating.claimant_name || "Verified claimant",
+      claimant_name: rating.claimant_name || t("item_details.verified_claimant"),
       claimant_rating: rating.rating,
       claimant_review: rating.review || "",
     }));
@@ -158,20 +165,23 @@ export default function ItemDetails() {
   const averageRating = approvedReviews.length
     ? (approvedReviews.reduce((sum, review) => sum + review.claimant_rating, 0) / approvedReviews.length).toFixed(1)
     : null;
+  const displayTitle = isLostReport && (!item.title || item.title === "Lost item report")
+    ? t("item_details.lost_item_report")
+    : item.title;
   const typeBadgeClasses = isLostReport
     ? "border-rose-200 bg-rose-100 text-rose-700"
     : "border-sky-200 bg-sky-100 text-sky-700";
-  const locationLabel = isLostReport ? "Last Seen" : "Found At";
-  const dateLabel = isLostReport ? "Date Lost" : "Date Found";
+  const locationLabel = isLostReport ? t("item_details.last_seen") : t("item_details.found_at");
+  const dateLabel = isLostReport ? t("item_details.date_lost") : t("item_details.date_found");
   const privacyNote = isLostReport
-    ? "Lost reports stay visible so other users can compare their found item against them."
-    : "Finder contact info and exact storage location are kept private. Submit a claim to verify ownership.";
+    ? t("item_details.privacy_note_lost")
+    : t("item_details.privacy_note_found");
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-8">
       {/* Breadcrumb */}
       <Button variant="ghost" size="sm" className="mb-4 gap-1 text-slate-500" onClick={() => navigate(-1)}>
-        <ArrowLeft className="w-4 h-4" /> Back
+        <ArrowLeft className="w-4 h-4" /> {t("common.back")}
       </Button>
 
       <div className="grid md:grid-cols-5 gap-8">
@@ -181,7 +191,7 @@ export default function ItemDetails() {
             {photos.length > 0 ? (
               <img
                 src={photos[currentPhotoIndex]}
-                alt={`${item.title} - Photo ${currentPhotoIndex + 1}`}
+                alt={item.title}
                 className="w-full h-full object-contain bg-slate-50"
               />
             ) : (
@@ -195,14 +205,14 @@ export default function ItemDetails() {
                 <button
                   onClick={() => setCurrentPhotoIndex(i => (i - 1 + photos.length) % photos.length)}
                   className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-white/90 rounded-full flex items-center justify-center shadow-md hover:bg-white"
-                  aria-label="Previous photo"
+                  aria-label={t("item_details.previous_photo")}
                 >
                   <ChevronLeft className="w-4 h-4" />
                 </button>
                 <button
                   onClick={() => setCurrentPhotoIndex(i => (i + 1) % photos.length)}
                   className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-white/90 rounded-full flex items-center justify-center shadow-md hover:bg-white"
-                  aria-label="Next photo"
+                  aria-label={t("item_details.next_photo")}
                 >
                   <ChevronRight className="w-4 h-4" />
                 </button>
@@ -232,20 +242,20 @@ export default function ItemDetails() {
           <div>
             <div className="flex items-center gap-2 mb-2">
               <Badge variant="secondary" className={typeBadgeClasses}>
-                {isLostReport ? "Lost" : "Found"}
+                {isLostReport ? t("common.lost") : t("common.found")}
               </Badge>
               <StatusBadge status={item.status} />
               {item.item_code && (
                 <Badge variant="outline" className="font-mono text-xs">{item.item_code}</Badge>
               )}
             </div>
-            <h1 className="text-2xl font-bold text-slate-900 mb-2">{item.title}</h1>
+            <h1 className="text-2xl font-bold text-slate-900 mb-2">{displayTitle}</h1>
             <p className="text-slate-500 leading-relaxed">
               {item.ai_description || item.description}
             </p>
             {item.ai_description && item.description !== item.ai_description && (
               <details className="mt-2">
-                <summary className="text-xs text-slate-400 cursor-pointer hover:text-slate-600">View original description</summary>
+                <summary className="text-xs text-slate-400 cursor-pointer hover:text-slate-600">{t("item_details.view_original_description")}</summary>
                 <p className="text-sm text-slate-400 mt-1 italic">{item.description}</p>
               </details>
             )}
@@ -256,10 +266,10 @@ export default function ItemDetails() {
           {/* Metadata Grid */}
           <div className="grid grid-cols-2 gap-3">
             {[
-              { icon: Tag, label: "Category", value: getCategoryLabel(item.category) },
-              { icon: MapPin, label: locationLabel, value: item.location_found },
-              { icon: Calendar, label: dateLabel, value: item.date_found ? format(new Date(item.date_found), "MMM d, yyyy") : "N/A" },
-              { icon: Clock, label: "Time", value: item.time_found || "N/A" },
+              { icon: Tag, label: t("common.category"), value: translateCategory(t, item.category) },
+              { icon: MapPin, label: locationLabel, value: translateLocation(t, item.location_found) || t("common.unknown_location") },
+              { icon: Calendar, label: dateLabel, value: item.date_found ? formatLocalizedDate(item.date_found, "MMM d, yyyy") : t("common.not_available") },
+              { icon: Clock, label: t("common.time"), value: item.time_found || t("common.not_available") },
             ].map(({ icon: Icon, label, value }) => (
               <div key={label} className="bg-slate-50 rounded-lg p-3">
                 <div className="flex items-center gap-1.5 mb-1">
@@ -275,25 +285,25 @@ export default function ItemDetails() {
           <div className="space-y-2">
             {item.color && (
               <div className="flex items-center gap-2 text-sm">
-                <span className="text-slate-500">Color:</span>
-                <span className="font-medium text-slate-700">{item.color}</span>
+                <span className="text-slate-500">{t("common.color")}:</span>
+                <span className="font-medium text-slate-700">{translateColor(t, item.color)}</span>
               </div>
             )}
             {item.brand && (
               <div className="flex items-center gap-2 text-sm">
-                <span className="text-slate-500">Brand:</span>
+                <span className="text-slate-500">{t("common.brand")}:</span>
                 <span className="font-medium text-slate-700">{item.brand}</span>
               </div>
             )}
             {item.condition && (
               <div className="flex items-center gap-2 text-sm">
-                <span className="text-slate-500">Condition:</span>
-                <span className="font-medium text-slate-700 capitalize">{item.condition}</span>
+                <span className="text-slate-500">{t("common.condition")}:</span>
+                <span className="font-medium text-slate-700 capitalize">{translateCondition(t, item.condition)}</span>
               </div>
             )}
             {item.distinguishing_features && (
               <div className="text-sm">
-                <span className="text-slate-500">Features: </span>
+                <span className="text-slate-500">{t("common.features")}: </span>
                 <span className="text-slate-700">{item.distinguishing_features}</span>
               </div>
             )}
@@ -312,9 +322,9 @@ export default function ItemDetails() {
             <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
               <div className="flex items-center justify-between gap-4">
                 <div>
-                  <p className="text-sm font-semibold text-slate-900">Approved user ratings</p>
+                  <p className="text-sm font-semibold text-slate-900">{t("item_details.approved_user_ratings")}</p>
                   <p className="text-xs text-slate-600">
-                    {averageRating} out of 5 from {approvedReviews.length} review{approvedReviews.length > 1 ? "s" : ""}
+                    {t("item_details.rating_summary", { average: averageRating, count: approvedReviews.length })}
                   </p>
                 </div>
                 <div className="flex gap-0.5">
@@ -359,9 +369,9 @@ export default function ItemDetails() {
             <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
               <div className="flex items-center gap-1.5 mb-1">
                 <Shield className="w-4 h-4 text-amber-600" />
-                <span className="text-xs font-semibold text-amber-700">ADMIN ONLY</span>
+                <span className="text-xs font-semibold text-amber-700">{t("item_details.admin_only")}</span>
               </div>
-              <p className="text-sm text-amber-800">Storage: {item.storage_location}</p>
+              <p className="text-sm text-amber-800">{t("item_details.storage", { location: item.storage_location })}</p>
             </div>
           )}
 
@@ -370,14 +380,14 @@ export default function ItemDetails() {
             <Link to={`/ClaimItem?id=${item.id}`} className="block">
               <Button size="lg" className="w-full bg-[hsl(174,60%,40%)] hover:bg-[hsl(174,60%,35%)] text-white gap-2 shadow-md">
                 <CheckCircle2 className="w-5 h-5" />
-                This Is Mine — Submit Claim
+                {t("item_details.claim_button")}
               </Button>
             </Link>
           )}
 
           {isLostReport && item.matching_count > 0 && (
             <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800">
-              {item.matching_count} possible match{item.matching_count > 1 ? "es are" : " is"} already attached to this lost report.
+              {t("item_details.possible_matches", { count: item.matching_count })}
             </div>
           )}
 
@@ -390,10 +400,10 @@ export default function ItemDetails() {
           {/* Share/Print for demo */}
           <div className="flex gap-2">
             <Button variant="outline" size="sm" className="gap-1" onClick={() => window.print()}>
-              <Printer className="w-3.5 h-3.5" /> Print
+              <Printer className="w-3.5 h-3.5" /> {t("common.print")}
             </Button>
             <Button variant="outline" size="sm" className="gap-1" onClick={() => { navigator.clipboard.writeText(window.location.href); }}>
-              <Share2 className="w-3.5 h-3.5" /> Share
+              <Share2 className="w-3.5 h-3.5" /> {t("common.share")}
             </Button>
           </div>
         </div>
@@ -405,7 +415,7 @@ export default function ItemDetails() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
               <Brain className="w-5 h-5 text-purple-600" />
-              Match Suggestions (Admin View)
+              {t("item_details.match_suggestions")}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -416,14 +426,17 @@ export default function ItemDetails() {
                   <div key={report.id} className="flex items-center gap-4 p-3 bg-purple-50 rounded-lg">
                     <div className="flex-1">
                       <p className="font-medium text-sm text-slate-900">
-                        Lost report: {report.item_type}
+                        {t("item_details.lost_report_label", { title: report.item_type || t("item_details.lost_item_report") })}
                       </p>
                       <p className="text-xs text-slate-500">
-                        by {report.contact_name} • {report.date_lost}
+                        {t("item_details.by_line", {
+                          name: report.contact_name,
+                          date: report.date_lost ? formatLocalizedDate(report.date_lost, "MMM d, yyyy") : t("common.not_available"),
+                        })}
                       </p>
                     </div>
                     <Badge className="bg-purple-100 text-purple-800">
-                      {match?.confidence}% match
+                      {t("item_details.match_percent", { count: match?.confidence || 0 })}
                     </Badge>
                   </div>
                 );

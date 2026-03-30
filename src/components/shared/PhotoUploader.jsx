@@ -6,12 +6,15 @@
 
 import React, { useState, useRef } from "react";
 import { Upload, X, Loader2 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { appClient } from "@/api/appClient";
 
-export default function PhotoUploader({ photos = [], onChange, maxPhotos = 3, label = "Upload Photos" }) {
+export default function PhotoUploader({ photos = [], onChange, maxPhotos = 3, label }) {
+  const { t } = useTranslation();
   const [isDragging, setIsDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef(null);
+  const displayLabel = label || t("photo_uploader.upload_photos");
 
   const handleFiles = async (files) => {
     const validFiles = Array.from(files).filter(f => 
@@ -44,7 +47,7 @@ export default function PhotoUploader({ photos = [], onChange, maxPhotos = 3, la
 
   return (
     <div className="space-y-3">
-      <label className="text-sm font-medium text-slate-800">{label}</label>
+      <label className="text-sm font-medium text-slate-800">{displayLabel}</label>
       
       {/* Drag & Drop Zone */}
       <div
@@ -58,7 +61,7 @@ export default function PhotoUploader({ photos = [], onChange, maxPhotos = 3, la
             : "border-slate-300 bg-slate-50 hover:border-slate-400 hover:bg-slate-100"
         } ${photos.length >= maxPhotos ? "opacity-50 pointer-events-none" : ""}`}
         role="button"
-        aria-label="Upload photos by clicking or dragging files here"
+        aria-label={t("photo_uploader.upload_area_label")}
         tabIndex={0}
         onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") fileInputRef.current?.click(); }}
       >
@@ -74,7 +77,7 @@ export default function PhotoUploader({ photos = [], onChange, maxPhotos = 3, la
         {uploading ? (
           <div className="flex flex-col items-center gap-2">
             <Loader2 className="w-8 h-8 text-teal-600 animate-spin" />
-            <p className="text-sm text-slate-500">Uploading...</p>
+            <p className="text-sm text-slate-500">{t("photo_uploader.uploading")}</p>
           </div>
         ) : (
           <div className="flex flex-col items-center gap-2">
@@ -82,10 +85,10 @@ export default function PhotoUploader({ photos = [], onChange, maxPhotos = 3, la
               <Upload className="w-5 h-5 text-primary" />
             </div>
             <p className="text-sm font-semibold text-slate-700">
-              Drag & drop photos or click to browse
+              {t("photo_uploader.drag_drop")}
             </p>
             <p className="text-xs text-slate-500">
-              Max {maxPhotos} photos, 10MB each • JPG, PNG, WEBP
+              {t("photo_uploader.max_photos", { count: maxPhotos })}
             </p>
           </div>
         )}
@@ -96,11 +99,11 @@ export default function PhotoUploader({ photos = [], onChange, maxPhotos = 3, la
         <div className="flex gap-3 flex-wrap">
           {photos.map((url, i) => (
             <div key={i} className="group relative h-24 w-24 overflow-hidden rounded-[18px] border border-slate-200 bg-white shadow-[0_8px_18px_rgba(15,23,42,0.05)]">
-              <img src={url} alt={`Uploaded photo ${i + 1}`} className="w-full h-full object-cover" />
+              <img src={url} alt={t("photo_uploader.uploaded_photo", { count: i + 1 })} className="w-full h-full object-cover" />
               <button
                 onClick={(e) => { e.stopPropagation(); removePhoto(i); }}
                 className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-slate-900 text-white opacity-0 transition-opacity group-hover:opacity-100"
-                aria-label={`Remove photo ${i + 1}`}
+                aria-label={t("photo_uploader.remove_photo", { count: i + 1 })}
               >
                 <X className="w-3 h-3" />
               </button>

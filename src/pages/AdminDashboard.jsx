@@ -6,6 +6,7 @@
  */
 
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -16,8 +17,8 @@ import AdminItemsQueue from "@/components/admin/AdminItemsQueue";
 import AdminClaimsQueue from "@/components/admin/AdminClaimsQueue";
 import RecordThumbnail from "@/components/shared/RecordThumbnail";
 import StatusBadge from "@/components/ui/StatusBadge";
-import { format } from "date-fns";
 import { getPrimaryRecordPhoto } from "@/lib/media";
+import { formatLocalizedDate, translateLocation, translateUrgency } from "@/lib/i18n-helpers";
 import {
   LayoutDashboard,
   Package,
@@ -27,6 +28,7 @@ import {
 } from "lucide-react";
 
 export default function AdminDashboard() {
+  const { t } = useTranslation();
   const { data: foundItems = [], isLoading: fiLoading } = useQuery({
     queryKey: ["adminFoundItems"],
     queryFn: () => appClient.entities.FoundItem.list("-created_date", 500),
@@ -56,19 +58,16 @@ export default function AdminDashboard() {
     <div className="page-shell py-8">
       <div className="mb-8">
         <div className="page-header">
-          <span className="page-kicker">Admin Workspace</span>
-          <h1 className="page-title">Review items, claims, and reports from one dashboard.</h1>
-          <p className="page-subtitle">
-            This area keeps moderation work separate from the public search pages and surfaces the records that still
-            need action.
-          </p>
+          <span className="page-kicker">{t("admin_dashboard.kicker")}</span>
+          <h1 className="page-title">{t("admin_dashboard.title")}</h1>
+          <p className="page-subtitle">{t("admin_dashboard.subtitle")}</p>
         </div>
 
         <div className="grid gap-4 sm:grid-cols-3">
           {[
-            { label: "Pending Items", value: pendingCount },
-            { label: "Pending Claims", value: pendingClaims },
-            { label: "Open Reports", value: openReports },
+            { label: t("admin_dashboard.pending_items"), value: pendingCount },
+            { label: t("admin_dashboard.pending_claims"), value: pendingClaims },
+            { label: t("admin_dashboard.open_reports"), value: openReports },
           ].map((stat) => (
             <div key={stat.label} className="stat-panel">
               <p className="text-2xl font-semibold text-slate-950">{stat.value}</p>
@@ -92,26 +91,26 @@ export default function AdminDashboard() {
           <TabsList className="mb-6 flex h-auto w-full flex-wrap justify-start gap-2 rounded-lg border border-slate-200 bg-white p-2 shadow-none">
             <TabsTrigger value="overview" className="gap-2">
               <LayoutDashboard className="h-4 w-4" />
-              Overview
+              {t("admin_dashboard.overview")}
             </TabsTrigger>
             <TabsTrigger value="items" className="gap-2">
               <Package className="h-4 w-4" />
-              Items
+              {t("admin_dashboard.items")}
               {pendingCount > 0 && <Badge variant="outline">{pendingCount}</Badge>}
             </TabsTrigger>
             <TabsTrigger value="claims" className="gap-2">
               <FileCheck className="h-4 w-4" />
-              Claims
+              {t("admin_dashboard.claims")}
               {pendingClaims > 0 && <Badge variant="outline">{pendingClaims}</Badge>}
             </TabsTrigger>
             <TabsTrigger value="reports" className="gap-2">
               <AlertTriangle className="h-4 w-4" />
-              Lost Reports
+              {t("admin_dashboard.lost_reports")}
               {openReports > 0 && <Badge variant="outline">{openReports}</Badge>}
             </TabsTrigger>
             <TabsTrigger value="logs" className="gap-2">
               <ClipboardList className="h-4 w-4" />
-              Audit Log
+              {t("admin_dashboard.audit_log")}
             </TabsTrigger>
           </TabsList>
 
@@ -130,14 +129,14 @@ export default function AdminDashboard() {
           <TabsContent value="reports">
             <div className="space-y-4">
               <div className="surface-card p-5">
-                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Lost Reports</p>
-                <p className="mt-2 text-sm text-slate-600">{lostReports.length} report{lostReports.length !== 1 ? "s" : ""} currently in the system.</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">{t("admin_dashboard.lost_reports")}</p>
+                <p className="mt-2 text-sm text-slate-600">{t("admin_dashboard.reports_summary", { count: lostReports.length })}</p>
               </div>
 
               {lostReports.length === 0 ? (
                 <div className="surface-card px-6 py-14 text-center">
                   <AlertTriangle className="mx-auto mb-3 h-10 w-10 text-slate-300" />
-                  <p className="text-sm text-slate-500">No lost reports yet.</p>
+                  <p className="text-sm text-slate-500">{t("admin_dashboard.no_lost_reports")}</p>
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -154,16 +153,16 @@ export default function AdminDashboard() {
                               <h3 className="text-base font-semibold text-slate-950">{report.item_type}</h3>
                               <StatusBadge status={report.status} />
                               {report.matched_items?.length > 0 && (
-                                <Badge variant="secondary">{report.matched_items.length} matches</Badge>
+                                <Badge variant="secondary">{t("admin_dashboard.matches", { count: report.matched_items.length })}</Badge>
                               )}
                             </div>
                             <p className="mt-2 text-sm leading-6 text-slate-600">{report.description}</p>
                             <p className="mt-3 text-xs uppercase tracking-[0.14em] text-slate-500">
-                              {report.contact_name} • {report.date_lost} • {report.last_seen_location || "Unknown location"}
+                              {report.contact_name} • {report.date_lost ? formatLocalizedDate(report.date_lost, "MMM d, yyyy") : t("common.not_available")} • {translateLocation(t, report.last_seen_location) || t("admin_dashboard.unknown_location")}
                             </p>
                           </div>
                         </div>
-                        <Badge variant="outline" className="capitalize self-start">{report.urgency}</Badge>
+                        <Badge variant="outline" className="capitalize self-start">{translateUrgency(t, report.urgency)}</Badge>
                       </div>
                     </div>
                   ))}
@@ -176,7 +175,7 @@ export default function AdminDashboard() {
             {auditLogs.length === 0 ? (
               <div className="surface-card px-6 py-14 text-center">
                 <ClipboardList className="mx-auto mb-3 h-10 w-10 text-slate-300" />
-                <p className="text-sm text-slate-500">No audit logs yet.</p>
+                <p className="text-sm text-slate-500">{t("admin_dashboard.no_audit_logs")}</p>
               </div>
             ) : (
               <div className="space-y-3">
@@ -191,7 +190,7 @@ export default function AdminDashboard() {
                       <div className="text-right">
                         <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">{log.performed_by}</p>
                         <p className="mt-1 text-[11px] text-slate-500">
-                          {log.created_date ? format(new Date(log.created_date), "MMM d, h:mm a") : ""}
+                          {log.created_date ? formatLocalizedDate(log.created_date, "MMM d, h:mm a") : ""}
                         </p>
                       </div>
                     </div>

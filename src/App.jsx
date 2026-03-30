@@ -7,6 +7,7 @@
 import { Toaster } from "@/components/ui/toaster"
 import { QueryClientProvider } from '@tanstack/react-query'
 import { queryClientInstance } from '@/lib/query-client'
+import { useTranslation } from "react-i18next";
 import { HashRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
 import { MotionConfig } from "framer-motion";
 import PageNotFound from './lib/PageNotFound';
@@ -41,6 +42,7 @@ import Documentation from '@/pages/Documentation';
 import ShaderDemo from '@/pages/ShaderDemo';
 
 const AuthenticatedApp = () => {
+  const { t } = useTranslation();
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
 
   if (isLoadingPublicSettings || isLoadingAuth) {
@@ -48,7 +50,7 @@ const AuthenticatedApp = () => {
       <div className="fixed inset-0 flex items-center justify-center bg-[hsl(210,20%,98%)]">
         <div className="text-center">
           <div className="w-10 h-10 border-4 border-slate-200 border-t-[hsl(174,60%,40%)] rounded-full animate-spin mx-auto mb-3"></div>
-          <p className="text-sm text-slate-400">Loading {BRAND_NAME}...</p>
+          <p className="text-sm text-slate-400">{t("common.loading")} {BRAND_NAME}</p>
         </div>
       </div>
     );

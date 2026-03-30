@@ -4,6 +4,7 @@
  */
 
 import React, { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -21,8 +22,8 @@ import { appClient } from "@/api/appClient";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import StatusBadge from "@/components/ui/StatusBadge";
 import RecordThumbnail from "@/components/shared/RecordThumbnail";
-import { format } from "date-fns";
 import { getPrimaryRecordPhoto } from "@/lib/media";
+import { formatLocalizedDate, translateStatus } from "@/lib/i18n-helpers";
 import {
   CheckCircle2,
   XCircle,
@@ -41,6 +42,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 export default function AdminClaimsQueue({ claims, foundItems = [] }) {
+  const { t } = useTranslation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
@@ -117,12 +119,12 @@ export default function AdminClaimsQueue({ claims, foundItems = [] }) {
     onSuccess: () => {
       setDetailDialog(null);
       queryClient.invalidateQueries();
-      toast({ title: "Claim updated" });
+      toast({ title: t("admin_claims_queue.claim_updated") });
     },
     onError: (error) => {
       toast({
-        title: "Claim update failed",
-        description: error.message || "The claim could not be updated.",
+        title: t("admin_claims_queue.claim_update_failed"),
+        description: error.message || t("admin_claims_queue.claim_update_failed_description"),
         variant: "destructive",
       });
     },
@@ -150,7 +152,7 @@ export default function AdminClaimsQueue({ claims, foundItems = [] }) {
         <div className="relative">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
           <Input
-            placeholder="Search claims by item, claimant, or reason"
+            placeholder={t("admin_claims_queue.search_placeholder")}
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             className="pl-9"
@@ -158,12 +160,12 @@ export default function AdminClaimsQueue({ claims, foundItems = [] }) {
         </div>
       </div>
 
-      <p className="text-sm text-slate-600">{filtered.length} claim{filtered.length !== 1 ? "s" : ""}</p>
+      <p className="text-sm text-slate-600">{t("admin_claims_queue.count", { count: filtered.length })}</p>
 
       {filtered.length === 0 ? (
         <div className="surface-card px-6 py-14 text-center">
           <Shield className="mx-auto mb-3 h-10 w-10 text-slate-300" />
-          <p className="text-sm text-slate-500">No claims to review.</p>
+          <p className="text-sm text-slate-500">{t("admin_claims_queue.no_claims")}</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -183,21 +185,21 @@ export default function AdminClaimsQueue({ claims, foundItems = [] }) {
                   />
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <h3 className="text-base font-semibold text-slate-950">{claim.found_item_title || "Unknown item"}</h3>
+                      <h3 className="text-base font-semibold text-slate-950">{claim.found_item_title || t("admin_claims_queue.unknown_item")}</h3>
                       <StatusBadge status={claim.status} />
                       {claim.risk_score != null && (
                         <Badge className={getRiskColor(claim.risk_score)}>
-                          Risk {claim.risk_score}
+                          {t("admin_claims_queue.risk_label", { score: claim.risk_score })}
                         </Badge>
                       )}
                       {claim.proof_photo_url && (
-                        <Badge variant="outline">Proof Photo</Badge>
+                        <Badge variant="outline">{t("admin_claims_queue.proof_photo")}</Badge>
                       )}
                     </div>
 
                     <p className="mt-2 text-sm text-slate-600">
                       {claim.claimant_name} ({claim.claimant_email}) •{" "}
-                      {claim.created_date ? format(new Date(claim.created_date), "MMM d") : ""}
+                      {claim.created_date ? formatLocalizedDate(claim.created_date, "MMM d") : ""}
                     </p>
                     <p className="mt-2 text-sm leading-6 text-slate-600">{claim.reason}</p>
 
@@ -213,7 +215,7 @@ export default function AdminClaimsQueue({ claims, foundItems = [] }) {
                             />
                           ))}
                         </div>
-                        <span>Review {claim.review_status || "submitted"}</span>
+                        <span>{t("admin_claims_queue.review_label", { status: translateStatus(t, claim.review_status || "submitted") })}</span>
                       </div>
                     ) : null}
 
@@ -239,7 +241,7 @@ export default function AdminClaimsQueue({ claims, foundItems = [] }) {
                           onClick={() => updateMutation.mutate({ claim, data: { status: "approved" }, action: "Claim approved" })}
                         >
                           <CheckCircle2 className="h-3.5 w-3.5" />
-                          Approve
+                          {t("admin_claims_queue.approve")}
                         </Button>
                         <Button
                           size="sm"
@@ -248,7 +250,7 @@ export default function AdminClaimsQueue({ claims, foundItems = [] }) {
                           onClick={() => updateMutation.mutate({ claim, data: { status: "rejected" }, action: "Claim rejected" })}
                         >
                           <XCircle className="h-3.5 w-3.5" />
-                          Reject
+                          {t("admin_claims_queue.reject")}
                         </Button>
                       </>
                     )}
@@ -263,7 +265,7 @@ export default function AdminClaimsQueue({ claims, foundItems = [] }) {
                       }}
                     >
                       <Eye className="h-3.5 w-3.5" />
-                      Details
+                      {t("admin_claims_queue.details")}
                     </Button>
 
                     <DropdownMenu>
@@ -274,13 +276,13 @@ export default function AdminClaimsQueue({ claims, foundItems = [] }) {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem onClick={() => updateMutation.mutate({ claim, data: { status: "under_review" }, action: "Status → Under Review" })}>
-                          Mark Under Review
+                          {t("admin_claims_queue.mark_under_review")}
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => updateMutation.mutate({ claim, data: { status: "need_more_info" }, action: "Status → Need More Info" })}>
-                          Request More Info
+                          {t("admin_claims_queue.request_more_info")}
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => updateMutation.mutate({ claim, data: { status: "completed" }, action: "Status → Completed" })}>
-                          Mark Completed
+                          {t("admin_claims_queue.mark_completed")}
                         </DropdownMenuItem>
                         {claim.review_status === "pending" && (
                           <>
@@ -294,14 +296,14 @@ export default function AdminClaimsQueue({ claims, foundItems = [] }) {
                                   },
                                   action: "Review approved",
                                   notifyUser: {
-                                    title: "Rating approved",
-                                    message: `Your rating for ${claim.found_item_title} is now visible.`,
+                                    title: t("admin_claims_queue.rating_approved_title"),
+                                    message: t("admin_claims_queue.rating_approved_message", { title: claim.found_item_title }),
                                     link: `/ItemDetails?id=${claim.found_item_id}`,
                                   },
                                 })
                               }
                             >
-                              Approve Rating
+                              {t("admin_claims_queue.approve_rating")}
                             </DropdownMenuItem>
                             <DropdownMenuItem
                               onClick={() =>
@@ -313,13 +315,13 @@ export default function AdminClaimsQueue({ claims, foundItems = [] }) {
                                   },
                                   action: "Review rejected",
                                   notifyUser: {
-                                    title: "Rating needs changes",
-                                    message: `Your rating for ${claim.found_item_title} was not approved yet. You can edit and resubmit it from your dashboard.`,
+                                    title: t("admin_claims_queue.rating_rejected_title"),
+                                    message: t("admin_claims_queue.rating_rejected_message", { title: claim.found_item_title }),
                                   },
                                 })
                               }
                             >
-                              Reject Rating
+                              {t("admin_claims_queue.reject_rating")}
                             </DropdownMenuItem>
                           </>
                         )}
@@ -336,55 +338,57 @@ export default function AdminClaimsQueue({ claims, foundItems = [] }) {
       <Dialog open={!!detailDialog} onOpenChange={() => setDetailDialog(null)}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Claim Details</DialogTitle>
+            <DialogTitle>{t("admin_claims_queue.claim_details")}</DialogTitle>
           </DialogHeader>
 
           {detailDialog && (
             <div className="space-y-4">
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="rounded-[18px] border border-slate-200 bg-slate-50 px-4 py-3 text-sm">
-                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Claimant</p>
+                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">{t("admin_claims_queue.claimant")}</p>
                   <p className="mt-2 font-medium text-slate-900">{detailDialog.claimant_name}</p>
                   <p className="mt-1 text-slate-600">{detailDialog.claimant_email}</p>
                 </div>
                 <div className="rounded-[18px] border border-slate-200 bg-slate-50 px-4 py-3 text-sm">
-                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Status</p>
+                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">{t("admin_claims_queue.status")}</p>
                   <div className="mt-2 flex flex-wrap items-center gap-2">
                     <StatusBadge status={detailDialog.status} />
-                    <span className="text-slate-600">Student ID: {detailDialog.student_id || "N/A"}</span>
+                    <span className="text-slate-600">{t("claim_item.student_id")}: {detailDialog.student_id || t("common.not_available")}</span>
                   </div>
                 </div>
               </div>
 
               <div className="rounded-[18px] border border-slate-200 bg-slate-50 px-4 py-4">
-                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Reason</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">{t("admin_claims_queue.reason")}</p>
                 <p className="mt-2 text-sm leading-6 text-slate-700">{detailDialog.reason}</p>
               </div>
 
               {detailDialog.identifying_details && (
                 <div className="rounded-[18px] border border-slate-200 bg-slate-50 px-4 py-4">
-                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Identifying Details</p>
+                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">{t("admin_claims_queue.identifying_details")}</p>
                   <p className="mt-2 text-sm leading-6 text-slate-700">{detailDialog.identifying_details}</p>
                 </div>
               )}
 
               {detailDialog.received_confirmed_at && (
                 <div className="rounded-[18px] border border-emerald-200 bg-emerald-50 px-4 py-4 text-sm text-emerald-800">
-                  Claimant confirmed receipt on {format(new Date(detailDialog.received_confirmed_at), "MMM d, yyyy")}
+                  {t("admin_claims_queue.received_on", {
+                    date: formatLocalizedDate(detailDialog.received_confirmed_at, "MMM d, yyyy"),
+                  })}
                 </div>
               )}
 
               {detailDialog.proof_photo_url && (
                 <img
                   src={detailDialog.proof_photo_url}
-                  alt="Proof"
+                  alt={t("admin_claims_queue.proof_photo")}
                   className="w-full rounded-[18px] border border-slate-200 object-contain"
                 />
               )}
 
               {detailDialog.risk_score != null && (
                 <div className={`rounded-[18px] border px-4 py-4 text-sm ${getRiskColor(detailDialog.risk_score)}`}>
-                  <p className="font-semibold">Risk score: {detailDialog.risk_score}/100</p>
+                  <p className="font-semibold">{t("admin_claims_queue.risk_score", { score: detailDialog.risk_score })}</p>
                   {detailDialog.risk_flags?.map((flag, index) => (
                     <p key={index} className="mt-1 text-xs">• {flag}</p>
                   ))}
@@ -392,13 +396,13 @@ export default function AdminClaimsQueue({ claims, foundItems = [] }) {
               )}
 
               <div>
-                <p className="mb-2 text-sm font-medium text-slate-700">Admin notes</p>
+                <p className="mb-2 text-sm font-medium text-slate-700">{t("admin_claims_queue.admin_notes")}</p>
                 <Textarea value={adminNotes} onChange={(event) => setAdminNotes(event.target.value)} rows={3} />
               </div>
 
               {detailDialog.claimant_rating ? (
                 <div className="rounded-[18px] border border-slate-200 bg-slate-50 px-4 py-4">
-                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Claimant Rating</p>
+                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">{t("admin_claims_queue.claimant_rating")}</p>
                   <div className="mt-3 flex gap-0.5">
                     {Array.from({ length: 5 }).map((_, index) => (
                       <Star
@@ -413,7 +417,11 @@ export default function AdminClaimsQueue({ claims, foundItems = [] }) {
                     <p className="mt-3 text-sm leading-6 text-slate-700">{detailDialog.claimant_review}</p>
                   )}
                   <p className="mt-3 text-xs uppercase tracking-[0.14em] text-slate-500">
-                    Review status: {detailDialog.review_status || "not submitted"}
+                    {t("admin_claims_queue.review_status", {
+                      status: detailDialog.review_status
+                        ? translateStatus(t, detailDialog.review_status)
+                        : t("admin_claims_queue.not_submitted"),
+                    })}
                   </p>
                 </div>
               ) : null}
@@ -438,7 +446,7 @@ export default function AdminClaimsQueue({ claims, foundItems = [] }) {
                       })
                     }
                   >
-                    Approve Rating
+                    {t("admin_claims_queue.approve_rating")}
                   </Button>
                   <Button
                     size="sm"
@@ -450,15 +458,15 @@ export default function AdminClaimsQueue({ claims, foundItems = [] }) {
                           review_status: "rejected",
                           review_reviewed_at: new Date().toISOString(),
                         },
-                        action: "Review rejected",
-                        notifyUser: {
-                          title: "Rating needs changes",
-                          message: `Your rating for ${detailDialog.found_item_title} was not approved yet. You can edit and resubmit it from your dashboard.`,
-                        },
-                      })
-                    }
+                          action: "Review rejected",
+                          notifyUser: {
+                            title: t("admin_claims_queue.rating_rejected_title"),
+                            message: t("admin_claims_queue.rating_rejected_message", { title: detailDialog.found_item_title }),
+                          },
+                        })
+                      }
                   >
-                    Reject Rating
+                    {t("admin_claims_queue.reject_rating")}
                   </Button>
                 </div>
               )}
@@ -466,18 +474,18 @@ export default function AdminClaimsQueue({ claims, foundItems = [] }) {
           )}
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDetailDialog(null)}>Close</Button>
+            <Button variant="outline" onClick={() => setDetailDialog(null)}>{t("common.close")}</Button>
             <Button
               onClick={async () => {
                 if (detailDialog) {
                   await appClient.entities.Claim.update(detailDialog.id, { admin_notes: adminNotes });
                   setDetailDialog(null);
                   queryClient.invalidateQueries();
-                  toast({ title: "Notes saved" });
+                  toast({ title: t("admin_claims_queue.notes_saved") });
                 }
               }}
             >
-              Save Notes
+              {t("admin_claims_queue.save_notes")}
             </Button>
           </DialogFooter>
         </DialogContent>

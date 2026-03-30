@@ -5,6 +5,7 @@
 
 import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -18,6 +19,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { appClient } from "@/api/appClient";
 import { CATEGORIES, LOCATIONS, COLORS, URGENCY_LEVELS } from "@/lib/constants";
 import { findMatches } from "@/lib/ai-services";
+import { translateCategory, translateColor, translateLocation, translateUrgency } from "@/lib/i18n-helpers";
 import { ConsentCheckboxField } from "@/components/shared/ConsentCheckboxField";
 import PhotoUploader from "@/components/shared/PhotoUploader";
 import {
@@ -29,6 +31,7 @@ import {
 } from "lucide-react";
 
 export default function ReportLost() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -67,12 +70,12 @@ export default function ReportLost() {
 
   const validate = () => {
     const nextErrors = {};
-    if (!form.item_type.trim()) nextErrors.item_type = "Item type is required";
-    if (!form.description.trim()) nextErrors.description = "Description is required";
-    if (!form.date_lost) nextErrors.date_lost = "Date lost is required";
-    if (!form.contact_name.trim()) nextErrors.contact_name = "Your name is required";
-    if (!form.contact_email.trim()) nextErrors.contact_email = "Email is required";
-    if (!form.confirm_accuracy) nextErrors.confirm_accuracy = "Please confirm the report details";
+    if (!form.item_type.trim()) nextErrors.item_type = t("report_lost.item_type_required");
+    if (!form.description.trim()) nextErrors.description = t("report_lost.description_required");
+    if (!form.date_lost) nextErrors.date_lost = t("report_lost.date_lost_required");
+    if (!form.contact_name.trim()) nextErrors.contact_name = t("report_lost.contact_name_required");
+    if (!form.contact_email.trim()) nextErrors.contact_email = t("report_lost.contact_email_required");
+    if (!form.confirm_accuracy) nextErrors.confirm_accuracy = t("report_lost.confirm_required");
     setErrors(nextErrors);
     return Object.keys(nextErrors).length === 0;
   };
@@ -102,7 +105,7 @@ export default function ReportLost() {
       setStep(3);
     },
     onError: () => {
-      toast({ title: "Error", description: "Failed to submit report.", variant: "destructive" });
+      toast({ title: t("report_lost.error"), description: t("report_lost.submit_failed"), variant: "destructive" });
       setStep(1);
     },
   });
@@ -110,7 +113,7 @@ export default function ReportLost() {
   const handleSubmit = (event) => {
     event.preventDefault();
     if (!validate()) {
-      toast({ title: "Missing fields", description: "Please fill in all required fields.", variant: "destructive" });
+      toast({ title: t("report_lost.missing_fields"), description: t("report_lost.missing_fields_message"), variant: "destructive" });
       return;
     }
     submitMutation.mutate(form);
@@ -123,14 +126,14 @@ export default function ReportLost() {
           <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-slate-100 animate-pulse">
             <Brain className="w-8 h-8 text-primary" />
           </div>
-          <h2 className="mb-2 text-2xl font-semibold text-slate-900">Matching Your Report</h2>
+          <h2 className="mb-2 text-2xl font-semibold text-slate-900">{t("report_lost.matching_title")}</h2>
           <p className="mb-6 text-slate-600">
-            Comparing your lost item against {foundItems.length} found items in the current data set...
+            {t("report_lost.matching_description", { count: foundItems.length })}
           </p>
           <div className="mx-auto max-w-xs">
             <Progress value={66} className="h-2.5" />
           </div>
-          <p className="mt-3 text-xs text-slate-400">This usually takes a few seconds</p>
+          <p className="mt-3 text-xs text-slate-400">{t("report_lost.matching_hint")}</p>
         </div>
       </div>
     );
@@ -140,10 +143,10 @@ export default function ReportLost() {
     return (
       <div className="page-shell max-w-4xl py-10">
         <div className="page-header text-center">
-          <span className="page-kicker">Lost Report Submitted</span>
-          <h2 className="page-title">Your report is active.</h2>
+          <span className="page-kicker">{t("report_lost.submitted_kicker")}</span>
+          <h2 className="page-title">{t("report_lost.submitted_title")}</h2>
           <p className="page-subtitle mx-auto">
-            Here are the strongest suggested matches based on the current item records.
+            {t("report_lost.submitted_subtitle")}
           </p>
         </div>
 
@@ -152,7 +155,7 @@ export default function ReportLost() {
             <div className="mb-2 flex items-center gap-2">
               <Sparkles className="w-5 h-5 text-primary" />
               <h3 className="text-lg font-semibold text-slate-900">
-                {matches.length} Potential Match{matches.length > 1 ? "es" : ""} Found
+                {t("report_lost.potential_matches", { count: matches.length })}
               </h3>
             </div>
             {matches.map((match, index) => {
@@ -170,7 +173,7 @@ export default function ReportLost() {
                         <div className="mb-1 flex items-center gap-2">
                           <h4 className="truncate font-semibold text-slate-900">{item.title}</h4>
                           <Badge className="bg-blue-100 text-blue-800 border-blue-200 text-xs">
-                            {match.confidence}% match
+                            {t("report_lost.match_badge", { count: match.confidence })}
                           </Badge>
                         </div>
                         <p className="mb-2 line-clamp-2 text-sm text-slate-600">{item.ai_description || item.description}</p>
@@ -184,7 +187,7 @@ export default function ReportLost() {
                       </div>
                       <Link to={`/ItemDetails?id=${item.id}`}>
                         <Button size="sm" variant="outline" className="gap-1 flex-shrink-0">
-                          <Eye className="w-3.5 h-3.5" /> View
+                          <Eye className="w-3.5 h-3.5" /> {t("common.view")}
                         </Button>
                       </Link>
                     </div>
@@ -196,9 +199,9 @@ export default function ReportLost() {
         ) : (
           <Card className="mb-8">
             <CardContent className="p-8 text-center">
-              <p className="mb-2 text-slate-600">No strong matches found yet.</p>
+              <p className="mb-2 text-slate-600">{t("report_lost.no_matches_title")}</p>
               <p className="text-sm text-slate-400">
-                We&apos;ll continue scanning new found items and notify you if a match appears.
+                {t("report_lost.no_matches_description")}
               </p>
             </CardContent>
           </Card>
@@ -206,10 +209,10 @@ export default function ReportLost() {
 
         <div className="flex flex-wrap justify-center gap-3">
           <Button onClick={() => navigate("/Search")} className="gap-2">
-            <Eye className="w-4 h-4" /> Browse All Found Items
+            <Eye className="w-4 h-4" /> {t("report_lost.browse_found_items")}
           </Button>
           <Button variant="outline" onClick={() => navigate("/UserDashboard")}>
-            Go to My Dashboard
+            {t("report_lost.go_to_dashboard")}
           </Button>
         </div>
       </div>
@@ -219,11 +222,9 @@ export default function ReportLost() {
   return (
     <div className="page-shell max-w-4xl py-10">
       <div className="page-header">
-        <span className="page-kicker">Report Lost Item</span>
-        <h1 className="page-title">Describe what went missing.</h1>
-        <p className="page-subtitle">
-          The matching engine will compare your report against currently stored found-item records and surface the closest matches.
-        </p>
+        <span className="page-kicker">{t("report_lost.kicker")}</span>
+        <h1 className="page-title">{t("report_lost.title")}</h1>
+        <p className="page-subtitle">{t("report_lost.subtitle")}</p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6" noValidate>
@@ -232,105 +233,105 @@ export default function ReportLost() {
             <CardHeader className="p-6 pb-4 sm:p-8 sm:pb-4">
               <CardTitle className="flex items-center gap-2 text-lg">
                 <AlertTriangle className="w-5 h-5 text-primary" />
-                Lost Item Details
+                {t("report_lost.details")}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4 p-6 pt-0 sm:p-8 sm:pt-0">
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
-                  <Label htmlFor="item_type">Item Type *</Label>
-                  <Input id="item_type" placeholder="e.g. Water Bottle, AirPods" value={form.item_type} onChange={(event) => updateField("item_type", event.target.value)} className={errors.item_type ? "border-red-400" : ""} />
+                  <Label htmlFor="item_type">{t("report_lost.item_type")}</Label>
+                  <Input id="item_type" placeholder={t("report_lost.item_type_placeholder")} value={form.item_type} onChange={(event) => updateField("item_type", event.target.value)} className={errors.item_type ? "border-red-400" : ""} />
                   {errors.item_type && <p className="mt-1 text-xs text-red-500">{errors.item_type}</p>}
                 </div>
                 <div>
-                  <Label>Category</Label>
+                  <Label>{t("common.category")}</Label>
                   <Select value={form.category} onValueChange={(value) => updateField("category", value)}>
-                    <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
+                    <SelectTrigger><SelectValue placeholder={t("report_found.select_category")} /></SelectTrigger>
                     <SelectContent>
-                      {CATEGORIES.map((category) => <SelectItem key={category.value} value={category.value}>{category.label}</SelectItem>)}
+                      {CATEGORIES.map((category) => <SelectItem key={category.value} value={category.value}>{translateCategory(t, category.value)}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
               </div>
 
               <div>
-                <Label htmlFor="lost_desc">Description *</Label>
-                <Textarea id="lost_desc" placeholder="Describe your item in detail — any markings, stickers, contents, etc." rows={4} value={form.description} onChange={(event) => updateField("description", event.target.value)} className={errors.description ? "border-red-400" : ""} />
+                <Label htmlFor="lost_desc">{t("report_lost.description_label")}</Label>
+                <Textarea id="lost_desc" placeholder={t("report_lost.description_placeholder")} rows={4} value={form.description} onChange={(event) => updateField("description", event.target.value)} className={errors.description ? "border-red-400" : ""} />
                 {errors.description && <p className="mt-1 text-xs text-red-500">{errors.description}</p>}
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
-                  <Label>Color</Label>
+                  <Label>{t("common.color")}</Label>
                   <Select value={form.color} onValueChange={(value) => updateField("color", value)}>
-                    <SelectTrigger><SelectValue placeholder="Select color" /></SelectTrigger>
+                    <SelectTrigger><SelectValue placeholder={t("report_found.select_color")} /></SelectTrigger>
                     <SelectContent>
-                      {COLORS.map((color) => <SelectItem key={color} value={color}>{color}</SelectItem>)}
+                      {COLORS.map((color) => <SelectItem key={color} value={color}>{translateColor(t, color)}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
                 <div>
-                  <Label htmlFor="lost_brand">Brand</Label>
-                  <Input id="lost_brand" placeholder="e.g. Apple, Nike" value={form.brand} onChange={(event) => updateField("brand", event.target.value)} />
+                  <Label htmlFor="lost_brand">{t("common.brand")}</Label>
+                  <Input id="lost_brand" placeholder={t("report_lost.brand_placeholder")} value={form.brand} onChange={(event) => updateField("brand", event.target.value)} />
                 </div>
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
-                  <Label>Date Lost *</Label>
+                  <Label>{t("report_lost.date_lost")}</Label>
                   <Input type="date" value={form.date_lost} onChange={(event) => updateField("date_lost", event.target.value)} className={errors.date_lost ? "border-red-400" : ""} />
                   {errors.date_lost && <p className="mt-1 text-xs text-red-500">{errors.date_lost}</p>}
                 </div>
                 <div>
-                  <Label>Last Seen Location</Label>
+                  <Label>{t("report_lost.last_seen_location")}</Label>
                   <Select value={form.last_seen_location} onValueChange={(value) => updateField("last_seen_location", value)}>
-                    <SelectTrigger><SelectValue placeholder="Select location" /></SelectTrigger>
+                    <SelectTrigger><SelectValue placeholder={t("report_found.select_location")} /></SelectTrigger>
                     <SelectContent>
-                      {LOCATIONS.map((location) => <SelectItem key={location} value={location}>{location}</SelectItem>)}
+                      {LOCATIONS.map((location) => <SelectItem key={location} value={location}>{translateLocation(t, location)}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
               </div>
 
               <div>
-                <Label>Urgency Level</Label>
+                <Label>{t("report_lost.urgency_level")}</Label>
                 <Select value={form.urgency} onValueChange={(value) => updateField("urgency", value)}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {URGENCY_LEVELS.map((urgency) => <SelectItem key={urgency.value} value={urgency.value}>{urgency.label}</SelectItem>)}
+                    {URGENCY_LEVELS.map((urgency) => <SelectItem key={urgency.value} value={urgency.value}>{translateUrgency(t, urgency.value)}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
 
-              <PhotoUploader photos={form.photo_url ? [form.photo_url] : []} onChange={(urls) => updateField("photo_url", urls[0] || "")} maxPhotos={1} label="Reference Photo (optional)" />
+              <PhotoUploader photos={form.photo_url ? [form.photo_url] : []} onChange={(urls) => updateField("photo_url", urls[0] || "")} maxPhotos={1} label={t("report_lost.reference_photo")} />
 
               <div>
-                <Label htmlFor="extra_notes">Additional Notes</Label>
-                <Textarea id="extra_notes" placeholder="Any other details that might help identify your item" rows={2} value={form.extra_notes} onChange={(event) => updateField("extra_notes", event.target.value)} />
+                <Label htmlFor="extra_notes">{t("report_lost.additional_notes")}</Label>
+                <Textarea id="extra_notes" placeholder={t("report_lost.additional_notes_placeholder")} rows={2} value={form.extra_notes} onChange={(event) => updateField("extra_notes", event.target.value)} />
               </div>
             </CardContent>
           </Card>
 
           <Card className="rounded-none border-0 bg-transparent shadow-none">
             <CardHeader className="p-6 pb-4 sm:p-8 sm:pb-4">
-              <CardTitle className="text-lg">Your Contact Information</CardTitle>
+              <CardTitle className="text-lg">{t("report_lost.contact_information")}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4 p-6 pt-0 sm:p-8 sm:pt-0">
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
-                  <Label htmlFor="contact_name">Full Name *</Label>
+                  <Label htmlFor="contact_name">{t("report_lost.full_name")}</Label>
                   <Input id="contact_name" value={form.contact_name} onChange={(event) => updateField("contact_name", event.target.value)} className={errors.contact_name ? "border-red-400" : ""} />
                   {errors.contact_name && <p className="mt-1 text-xs text-red-500">{errors.contact_name}</p>}
                 </div>
                 <div>
-                  <Label htmlFor="contact_email">Email *</Label>
+                  <Label htmlFor="contact_email">{t("common.email")} *</Label>
                   <Input id="contact_email" type="email" value={form.contact_email} onChange={(event) => updateField("contact_email", event.target.value)} className={errors.contact_email ? "border-red-400" : ""} />
                   {errors.contact_email && <p className="mt-1 text-xs text-red-500">{errors.contact_email}</p>}
                 </div>
               </div>
               <div>
-                <Label htmlFor="student_id">Student ID</Label>
-                <Input id="student_id" placeholder="Optional — helps verify identity" value={form.student_id} onChange={(event) => updateField("student_id", event.target.value)} />
+                <Label htmlFor="student_id">{t("report_lost.student_id")}</Label>
+                <Input id="student_id" placeholder={t("report_lost.student_id_placeholder")} value={form.student_id} onChange={(event) => updateField("student_id", event.target.value)} />
               </div>
 
               <ConsentCheckboxField
@@ -339,7 +340,7 @@ export default function ReportLost() {
                 onCheckedChange={(value) => updateField("confirm_accuracy", value)}
                 error={errors.confirm_accuracy}
                 tone="amber">
-                I confirm this lost-item report is accurate to the best of my knowledge. *
+                {t("report_lost.confirm_text")}
               </ConsentCheckboxField>
             </CardContent>
           </Card>
@@ -347,7 +348,7 @@ export default function ReportLost() {
           <div className="p-6 sm:p-8">
             <Button type="submit" size="lg" disabled={submitMutation.isPending} className="w-full gap-2">
               {submitMutation.isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Brain className="w-5 h-5" />}
-              {submitMutation.isPending ? "Submitting..." : "Submit and Find Matches"}
+              {submitMutation.isPending ? t("report_lost.submitting") : t("report_lost.submit_button")}
             </Button>
           </div>
         </div>

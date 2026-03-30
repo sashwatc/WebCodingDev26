@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Shield, LockKeyhole, UserRoundX } from "lucide-react";
 import { useAuth } from "@/lib/AuthContext";
@@ -7,6 +8,7 @@ import { useMode } from "@/lib/ModeContext";
 import { useToast } from "@/components/ui/use-toast";
 
 export default function AdminRouteGuard({ children }) {
+  const { t } = useTranslation();
   const {
     user,
     hasAdminAccess,
@@ -34,8 +36,8 @@ export default function AdminRouteGuard({ children }) {
       await navigateToLogin();
     } catch (error) {
       toast({
-        title: "Sign in unavailable",
-        description: error.message || "Unable to open the sign-in dialog.",
+        title: t("admin_route_guard.sign_in_unavailable"),
+        description: error.message || t("admin_route_guard.sign_in_unavailable_description"),
         variant: "destructive",
       });
     } finally {
@@ -49,8 +51,8 @@ export default function AdminRouteGuard({ children }) {
       await openAdminAccess();
     } catch (error) {
       toast({
-        title: "Unlock unavailable",
-        description: error.message || "Unable to open the admin access dialog.",
+        title: t("admin_route_guard.unlock_unavailable"),
+        description: error.message || t("admin_route_guard.unlock_unavailable_description"),
         variant: "destructive",
       });
     } finally {
@@ -65,9 +67,9 @@ export default function AdminRouteGuard({ children }) {
           <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-full bg-slate-100">
             <Shield className="h-7 w-7 text-primary" />
           </div>
-          <h1 className="text-2xl font-semibold text-slate-950">Loading admin workspace</h1>
+          <h1 className="text-2xl font-semibold text-slate-950">{t("admin_route_guard.loading_title")}</h1>
           <p className="mt-3 text-sm leading-6 text-slate-600">
-            Checking the current session before showing restricted moderation tools.
+            {t("admin_route_guard.loading_description")}
           </p>
         </div>
       </div>
@@ -81,16 +83,16 @@ export default function AdminRouteGuard({ children }) {
           <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-full bg-slate-100">
             <LockKeyhole className="h-7 w-7 text-primary" />
           </div>
-          <h1 className="text-2xl font-semibold text-slate-950">Admin sign-in required</h1>
+          <h1 className="text-2xl font-semibold text-slate-950">{t("admin_route_guard.sign_in_required_title")}</h1>
           <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-slate-600">
-            This dashboard is restricted in the judging build. Sign in before unlocking the moderation workspace.
+            {t("admin_route_guard.sign_in_required_description")}
           </p>
           <div className="mt-8 flex flex-wrap justify-center gap-3">
             <Button onClick={handleSignIn} disabled={openingLogin}>
-              {openingLogin ? "Opening Sign-In..." : "Sign In"}
+              {openingLogin ? t("admin_route_guard.opening_sign_in") : t("common.sign_in")}
             </Button>
             <Link to="/Home">
-              <Button variant="outline">Back to Home</Button>
+              <Button variant="outline">{t("admin_route_guard.back_home")}</Button>
             </Link>
           </div>
         </div>
@@ -105,17 +107,16 @@ export default function AdminRouteGuard({ children }) {
           <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-full bg-red-50">
             <UserRoundX className="h-7 w-7 text-red-600" />
           </div>
-          <h1 className="text-2xl font-semibold text-slate-950">Admin access locked</h1>
+          <h1 className="text-2xl font-semibold text-slate-950">{t("admin_route_guard.access_locked_title")}</h1>
           <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-slate-600">
-            Sign in is complete, but moderation tools are still protected. Enter the admin password to unlock the
-            review workspace for this browser session.
+            {t("admin_route_guard.access_locked_description")}
           </p>
           <div className="mt-8 flex flex-wrap justify-center gap-3">
             <Button onClick={handleUnlock} disabled={openingUnlock}>
-              {openingUnlock ? "Opening Unlock..." : "Unlock Admin"}
+              {openingUnlock ? t("admin_route_guard.opening_unlock") : t("admin_access_dialog.unlock_admin")}
             </Button>
             <Link to="/Home">
-              <Button variant="outline">Back to Home</Button>
+              <Button variant="outline">{t("admin_route_guard.back_home")}</Button>
             </Link>
           </div>
         </div>
