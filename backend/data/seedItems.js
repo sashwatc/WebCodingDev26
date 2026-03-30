@@ -22,6 +22,9 @@ function createPlaceholderImage(label, colorA, colorB) {
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 }
 
+const BLACK_HYDRO_FLASK_PHOTO = "/items/black-hydro-flask.jpg";
+const BLUE_BACKPACK_PHOTO = "/images/blue-backpack.png";
+
 function daysAgo(days, hours = 10) {
   const now = Date.now();
   return new Date(now - days * 24 * 60 * 60 * 1000 + hours * 60 * 60 * 1000).toISOString();
@@ -31,7 +34,7 @@ module.exports = [
   {
     id: "found_001",
     title: "Black Hydro Flask Water Bottle",
-    description: "Matte black Hydro Flask with Pleasant Valley sticker and blue silicone boot.",
+    description: "Matte black Hydro Flask bottle with a top carry handle and screw cap.",
     category: "food_containers",
     subcategory: "Water Bottle",
     color: "Black",
@@ -39,15 +42,15 @@ module.exports = [
     locationFound: "Gymnasium",
     dateFound: "2026-03-11",
     timeFound: "12:15",
-    imageUrl: "",
-    photoUrls: [createPlaceholderImage("Hydro Flask", "#0f172a", "#0f766e")],
+    imageUrl: BLACK_HYDRO_FLASK_PHOTO,
+    photoUrls: [BLACK_HYDRO_FLASK_PHOTO],
     storageLocation: "Main Office shelf B2",
     condition: "good",
-    distinguishingFeatures: "Pleasant Valley athletics sticker and blue rubber base",
+    distinguishingFeatures: "Large black bottle with white Hydro Flask logo, top handle, and black lid",
     finderName: "Coach Miller",
     finderEmail: "coach.miller@pleasantvalley.edu",
     finderRole: "staff",
-    aiDescription: "A matte black Hydro Flask water bottle with a Pleasant Valley sticker and a blue silicone boot.",
+    aiDescription: "A matte black Hydro Flask water bottle with a top handle, screw cap, and white Hydro Flask logo.",
     tags: ["water bottle", "hydro flask", "black", "gym"],
     status: "approved",
     itemType: "found",
@@ -105,8 +108,8 @@ module.exports = [
     locationFound: "Student Lounge",
     dateFound: "2026-03-09",
     timeFound: "15:05",
-    imageUrl: "",
-    photoUrls: [createPlaceholderImage("JanSport Bag", "#1d4ed8", "#0f172a")],
+    imageUrl: BLUE_BACKPACK_PHOTO,
+    photoUrls: [BLUE_BACKPACK_PHOTO],
     storageLocation: "Counselor office storage closet",
     condition: "fair",
     distinguishingFeatures: "Green tennis racket keychain",

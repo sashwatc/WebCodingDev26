@@ -7,6 +7,8 @@ const FOUND_ITEMS_API_URL = `${API_BASE_URL}/api/items`;
 const ENTITY_API_BASE_URL = `${API_BASE_URL}/api/entities`;
 const AUTH_API_BASE_URL = `${API_BASE_URL}/api/auth`;
 const UPLOAD_API_URL = `${API_BASE_URL}/api/uploads`;
+const BLACK_HYDRO_FLASK_PHOTO = "/items/black-hydro-flask.jpg";
+const BLUE_BACKPACK_PHOTO = "/images/blue-backpack.png";
 const authListeners = new Set();
 
 const CATEGORY_LABELS = {
@@ -57,8 +59,8 @@ function createSeedData() {
         title: "Black Hydro Flask Water Bottle",
         category: "food_containers",
         subcategory: "Water Bottle",
-        description: "Matte black Hydro Flask with Pleasant Valley sticker and blue silicone boot.",
-        ai_description: "A matte black Hydro Flask water bottle with a Pleasant Valley sticker and a blue silicone boot.",
+        description: "Matte black Hydro Flask bottle with a top carry handle and screw cap.",
+        ai_description: "A matte black Hydro Flask water bottle with a top handle, screw cap, and white Hydro Flask logo.",
         color: "Black",
         brand: "Hydro Flask",
         date_found: "2026-03-11",
@@ -66,8 +68,8 @@ function createSeedData() {
         location_found: "Gymnasium",
         storage_location: "Main Office shelf B2",
         condition: "good",
-        photo_urls: [createPlaceholderImage("Hydro Flask", "#0f172a", "#0f766e")],
-        distinguishing_features: "Pleasant Valley athletics sticker and blue rubber base",
+        photo_urls: [BLACK_HYDRO_FLASK_PHOTO],
+        distinguishing_features: "Large black bottle with white Hydro Flask logo, top handle, and black lid",
         finder_name: "Coach Miller",
         finder_email: "coach.miller@pleasantvalley.edu",
         finder_role: "staff",
@@ -122,7 +124,7 @@ function createSeedData() {
         location_found: "Student Lounge",
         storage_location: "Counselor office storage closet",
         condition: "fair",
-        photo_urls: [createPlaceholderImage("JanSport Bag", "#1d4ed8", "#0f172a")],
+        photo_urls: [BLUE_BACKPACK_PHOTO],
         distinguishing_features: "Green tennis racket keychain",
         finder_name: "Jamie Lopez",
         finder_email: "jamie.lopez@pleasantvalley.edu",
