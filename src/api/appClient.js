@@ -2,7 +2,7 @@ import { BRAND_NAME } from "@/lib/constants";
 
 const STORAGE_KEY = "findback-app-db";
 const AUTH_STORAGE_KEY = "findback-auth-user";
-const API_BASE_URL = String(import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "");
+const API_BASE_URL = String(import.meta.env.VITE_API_URL || "").replace(/\/$/, "");
 const FOUND_ITEMS_API_URL = `${API_BASE_URL}/api/items`;
 const ENTITY_API_BASE_URL = `${API_BASE_URL}/api/entities`;
 const AUTH_API_BASE_URL = `${API_BASE_URL}/api/auth`;

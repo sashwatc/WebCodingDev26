@@ -76,12 +76,12 @@ from the same deployment and same origin, which means the website can load backe
 
 ### Split Frontend / Backend Deployments
 
-If you deploy the frontend and backend separately, set `VITE_API_BASE_URL` during the frontend build so the site knows where to reach the API.
+If you deploy the frontend and backend separately, set `VITE_API_URL` during the frontend build so the site knows where to reach the API.
 
 Example:
 
 ```bash
-VITE_API_BASE_URL=https://your-api.example.com npm run build
+VITE_API_URL=https://your-api.example.com npm run build
 ```
 
 ## Judging Build Notes
