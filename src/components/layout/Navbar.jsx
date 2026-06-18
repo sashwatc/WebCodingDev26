@@ -163,17 +163,17 @@ export default function Navbar() {
     >
       <nav className="page-shell" aria-label={t("navbar.main_navigation")}>
         <div className="flex min-h-16 items-center justify-between gap-4 py-2">
-          <Link to="/Home" className="flex items-center gap-3" aria-label={t("navbar.brand_home", { brand: BRAND_NAME })}>
+          <Link to="/Home" className="flex shrink-0 items-center gap-3" aria-label={t("navbar.brand_home", { brand: BRAND_NAME })}>
             <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-[linear-gradient(180deg,#ffffff,#eef2ff)] shadow-[0_10px_22px_rgba(15,23,42,0.08)] dark:border-slate-700 dark:bg-slate-900 dark:shadow-[0_14px_28px_rgba(2,8,23,0.28)]">
               <img src={schoolMark} alt="" className="h-6 w-6 object-contain" />
             </div>
             <div className="min-w-0">
-              <p className="text-sm font-semibold leading-none text-foreground [text-shadow:0_2px_8px_rgba(15,23,42,0.06)]">{BRAND_NAME}</p>
+              <p className="whitespace-nowrap text-sm font-semibold leading-none text-foreground [text-shadow:0_2px_8px_rgba(15,23,42,0.06)]">{BRAND_NAME}</p>
               <p className="mt-1 text-[11px] uppercase tracking-[0.16em] text-muted-foreground">{SCHOOL_NAME}</p>
             </div>
           </Link>
 
-          <div className="hidden lg:flex items-center gap-1">
+          <div className="hidden xl:flex items-center gap-1">
             {navLinks.map(({ to, label, icon: Icon }) => (
               <Link
                 key={to}
@@ -358,7 +358,7 @@ export default function Navbar() {
             <Button
               variant="outline"
               size="icon"
-              className="lg:hidden"
+              className="xl:hidden"
               onClick={() => setMobileOpen(!mobileOpen)}
               aria-label={mobileOpen ? t("navbar.close_menu") : t("navbar.open_menu")}
               aria-expanded={mobileOpen}
@@ -370,7 +370,7 @@ export default function Navbar() {
       </nav>
 
       {mobileOpen && (
-        <div className="border-t bg-background lg:hidden">
+        <div className="border-t bg-background xl:hidden">
           <div className="page-shell space-y-3 py-4">
             <div className="flex items-center rounded-md border border-border bg-muted p-1">
                 <button
