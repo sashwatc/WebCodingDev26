@@ -177,10 +177,10 @@ export default function Search() {
         <p className="page-subtitle">{t("search.subtitle")}</p>
       </div>
 
-      <section className="hero-panel mb-6 p-5">
+      <section className="hero-panel mb-6 p-4 sm:p-5">
         <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_repeat(4,minmax(0,1fr))]">
           <div>
-            <label className="mb-1.5 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+            <label className="mb-1.5 block text-sm font-medium text-slate-700">
               {t("search.search_label")}
             </label>
             <div className="relative">
@@ -206,7 +206,7 @@ export default function Search() {
           </div>
 
           <div>
-            <label className="mb-1.5 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+            <label className="mb-1.5 block text-sm font-medium text-slate-700">
               {t("common.category")}
             </label>
             <Select value={filters.category} onValueChange={(value) => setFilters((current) => ({ ...current, category: value }))}>
@@ -225,7 +225,7 @@ export default function Search() {
           </div>
 
           <div>
-            <label className="mb-1.5 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+            <label className="mb-1.5 block text-sm font-medium text-slate-700">
               {t("common.color")}
             </label>
             <Select value={filters.color} onValueChange={(value) => setFilters((current) => ({ ...current, color: value }))}>
@@ -244,7 +244,7 @@ export default function Search() {
           </div>
 
           <div>
-            <label className="mb-1.5 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+            <label className="mb-1.5 block text-sm font-medium text-slate-700">
               {t("common.location")}
             </label>
             <Select value={filters.location} onValueChange={(value) => setFilters((current) => ({ ...current, location: value }))}>
@@ -263,7 +263,7 @@ export default function Search() {
           </div>
 
           <div>
-            <label className="mb-1.5 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+            <label className="mb-1.5 block text-sm font-medium text-slate-700">
               {t("common.sort")}
             </label>
             <Select value={filters.sort} onValueChange={(value) => setFilters((current) => ({ ...current, sort: value }))}>

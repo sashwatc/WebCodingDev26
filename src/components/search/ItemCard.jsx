@@ -21,15 +21,15 @@ export default function ItemCard({ item, viewMode = "grid" }) {
   const detailHref = isLostReport ? `/ItemDetails?type=lost&id=${item.id}` : `/ItemDetails?id=${item.id}`;
   const detailLabel = isLostReport ? t("common.view_report") : t("common.view_item");
   const typeBadgeClasses = isLostReport
-    ? "border-rose-200 bg-rose-100 text-rose-700"
-    : "border-sky-200 bg-sky-100 text-sky-700";
+    ? "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-800 dark:bg-rose-950/50 dark:text-rose-200"
+    : "border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-800 dark:bg-sky-950/50 dark:text-sky-200";
 
   if (viewMode === "list") {
     return (
-      <Card className="overflow-hidden border-slate-200 shadow-none">
+      <Card className="overflow-hidden border-slate-200 bg-white shadow-none dark:border-slate-700 dark:bg-slate-900">
         <CardContent className="p-5">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
-            <div className="h-20 w-20 flex-shrink-0 overflow-hidden rounded-md bg-slate-100">
+            <div className="h-20 w-20 flex-shrink-0 overflow-hidden rounded-lg bg-slate-100 dark:bg-slate-800">
               {imageUrl ? (
                 <img src={imageUrl} alt={item.title} className="w-full h-full object-cover" />
               ) : (
@@ -41,7 +41,7 @@ export default function ItemCard({ item, viewMode = "grid" }) {
 
             <div className="flex-1 min-w-0">
               <div className="mb-2 flex flex-wrap items-center gap-2">
-                <h3 className="font-semibold text-slate-900">{item.title}</h3>
+                <h3 className="font-semibold text-slate-950">{item.title}</h3>
                 <Badge variant="secondary" className={typeBadgeClasses}>
                   {isLostReport ? t("common.lost") : t("common.found")}
                 </Badge>
@@ -75,38 +75,34 @@ export default function ItemCard({ item, viewMode = "grid" }) {
   // Grid view
   return (
     <Link to={detailHref} className="block group">
-      <Card className="h-full overflow-hidden border-slate-200 shadow-none">
-        <div className="relative aspect-[4/3] overflow-hidden bg-slate-100">
+      <Card className="h-full overflow-hidden border-slate-200 bg-white shadow-none transition-colors group-hover:border-slate-400 group-hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:group-hover:border-slate-500 dark:group-hover:bg-slate-800">
+        <div className="aspect-[4/3] overflow-hidden bg-slate-100 dark:bg-slate-800">
           {imageUrl ? (
-            <img src={imageUrl} alt={item.title} className="h-full w-full object-cover" />
+            <img src={imageUrl} alt={item.title} className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-[1.03]" />
           ) : (
             <div className="w-full h-full flex items-center justify-center">
               <Package className="w-12 h-12 text-slate-200" />
             </div>
           )}
-          <div className="absolute left-3 top-3">
-            <StatusBadge status={item.status} />
-          </div>
-          <div className="absolute left-3 top-12">
-            <Badge variant="secondary" className={typeBadgeClasses}>
-              {isLostReport ? t("common.lost") : t("common.found")}
-            </Badge>
-          </div>
-          {item.color && (
-            <div className="absolute right-3 top-3">
-              <Badge variant="outline" className="bg-white text-slate-700">{translateColor(t, item.color)}</Badge>
-            </div>
-          )}
         </div>
 
         <CardContent className="p-5">
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            <StatusBadge status={item.status} />
+            <Badge variant="secondary" className={typeBadgeClasses}>
+              {isLostReport ? t("common.lost") : t("common.found")}
+            </Badge>
+            {item.color && (
+              <Badge variant="outline">{translateColor(t, item.color)}</Badge>
+            )}
+          </div>
           <div className="mb-3 flex items-center justify-between gap-3 text-xs text-slate-500">
             <span className="inline-flex items-center gap-1">
               <MapPin className="w-3 h-3" /> {translateLocation(t, item.location_found) || t("common.unknown_location")}
             </span>
             <span>{item.date_found ? formatLocalizedDate(item.date_found, "MMM d") : ""}</span>
           </div>
-          <h3 className="mb-2 line-clamp-2 text-lg font-semibold text-slate-900">
+          <h3 className="mb-2 line-clamp-2 text-lg font-semibold text-slate-950">
             {item.title}
           </h3>
           <p className="mb-4 line-clamp-2 text-sm leading-7 text-slate-600">
@@ -114,10 +110,10 @@ export default function ItemCard({ item, viewMode = "grid" }) {
           </p>
           <div className="mb-4 flex items-center justify-between gap-3">
             <Badge variant="outline" className="text-xs">{translateCategory(t, item.category)}</Badge>
-            <Button size="sm" variant="outline" className="gap-1">
+            <span className="inline-flex h-9 items-center justify-center gap-1 rounded-[10px] border border-slate-300 bg-white px-3.5 text-xs font-semibold text-slate-800 transition-colors group-hover:border-slate-400 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100">
               <Eye className="w-3.5 h-3.5" />
               {detailLabel}
-            </Button>
+            </span>
           </div>
           {/* Tags */}
           {item.tags?.length > 0 && (

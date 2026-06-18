@@ -166,7 +166,7 @@ export default function AdminItemsQueue({ items, filterStatus = "all" }) {
               <CardContent className="p-5">
                 <div className="flex flex-col gap-4 xl:flex-row xl:items-start">
                   <div className="flex items-start gap-4 min-w-0 flex-1">
-                    <div className="h-16 w-16 overflow-hidden rounded-[18px] bg-slate-100 flex-shrink-0">
+                    <div className="h-16 w-16 overflow-hidden rounded-xl bg-slate-100 flex-shrink-0">
                       {item.photo_urls?.[0] ? (
                         <img src={item.photo_urls[0]} alt={item.title} className="h-full w-full object-cover" />
                       ) : (
@@ -184,9 +184,11 @@ export default function AdminItemsQueue({ items, filterStatus = "all" }) {
                         {item.item_code && <Badge variant="outline" className="font-mono">{item.item_code}</Badge>}
                       </div>
                       <p className="mt-2 text-sm leading-6 text-slate-600">{item.description}</p>
-                      <p className="mt-3 text-xs uppercase tracking-[0.14em] text-slate-500">
-                        {translateLocation(t, item.location_found)} • {item.date_found ? formatLocalizedDate(item.date_found, "MMM d") : ""} • {item.finder_name || t("admin_items_queue.unknown_finder")}
-                      </p>
+                      <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-500">
+                        <span>{translateLocation(t, item.location_found)}</span>
+                        <span>{item.date_found ? formatLocalizedDate(item.date_found, "MMM d") : ""}</span>
+                        <span>{item.finder_name || t("admin_items_queue.unknown_finder")}</span>
+                      </div>
                     </div>
                   </div>
 

@@ -194,10 +194,10 @@ export default function ClaimItem() {
               <img
                 src={item.photo_urls[0]}
                 alt={item.title}
-                className="h-20 w-20 rounded-[18px] object-cover"
+                className="h-20 w-20 rounded-xl object-cover"
               />
             ) : (
-              <div className="flex h-20 w-20 items-center justify-center rounded-[18px] bg-slate-100">
+              <div className="flex h-20 w-20 items-center justify-center rounded-xl bg-slate-100">
                 <Package className="h-7 w-7 text-slate-400" />
               </div>
             )}
@@ -208,7 +208,7 @@ export default function ClaimItem() {
                 <StatusBadge status={item.status} />
               </div>
               <p className="mt-1 text-sm text-slate-600">
-                {translateLocation(t, item.location_found) || t("common.unknown_location")} • {item.date_found ? formatLocalizedDate(item.date_found, "MMM d, yyyy") : t("common.date_unavailable")}
+                {translateLocation(t, item.location_found) || t("common.unknown_location")}, {item.date_found ? formatLocalizedDate(item.date_found, "MMM d, yyyy") : t("common.date_unavailable")}
               </p>
               <p className="mt-3 line-clamp-2 text-sm leading-6 text-slate-600">
                 {item.ai_description || item.description}
