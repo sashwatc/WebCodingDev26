@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/lib/AuthContext";
 import { useMode } from "@/lib/ModeContext";
+import { Default as NeonButtonsDemo } from "@/components/ui/demo";
 import {
   AlertTriangle,
   PlusCircle,
@@ -71,6 +72,14 @@ export default function Home() {
                 {t("home.found_something", "I found something")}
               </Button>
             </Link>
+          </div>
+
+          {/* Neon Buttons Demo Section */}
+          <div className="mt-8 pt-6 border-t border-slate-200/80 w-full max-w-lg">
+            <h3 className="text-sm font-bold text-slate-800 mb-3">{t("home.neon_showcase", "Interactive Neon Buttons")}</h3>
+            <div className="bg-slate-50 border border-slate-100 p-4 rounded-xl flex flex-col items-center justify-center">
+              <NeonButtonsDemo />
+            </div>
           </div>
 
           {/* Clean Moderator / User Dashboard Shortcut at the bottom */}
