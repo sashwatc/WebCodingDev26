@@ -18,6 +18,7 @@ import { formatLocalizedDate, translateCategory, translateLocation } from "@/lib
 import {
   AlertTriangle,
   ArrowLeft,
+  ArrowRight,
   Package,
   PlusCircle,
   Search,
