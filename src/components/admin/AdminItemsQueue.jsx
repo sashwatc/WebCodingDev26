@@ -16,7 +16,6 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
 import {
@@ -37,18 +36,9 @@ import {
   Flag,
   Search,
   Package,
-  MoreHorizontal,
-  Archive,
   Trash2,
-  MessageSquare,
+  Eye,
 } from "lucide-react";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  DropdownMenuSeparator,
-} from "@/components/ui/dropdown-menu";
 
 export default function AdminItemsQueue({ items, filterStatus = "all" }) {
   const { t } = useTranslation();
@@ -56,7 +46,7 @@ export default function AdminItemsQueue({ items, filterStatus = "all" }) {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState(filterStatus);
-  const [noteDialog, setNoteDialog] = useState(null);
+  const [selectedItem, setSelectedItem] = useState(null);
   const [adminNote, setAdminNote] = useState("");
 
   const updateMutation = useMutation({
@@ -121,7 +111,7 @@ export default function AdminItemsQueue({ items, filterStatus = "all" }) {
 
   return (
     <div className="space-y-4">
-      <div className="surface-card p-4 sm:p-5">
+      <div className="surface-card bg-slate-900 border-slate-800 p-4 sm:p-5">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -129,15 +119,15 @@ export default function AdminItemsQueue({ items, filterStatus = "all" }) {
               placeholder={t("admin_items_queue.search_placeholder")}
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              className="pl-9"
+              className="pl-9 bg-slate-950 border-slate-800 text-slate-100 placeholder-slate-500"
             />
           </div>
 
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-full lg:w-52">
+            <SelectTrigger className="w-full lg:w-52 bg-slate-950 border-slate-800 text-slate-200">
               <SelectValue />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="bg-slate-900 border-slate-800 text-slate-200">
               <SelectItem value="all">{t("admin_items_queue.all_statuses")}</SelectItem>
               <SelectItem value="pending_review">{translateStatus(t, "pending_review")}</SelectItem>
               <SelectItem value="approved">{translateStatus(t, "approved")}</SelectItem>
@@ -149,11 +139,11 @@ export default function AdminItemsQueue({ items, filterStatus = "all" }) {
         </div>
       </div>
 
-      <p className="text-sm text-slate-600">{t("admin_items_queue.count", { count: filtered.length })}</p>
+      <p className="text-sm text-slate-400">{t("admin_items_queue.count", { count: filtered.length })}</p>
 
       {filtered.length === 0 ? (
-        <div className="surface-card px-6 py-14 text-center">
-          <Package className="mx-auto mb-3 h-10 w-10 text-slate-300" />
+        <div className="surface-card bg-slate-900 border-slate-800 px-6 py-14 text-center">
+          <Package className="mx-auto mb-3 h-10 w-10 text-slate-600" />
           <p className="text-sm text-slate-500">{t("admin_items_queue.no_items")}</p>
         </div>
       ) : (
@@ -161,29 +151,29 @@ export default function AdminItemsQueue({ items, filterStatus = "all" }) {
           {filtered.map((item) => (
             <Card
               key={item.id}
-              className={`${item.is_flagged ? "border-red-200 bg-red-50/30" : ""} overflow-hidden`}
+              className={`${item.is_flagged ? "border-red-900/50 bg-red-950/10" : "border-slate-800 bg-slate-900/40"} overflow-hidden`}
             >
               <CardContent className="p-5">
                 <div className="flex flex-col gap-4 xl:flex-row xl:items-start">
                   <div className="flex items-start gap-4 min-w-0 flex-1">
-                    <div className="h-16 w-16 overflow-hidden rounded-xl bg-slate-100 flex-shrink-0">
+                    <div className="h-16 w-16 overflow-hidden rounded-xl bg-slate-800 flex-shrink-0 border border-slate-700">
                       {item.photo_urls?.[0] ? (
                         <img src={item.photo_urls[0]} alt={item.title} className="h-full w-full object-cover" />
                       ) : (
                         <div className="flex h-full w-full items-center justify-center">
-                          <Package className="h-6 w-6 text-slate-300" />
+                          <Package className="h-6 w-6 text-slate-600" />
                         </div>
                       )}
                     </div>
 
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
-                        <h3 className="text-base font-semibold text-slate-950">{item.title}</h3>
+                        <h3 className="text-base font-semibold text-slate-100">{item.title}</h3>
                         <StatusBadge status={item.status} />
-                        {item.is_flagged && <Badge className="border-red-200 bg-red-100 text-red-700">{t("admin_items_queue.flagged")}</Badge>}
-                        {item.item_code && <Badge variant="outline" className="font-mono">{item.item_code}</Badge>}
+                        {item.is_flagged && <Badge className="border-red-900 bg-red-950 text-red-400">{t("admin_items_queue.flagged")}</Badge>}
+                        {item.item_code && <Badge variant="outline" className="font-mono border-slate-800 text-slate-300">{item.item_code}</Badge>}
                       </div>
-                      <p className="mt-2 text-sm leading-6 text-slate-600">{item.description}</p>
+                      <p className="mt-2 text-sm leading-6 text-slate-400">{item.description}</p>
                       <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-500">
                         <span>{translateLocation(t, item.location_found)}</span>
                         <span>{item.date_found ? formatLocalizedDate(item.date_found, "MMM d") : ""}</span>
@@ -193,65 +183,18 @@ export default function AdminItemsQueue({ items, filterStatus = "all" }) {
                   </div>
 
                   <div className="flex flex-wrap items-center gap-2 xl:justify-end">
-                    {item.status === "pending_review" && (
-                      <>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="text-emerald-700"
-                          onClick={() => updateMutation.mutate({ id: item.id, data: { status: "approved" }, action: "Item approved" })}
-                          disabled={updateMutation.isPending}
-                        >
-                          <CheckCircle2 className="h-3.5 w-3.5" />
-                          {t("admin_items_queue.approve")}
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="text-red-700"
-                          onClick={() => updateMutation.mutate({ id: item.id, data: { status: "archived" }, action: "Item rejected" })}
-                          disabled={updateMutation.isPending}
-                        >
-                          <XCircle className="h-3.5 w-3.5" />
-                          {t("admin_items_queue.reject")}
-                        </Button>
-                      </>
-                    )}
-
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-9 w-9">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => updateMutation.mutate({ id: item.id, data: { status: "approved" }, action: "Status → Approved" })}>
-                          <CheckCircle2 className="mr-2 h-4 w-4" />
-                          {t("admin_items_queue.mark_approved")}
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => updateMutation.mutate({ id: item.id, data: { status: "returned" }, action: "Status → Returned" })}>
-                          <CheckCircle2 className="mr-2 h-4 w-4 text-emerald-700" />
-                          {t("admin_items_queue.mark_returned")}
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => updateMutation.mutate({ id: item.id, data: { status: "archived" }, action: "Status → Archived" })}>
-                          <Archive className="mr-2 h-4 w-4" />
-                          {t("admin_items_queue.archive")}
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => updateMutation.mutate({ id: item.id, data: { is_flagged: !item.is_flagged }, action: item.is_flagged ? "Unflagged" : "Flagged" })}>
-                          <Flag className="mr-2 h-4 w-4" />
-                          {item.is_flagged ? t("admin_items_queue.unflag") : t("admin_items_queue.flag")}
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => { setNoteDialog(item); setAdminNote(""); }}>
-                          <MessageSquare className="mr-2 h-4 w-4" />
-                          {t("admin_items_queue.add_note")}
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={() => deleteMutation.mutate(item.id)} className="text-red-700">
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          {t("admin_items_queue.delete")}
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="border-slate-800 hover:bg-slate-800 text-slate-300"
+                      onClick={() => {
+                        setSelectedItem(item);
+                        setAdminNote("");
+                      }}
+                    >
+                      <Eye className="h-3.5 w-3.5 mr-1" />
+                      {t("admin_dashboard.review", "Review")}
+                    </Button>
                   </div>
                 </div>
               </CardContent>
@@ -260,31 +203,200 @@ export default function AdminItemsQueue({ items, filterStatus = "all" }) {
         </div>
       )}
 
-      <Dialog open={!!noteDialog} onOpenChange={() => setNoteDialog(null)}>
-        <DialogContent>
+      <Dialog open={!!selectedItem} onOpenChange={() => setSelectedItem(null)}>
+        <DialogContent className="max-w-2xl bg-slate-900 border-slate-800 text-slate-100">
           <DialogHeader>
-            <DialogTitle>{t("admin_items_queue.add_admin_note")}</DialogTitle>
-            <DialogDescription>{t("admin_items_queue.for_item", { title: noteDialog?.title || "" })}</DialogDescription>
+            <DialogTitle className="text-white flex items-center gap-2 text-xl font-bold">
+              <Package className="w-5 h-5 text-indigo-400" />
+              {t("admin_items_queue.review_submission", "Review Submission")}
+            </DialogTitle>
           </DialogHeader>
-          <Textarea placeholder={t("admin_items_queue.note_placeholder")} value={adminNote} onChange={(event) => setAdminNote(event.target.value)} rows={3} />
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setNoteDialog(null)}>{t("common.cancel")}</Button>
+
+          {selectedItem && (
+            <div className="space-y-4 text-sm mt-2">
+              <div className="flex gap-4 items-start">
+                <div className="h-24 w-24 overflow-hidden rounded-xl bg-slate-800 flex-shrink-0 border border-slate-700">
+                  {selectedItem.photo_urls?.[0] ? (
+                    <img src={selectedItem.photo_urls[0]} alt={selectedItem.title} className="h-full w-full object-cover" />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center">
+                      <Package className="h-8 w-8 text-slate-600" />
+                    </div>
+                  )}
+                </div>
+                <div className="space-y-1.5 flex-1 min-w-0">
+                  <h3 className="text-lg font-bold text-white truncate">{selectedItem.title}</h3>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <StatusBadge status={selectedItem.status} />
+                    {selectedItem.is_flagged && <Badge className="border-red-500/30 bg-red-500/10 text-red-400 font-semibold">{t("admin_items_queue.flagged")}</Badge>}
+                    {selectedItem.item_code && <Badge variant="outline" className="font-mono border-slate-700 text-slate-300">{selectedItem.item_code}</Badge>}
+                  </div>
+                  <p className="text-xs text-slate-400">
+                    {t("admin_items_queue.finder", "Finder")}: <span className="text-slate-200 font-medium">{selectedItem.finder_name || t("admin_items_queue.unknown_finder")}</span>
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="rounded-xl border border-slate-800 bg-slate-950 p-3">
+                  <p className="text-xs font-semibold text-slate-400">{t("common.location")}</p>
+                  <p className="mt-1 text-sm font-medium text-slate-200">{translateLocation(t, selectedItem.location_found)}</p>
+                </div>
+                <div className="rounded-xl border border-slate-800 bg-slate-950 p-3">
+                  <p className="text-xs font-semibold text-slate-400">{t("common.date")}</p>
+                  <p className="mt-1 text-sm font-medium text-slate-200">
+                    {selectedItem.date_found ? formatLocalizedDate(selectedItem.date_found, "PPP") : t("common.not_available")}
+                  </p>
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-slate-800 bg-slate-950 p-4 space-y-2">
+                <div>
+                  <p className="text-xs font-semibold text-slate-400">{t("common.description")}</p>
+                  <p className="mt-1.5 text-sm text-slate-200 leading-relaxed">{selectedItem.description}</p>
+                </div>
+                {selectedItem.ai_description && (
+                  <div className="pt-2 border-t border-slate-800">
+                    <p className="text-xs font-semibold text-indigo-400">{t("common.ai_description", "AI Enhancements")}</p>
+                    <p className="mt-1.5 text-sm text-slate-300 leading-relaxed italic">{selectedItem.ai_description}</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Status Update select box & Flag button */}
+              <div className="grid gap-4 sm:grid-cols-2 pt-2 border-t border-slate-800/80">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-400">{t("admin_items_queue.update_status", "Update Status")}</label>
+                  <Select
+                    value={selectedItem.status}
+                    onValueChange={(val) => {
+                      updateMutation.mutate({
+                        id: selectedItem.id,
+                        data: { status: val },
+                        action: `Status changed to ${val}`,
+                      });
+                      setSelectedItem({ ...selectedItem, status: val });
+                    }}
+                  >
+                    <SelectTrigger className="bg-slate-950 border-slate-800 text-slate-200">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-slate-900 border-slate-800 text-slate-200">
+                      <SelectItem value="pending_review">{translateStatus(t, "pending_review")}</SelectItem>
+                      <SelectItem value="approved">{translateStatus(t, "approved")}</SelectItem>
+                      <SelectItem value="claimed">{translateStatus(t, "claimed")}</SelectItem>
+                      <SelectItem value="returned">{translateStatus(t, "returned")}</SelectItem>
+                      <SelectItem value="archived">{translateStatus(t, "archived")}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-1.5 flex flex-col justify-end">
+                  <Button
+                    variant="outline"
+                    className={`w-full border-slate-800 bg-slate-950 text-slate-200 ${
+                      selectedItem.is_flagged ? "hover:bg-red-950/20 text-red-400 border-red-900/50" : "hover:bg-slate-800"
+                    }`}
+                    onClick={() => {
+                      const nextFlagged = !selectedItem.is_flagged;
+                      updateMutation.mutate({
+                        id: selectedItem.id,
+                        data: { is_flagged: nextFlagged },
+                        action: nextFlagged ? "Item flagged" : "Item unflagged",
+                      });
+                      setSelectedItem({ ...selectedItem, is_flagged: nextFlagged });
+                    }}
+                  >
+                    <Flag className="w-4 h-4 mr-2" />
+                    {selectedItem.is_flagged ? t("admin_items_queue.unflag") : t("admin_items_queue.flag")}
+                  </Button>
+                </div>
+              </div>
+
+              {/* Admin note section */}
+              <div className="space-y-1.5 pt-2">
+                <label className="text-xs font-semibold text-slate-400">{t("admin_items_queue.add_admin_note")}</label>
+                <Textarea
+                  placeholder={t("admin_items_queue.note_placeholder")}
+                  value={adminNote}
+                  onChange={(event) => setAdminNote(event.target.value)}
+                  rows={2}
+                  className="bg-slate-950 border-slate-800 text-slate-100 placeholder-slate-600 focus-visible:ring-indigo-500"
+                />
+              </div>
+
+              {/* Bottom Quick Actions */}
+              <div className="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-slate-800/80">
+                <Button
+                  variant="ghost"
+                  className="text-red-400 hover:text-red-300 hover:bg-red-950/20"
+                  onClick={() => {
+                    if (window.confirm(t("admin_items_queue.confirm_delete", "Are you sure you want to delete this item?"))) {
+                      deleteMutation.mutate(selectedItem.id);
+                      setSelectedItem(null);
+                    }
+                  }}
+                >
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  {t("admin_items_queue.delete")}
+                </Button>
+
+                <div className="flex gap-2">
+                  {selectedItem.status === "pending_review" && (
+                    <>
+                      <Button
+                        variant="outline"
+                        className="border-red-900 bg-red-950/20 text-red-400 hover:bg-red-950/40"
+                        onClick={() => {
+                          updateMutation.mutate({ id: selectedItem.id, data: { status: "archived" }, action: "Item rejected" });
+                          setSelectedItem({ ...selectedItem, status: "archived" });
+                        }}
+                      >
+                        <XCircle className="w-4 h-4 mr-2" />
+                        {t("admin_items_queue.reject")}
+                      </Button>
+                      <Button
+                        className="bg-emerald-600 hover:bg-emerald-500 text-white"
+                        onClick={() => {
+                          updateMutation.mutate({ id: selectedItem.id, data: { status: "approved" }, action: "Item approved" });
+                          setSelectedItem({ ...selectedItem, status: "approved" });
+                        }}
+                      >
+                        <CheckCircle2 className="w-4 h-4 mr-2" />
+                        {t("admin_items_queue.approve")}
+                      </Button>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="pt-2 border-t border-slate-800/50">
             <Button
+              variant="outline"
+              className="border-slate-800 hover:bg-slate-800 text-slate-300"
+              onClick={() => setSelectedItem(null)}
+            >
+              {t("common.close")}
+            </Button>
+            <Button
+              className="bg-indigo-600 hover:bg-indigo-500 text-white"
               onClick={async () => {
-                if (noteDialog && adminNote.trim()) {
+                if (selectedItem && adminNote.trim()) {
                   await appClient.entities.AuditLog.create({
                     action: "Admin note added",
                     entity_type: "found_item",
-                    entity_id: noteDialog.id,
+                    entity_id: selectedItem.id,
                     performed_by: "admin",
                     details: adminNote,
                   });
-                  setNoteDialog(null);
                   toast({ title: t("admin_items_queue.note_saved") });
                 }
+                setSelectedItem(null);
               }}
             >
-              {t("admin_items_queue.save_note")}
+              {t("admin_items_queue.save_note", "Save & Close")}
             </Button>
           </DialogFooter>
         </DialogContent>
