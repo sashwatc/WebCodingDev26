@@ -53,7 +53,7 @@ export default function Home() {
                   placeholder={t("home.quick_search_placeholder", "Or, search the found items inventory directly...")}
                 />
               </div>
-              <Button type="submit" size="lg" className="h-12 bg-primary px-6 text-white hover:bg-primary/90 font-semibold rounded-xl">
+              <Button type="submit" variant="solid" className="px-6 shadow-md">
                 {t("home.search_inventory", "Search Inventory")}
               </Button>
             </form>
@@ -61,14 +61,14 @@ export default function Home() {
 
           <div className="mt-6 flex flex-wrap justify-center gap-4">
             <Link to="/Search?type=lost">
-              <Button variant="outline" className="border-amber-300 bg-amber-50 hover:bg-amber-100/80 text-amber-900 font-semibold px-5 py-2.5 h-auto rounded-xl flex items-center gap-2">
+              <Button variant="default" className="flex items-center gap-2 border-amber-500/20 bg-amber-500/5 text-amber-800 dark:text-amber-100 hover:bg-amber-500/10">
                 <AlertTriangle className="w-4 h-4 text-amber-700" />
                 {t("home.cant_find_it", "I lost something")}
               </Button>
             </Link>
             <Link to="/ReportFound">
-              <Button variant="outline" className="border-sky-300 bg-sky-50 hover:bg-sky-100/80 text-sky-900 font-semibold px-5 py-2.5 h-auto rounded-xl flex items-center gap-2">
-                <PlusCircle className="w-4 h-4 text-sky-700" />
+              <Button variant="solid" className="flex items-center gap-2">
+                <PlusCircle className="w-4 h-4 text-white" />
                 {t("home.found_something", "I found something")}
               </Button>
             </Link>
@@ -95,7 +95,7 @@ export default function Home() {
                     {t("home.moderator_active_desc", "Review pending items, claims, and reports.")}
                   </p>
                 </div>
-                <Button asChild size="sm" className="bg-primary text-white hover:bg-primary/90 font-semibold rounded-lg w-full sm:w-auto flex-shrink-0">
+                <Button asChild variant="solid" size="sm" className="w-full sm:w-auto flex-shrink-0">
                   <Link to="/AdminDashboard">
                     {t("home.go_to_admin_panel", "Open Admin Dashboard")}
                   </Link>
@@ -109,7 +109,7 @@ export default function Home() {
                     {user ? t("home.my_dashboard_description") : t("home.project_documentation_description")}
                   </p>
                 </div>
-                <Button asChild variant="outline" size="sm" className="rounded-lg w-full sm:w-auto flex-shrink-0">
+                <Button asChild variant="outline" size="sm" className="w-full sm:w-auto flex-shrink-0">
                   <Link to={user ? "/UserDashboard" : "/Documentation"}>
                     {user ? t("navbar.my_dashboard") : t("footer.project_documentation")}
                   </Link>
