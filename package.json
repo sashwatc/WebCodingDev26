@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "ts": "./run ts",
     "build": "vite build",
     "start": "vite preview",
     "lint": "eslint . --quiet",
