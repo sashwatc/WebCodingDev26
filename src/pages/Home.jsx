@@ -22,6 +22,7 @@ import {
   Package,
   PlusCircle,
   Search,
+  Shield,
   Sparkles,
 } from "lucide-react";
 
@@ -454,50 +455,21 @@ export default function Home() {
           </div>
 
           {isAdminWorkspace ? (
-            <div className="space-y-6">
-              <div className="surface-card">
-                <div className="border-b border-slate-200 px-5 py-4 dark:border-slate-700">
-                  <h2 className="section-heading">{t("home.admin_summary")}</h2>
-                  <p className="mt-1 text-sm text-slate-600">{t("home.admin_summary_subtitle")}</p>
-                </div>
-                <div className="space-y-3 px-5 py-4">
-                  <div className="flex items-center justify-between gap-4">
-                    <span className="text-sm text-slate-700">{t("home.pending_found_item_submissions")}</span>
-                    <span className="font-semibold text-slate-950">{pendingItems.length}</span>
-                  </div>
-                  <div className="flex items-center justify-between gap-4">
-                    <span className="text-sm text-slate-700">{t("home.claims_awaiting_review")}</span>
-                    <span className="font-semibold text-slate-950">{activeClaims.length}</span>
-                  </div>
-                  <div className="flex items-center justify-between gap-4">
-                    <span className="text-sm text-slate-700">{t("home.open_lost_item_reports")}</span>
-                    <span className="font-semibold text-slate-950">{openReports.length}</span>
-                  </div>
-                </div>
+            <div className="surface-card p-6 space-y-4 text-center flex flex-col items-center justify-center">
+              <div className="w-12 h-12 rounded-xl bg-slate-100 dark:bg-slate-800 text-primary flex items-center justify-center">
+                <Shield className="w-6 h-6 text-primary animate-pulse" />
               </div>
-
-              <div className="surface-card">
-                <div className="border-b border-slate-200 px-5 py-4 dark:border-slate-700">
-                  <h2 className="section-heading">{t("home.recent_admin_activity")}</h2>
-                  <p className="mt-1 text-sm text-slate-600">{t("home.recent_admin_activity_subtitle")}</p>
-                </div>
-                {recentActivity.length > 0 ? (
-                  <div className="divide-y divide-slate-200 dark:divide-slate-700">
-                    {recentActivity.map((log) => (
-                      <div key={log.id} className="px-5 py-4">
-                        <p className="text-sm font-medium text-slate-950">{log.action}</p>
-                        <p className="mt-1 text-sm text-slate-600">{log.details}</p>
-                        <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-500">
-                          <span>{log.performed_by}</span>
-                          <span>{log.created_date ? formatLocalizedDate(log.created_date, "MMM d, h:mm a") : t("home.no_date")}</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="px-5 py-8 text-sm text-slate-500">{t("home.no_activity_logged")}</div>
-                )}
+              <div className="space-y-1">
+                <h3 className="text-lg font-bold text-slate-900">{t("home.moderator_active_title", "Moderator Workspace Active")}</h3>
+                <p className="text-sm text-slate-500 max-w-sm mx-auto">
+                  {t("home.moderator_active_desc", "Manage pending found items, claims, and audit logs directly from the dashboard.")}
+                </p>
               </div>
+              <Button asChild className="bg-primary text-white hover:bg-primary/90 font-semibold px-6">
+                <Link to="/AdminDashboard">
+                  {t("home.go_to_admin_panel", "Open Admin Dashboard")}
+                </Link>
+              </Button>
             </div>
           ) : (
             <div className="surface-card p-5">
