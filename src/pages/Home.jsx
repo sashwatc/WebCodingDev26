@@ -53,7 +53,7 @@ export default function Home() {
                   placeholder={t("home.quick_search_placeholder", "Or, search the found items inventory directly...")}
                 />
               </div>
-              <Button type="submit" variant="solid" className="px-6 shadow-md">
+              <Button type="submit" className="px-6 shadow-md">
                 {t("home.search_inventory", "Search Inventory")}
               </Button>
             </form>
@@ -67,8 +67,8 @@ export default function Home() {
               </Button>
             </Link>
             <Link to="/ReportFound">
-              <Button variant="solid" className="flex items-center gap-2">
-                <PlusCircle className="w-4 h-4 text-white" />
+              <Button variant="default" className="flex items-center gap-2 border-sky-500/20 bg-sky-500/5 text-sky-800 dark:text-sky-100 hover:bg-sky-500/10">
+                <PlusCircle className="w-4 h-4 text-sky-700" />
                 {t("home.found_something", "I found something")}
               </Button>
             </Link>
@@ -95,7 +95,7 @@ export default function Home() {
                     {t("home.moderator_active_desc", "Review pending items, claims, and reports.")}
                   </p>
                 </div>
-                <Button asChild variant="solid" size="sm" className="w-full sm:w-auto flex-shrink-0">
+                <Button asChild variant="default" size="sm" className="w-full sm:w-auto flex-shrink-0">
                   <Link to="/AdminDashboard">
                     {t("home.go_to_admin_panel", "Open Admin Dashboard")}
                   </Link>
