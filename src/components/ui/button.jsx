@@ -32,8 +32,6 @@ const buttonVariants = cva(
 )
 
 const Button = React.forwardRef(({ className, variant = "default", size = "default", asChild = false, neon = true, children, ...props }, ref) => {
-  const Comp = asChild ? Slot : "button"
-  
   const isNeonEnabled = neon && variant !== "link" && variant !== "ghost";
 
   const neonColorClass = 
@@ -43,8 +41,34 @@ const Button = React.forwardRef(({ className, variant = "default", size = "defau
         ? "dark:via-slate-400 via-slate-500" 
         : "dark:via-blue-500 via-blue-600";
 
+  // When rendering as a Slot (asChild is true), the Slot component requires a single child.
+  // We use React.cloneElement to merge the neon spans into the child element's children.
+  if (asChild && React.isValidElement(children)) {
+    return (
+      <Slot
+        className={cn(buttonVariants({ variant, size, className }))}
+        ref={ref}
+        {...props}
+      >
+        {React.cloneElement(children, {
+          children: (
+            <>
+              {isNeonEnabled && (
+                <span className={cn("absolute h-px opacity-0 group-hover:opacity-100 transition-all duration-500 ease-in-out inset-x-0 inset-y-0 bg-gradient-to-r w-3/4 mx-auto from-transparent to-transparent pointer-events-none", neonColorClass)} />
+              )}
+              {children.props.children}
+              {isNeonEnabled && (
+                <span className={cn("absolute group-hover:opacity-30 transition-all duration-500 ease-in-out inset-x-0 h-px -bottom-px bg-gradient-to-r w-3/4 mx-auto from-transparent to-transparent pointer-events-none", neonColorClass)} />
+              )}
+            </>
+          )
+        })}
+      </Slot>
+    )
+  }
+
   return (
-    <Comp
+    <button
       className={cn(buttonVariants({ variant, size, className }))}
       ref={ref}
       {...props}
@@ -56,7 +80,7 @@ const Button = React.forwardRef(({ className, variant = "default", size = "defau
       {isNeonEnabled && (
         <span className={cn("absolute group-hover:opacity-30 transition-all duration-500 ease-in-out inset-x-0 h-px -bottom-px bg-gradient-to-r w-3/4 mx-auto from-transparent to-transparent pointer-events-none", neonColorClass)} />
       )}
-    </Comp>
+    </button>
   )
 })
 Button.displayName = "Button"
