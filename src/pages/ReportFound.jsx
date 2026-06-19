@@ -26,7 +26,6 @@ import {
   PlusCircle,
   Loader2,
   CheckCircle2,
-  FileText,
   MapPin,
   User,
   Tag,

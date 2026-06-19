@@ -18,13 +18,9 @@ import { formatLocalizedDate, translateCategory, translateLocation } from "@/lib
 import {
   AlertTriangle,
   ArrowLeft,
-  CheckCircle2,
-  ClipboardList,
-  LayoutDashboard,
   Package,
   PlusCircle,
   Search,
-  Shield,
   Sparkles,
 } from "lucide-react";
 
@@ -158,8 +154,8 @@ export default function Home() {
               </dl>
             </aside>
 
-        <section className="mb-8 space-y-4">
-          <div className="hero-panel bg-white p-6 sm:p-8">
+            <div className="p-5 sm:p-7 lg:p-8">
+              <div className="hero-panel bg-white p-6 sm:p-8">
             {activeMode === "none" && (
               <div className="space-y-6">
                 <div className="text-center max-w-2xl mx-auto space-y-2">
@@ -397,6 +393,8 @@ export default function Home() {
                 )}
               </div>
             )}
+              </div>
+            </div>
           </div>
         </section>
 
