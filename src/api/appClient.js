@@ -528,7 +528,7 @@ function createSeedData() {
         entity_type: "system",
         entity_id: "local-demo",
         performed_by: "system",
-        details: "Initialized sample records for local fallback mode.",
+        details: "Initialized sample records for browser fallback cache.",
         previous_value: "",
         new_value: "",
         created_date: daysAgo(10),
@@ -996,37 +996,42 @@ function serializeFoundItem(record = {}, { partial = false } = {}) {
     subcategory: record.subcategory,
     color: record.color,
     brand: record.brand,
-    locationFound: record.location_found,
-    dateFound: record.date_found,
-    timeFound: record.time_found,
-    imageUrl: Array.isArray(record.photo_urls) ? record.photo_urls[0] || "" : record.imageUrl,
-    photoUrls: Array.isArray(record.photo_urls) ? clone(record.photo_urls) : undefined,
-    storageLocation: record.storage_location,
+    location_found: record.location_found ?? record.locationFound,
+    date_found: record.date_found ?? record.dateFound,
+    time_found: record.time_found ?? record.timeFound,
+    photo_urls: Array.isArray(record.photo_urls)
+      ? clone(record.photo_urls)
+      : Array.isArray(record.photoUrls)
+        ? clone(record.photoUrls)
+        : record.imageUrl || record.image_url
+          ? [record.imageUrl || record.image_url]
+          : undefined,
+    storage_location: record.storage_location ?? record.storageLocation,
     condition: record.condition,
-    distinguishingFeatures: record.distinguishing_features,
-    finderName: record.finder_name,
-    finderEmail: record.finder_email,
-    finderRole: record.finder_role,
-    aiDescription: record.ai_description,
+    distinguishing_features: record.distinguishing_features ?? record.distinguishingFeatures,
+    finder_name: record.finder_name ?? record.finderName,
+    finder_email: record.finder_email ?? record.finderEmail,
+    finder_role: record.finder_role ?? record.finderRole,
+    ai_description: record.ai_description ?? record.aiDescription,
     tags: Array.isArray(record.tags) ? clone(record.tags) : undefined,
     status: record.status,
-    itemType: record.record_type || record.item_type,
+    record_type: record.record_type ?? record.item_type ?? record.itemType,
     priority: record.priority,
-    itemCode: record.item_code,
-    assignedTo: record.assigned_to,
-    isFlagged: record.is_flagged,
-    claimConfirmed: record.claim_confirmed,
-    claimConfirmedAt: record.claim_confirmed_at,
+    item_code: record.item_code ?? record.itemCode,
+    assigned_to: record.assigned_to ?? record.assignedTo,
+    is_flagged: record.is_flagged ?? record.isFlagged,
+    claim_confirmed: record.claim_confirmed ?? record.claimConfirmed,
+    claim_confirmed_at: record.claim_confirmed_at ?? record.claimConfirmedAt,
     ratings: Array.isArray(record.ratings)
       ? record.ratings.map((rating) => ({
-          claimId: rating.claim_id || rating.claimId || "",
+          claim_id: rating.claim_id || rating.claimId || "",
           rating: rating.rating,
           review: rating.review || "",
-          claimantName: rating.claimant_name || rating.claimantName || "",
-          reviewerEmail: rating.reviewer_email || rating.reviewerEmail || "",
-          status: rating.review_status || rating.status || "pending",
-          submittedAt: rating.review_submitted_at || rating.submittedAt || "",
-          reviewedAt: rating.review_reviewed_at || rating.reviewedAt || "",
+          claimant_name: rating.claimant_name || rating.claimantName || "",
+          reviewer_email: rating.reviewer_email || rating.reviewerEmail || "",
+          review_status: rating.review_status || rating.status || "pending",
+          review_submitted_at: rating.review_submitted_at || rating.submittedAt || "",
+          review_reviewed_at: rating.review_reviewed_at || rating.reviewedAt || "",
         }))
       : undefined,
   };
@@ -1039,27 +1044,26 @@ function serializeFoundItem(record = {}, { partial = false } = {}) {
       subcategory: values.subcategory || "",
       color: values.color || "",
       brand: values.brand || "",
-      locationFound: values.locationFound || "",
-      dateFound: values.dateFound || "",
-      timeFound: values.timeFound || "",
-      imageUrl: values.imageUrl || "",
-      photoUrls: values.photoUrls || [],
-      storageLocation: values.storageLocation || "",
+      location_found: values.location_found || "",
+      date_found: values.date_found || "",
+      time_found: values.time_found || "",
+      photo_urls: values.photo_urls || [],
+      storage_location: values.storage_location || "",
       condition: values.condition || "",
-      distinguishingFeatures: values.distinguishingFeatures || "",
-      finderName: values.finderName || "",
-      finderEmail: values.finderEmail || "",
-      finderRole: values.finderRole || "",
-      aiDescription: values.aiDescription || "",
+      distinguishing_features: values.distinguishing_features || "",
+      finder_name: values.finder_name || "",
+      finder_email: values.finder_email || "",
+      finder_role: values.finder_role || "",
+      ai_description: values.ai_description || "",
       tags: values.tags || [],
       status: values.status || "pending_review",
-      itemType: values.itemType || "found",
+      record_type: values.record_type || "found",
       priority: values.priority || "",
-      itemCode: values.itemCode || "",
-      assignedTo: values.assignedTo || "",
-      isFlagged: Boolean(values.isFlagged),
-      claimConfirmed: Boolean(values.claimConfirmed),
-      claimConfirmedAt: values.claimConfirmedAt || "",
+      item_code: values.item_code || "",
+      assigned_to: values.assigned_to || "",
+      is_flagged: Boolean(values.is_flagged),
+      claim_confirmed: Boolean(values.claim_confirmed),
+      claim_confirmed_at: values.claim_confirmed_at || "",
       ratings: values.ratings || [],
     };
   }
@@ -1072,27 +1076,26 @@ function serializeFoundItem(record = {}, { partial = false } = {}) {
       subcategory: hasAnyKey(record, ["subcategory"]) ? values.subcategory : undefined,
       color: hasAnyKey(record, ["color"]) ? values.color : undefined,
       brand: hasAnyKey(record, ["brand"]) ? values.brand : undefined,
-      locationFound: hasAnyKey(record, ["location_found", "locationFound"]) ? values.locationFound : undefined,
-      dateFound: hasAnyKey(record, ["date_found", "dateFound"]) ? values.dateFound : undefined,
-      timeFound: hasAnyKey(record, ["time_found", "timeFound"]) ? values.timeFound : undefined,
-      imageUrl: hasAnyKey(record, ["imageUrl", "image_url", "photo_urls", "photoUrls"]) ? values.imageUrl : undefined,
-      photoUrls: hasAnyKey(record, ["photo_urls", "photoUrls"]) ? values.photoUrls || [] : undefined,
-      storageLocation: hasAnyKey(record, ["storage_location", "storageLocation"]) ? values.storageLocation : undefined,
+      location_found: hasAnyKey(record, ["location_found", "locationFound"]) ? values.location_found : undefined,
+      date_found: hasAnyKey(record, ["date_found", "dateFound"]) ? values.date_found : undefined,
+      time_found: hasAnyKey(record, ["time_found", "timeFound"]) ? values.time_found : undefined,
+      photo_urls: hasAnyKey(record, ["photo_urls", "photoUrls", "imageUrl", "image_url"]) ? values.photo_urls || [] : undefined,
+      storage_location: hasAnyKey(record, ["storage_location", "storageLocation"]) ? values.storage_location : undefined,
       condition: hasAnyKey(record, ["condition"]) ? values.condition : undefined,
-      distinguishingFeatures: hasAnyKey(record, ["distinguishing_features", "distinguishingFeatures"]) ? values.distinguishingFeatures : undefined,
-      finderName: hasAnyKey(record, ["finder_name", "finderName"]) ? values.finderName : undefined,
-      finderEmail: hasAnyKey(record, ["finder_email", "finderEmail"]) ? values.finderEmail : undefined,
-      finderRole: hasAnyKey(record, ["finder_role", "finderRole"]) ? values.finderRole : undefined,
-      aiDescription: hasAnyKey(record, ["ai_description", "aiDescription"]) ? values.aiDescription : undefined,
+      distinguishing_features: hasAnyKey(record, ["distinguishing_features", "distinguishingFeatures"]) ? values.distinguishing_features : undefined,
+      finder_name: hasAnyKey(record, ["finder_name", "finderName"]) ? values.finder_name : undefined,
+      finder_email: hasAnyKey(record, ["finder_email", "finderEmail"]) ? values.finder_email : undefined,
+      finder_role: hasAnyKey(record, ["finder_role", "finderRole"]) ? values.finder_role : undefined,
+      ai_description: hasAnyKey(record, ["ai_description", "aiDescription"]) ? values.ai_description : undefined,
       tags: hasAnyKey(record, ["tags"]) ? values.tags || [] : undefined,
       status: hasAnyKey(record, ["status"]) ? values.status : undefined,
-      itemType: hasAnyKey(record, ["record_type", "item_type", "itemType"]) ? values.itemType : undefined,
+      record_type: hasAnyKey(record, ["record_type", "item_type", "itemType"]) ? values.record_type : undefined,
       priority: hasAnyKey(record, ["priority"]) ? values.priority : undefined,
-      itemCode: hasAnyKey(record, ["item_code", "itemCode"]) ? values.itemCode : undefined,
-      assignedTo: hasAnyKey(record, ["assigned_to", "assignedTo"]) ? values.assignedTo : undefined,
-      isFlagged: hasAnyKey(record, ["is_flagged", "isFlagged"]) ? Boolean(values.isFlagged) : undefined,
-      claimConfirmed: hasAnyKey(record, ["claim_confirmed", "claimConfirmed"]) ? Boolean(values.claimConfirmed) : undefined,
-      claimConfirmedAt: hasAnyKey(record, ["claim_confirmed_at", "claimConfirmedAt"]) ? values.claimConfirmedAt : undefined,
+      item_code: hasAnyKey(record, ["item_code", "itemCode"]) ? values.item_code : undefined,
+      assigned_to: hasAnyKey(record, ["assigned_to", "assignedTo"]) ? values.assigned_to : undefined,
+      is_flagged: hasAnyKey(record, ["is_flagged", "isFlagged"]) ? Boolean(values.is_flagged) : undefined,
+      claim_confirmed: hasAnyKey(record, ["claim_confirmed", "claimConfirmed"]) ? Boolean(values.claim_confirmed) : undefined,
+      claim_confirmed_at: hasAnyKey(record, ["claim_confirmed_at", "claimConfirmedAt"]) ? values.claim_confirmed_at : undefined,
       ratings: hasAnyKey(record, ["ratings"]) ? values.ratings || [] : undefined,
     }).filter(([, value]) => value !== undefined)
   );
@@ -1145,15 +1148,15 @@ function createFoundItemApi() {
       const updatedRecord = await requestFoundItemsApi(`/${id}`, {
         method: "PATCH",
         body: JSON.stringify({
-          upsertRating: {
-            claimId: rating.claim_id || rating.claimId || "",
+          upsert_rating: {
+            claim_id: rating.claim_id || rating.claimId || "",
             rating: rating.rating,
             review: rating.review || "",
-            claimantName: rating.claimant_name || rating.claimantName || "",
-            reviewerEmail: rating.reviewer_email || rating.reviewerEmail || "",
-            status: rating.review_status || rating.status || "pending",
-            submittedAt: rating.review_submitted_at || rating.submittedAt || "",
-            reviewedAt: rating.review_reviewed_at || rating.reviewedAt || "",
+            claimant_name: rating.claimant_name || rating.claimantName || "",
+            reviewer_email: rating.reviewer_email || rating.reviewerEmail || "",
+            review_status: rating.review_status || rating.status || "pending",
+            review_submitted_at: rating.review_submitted_at || rating.submittedAt || "",
+            review_reviewed_at: rating.review_reviewed_at || rating.reviewedAt || "",
           },
         }),
       });
@@ -1165,7 +1168,7 @@ function createFoundItemApi() {
       const updatedRecord = await requestFoundItemsApi(`/${id}`, {
         method: "PATCH",
         body: JSON.stringify({
-          removeRatingByClaimId: claimId,
+          remove_rating_by_claim_id: claimId,
         }),
       });
 
@@ -1381,6 +1384,11 @@ async function getCurrentAuthUser() {
 
   try {
     const canonicalUser = await requestAuthApi(`/user?email=${encodeURIComponent(currentUser.email)}`);
+    if (canonicalUser === null) {
+      writeAuthUser(null);
+      return null;
+    }
+
     if (canonicalUser) {
       writeAuthUser(canonicalUser);
       return clone(canonicalUser);

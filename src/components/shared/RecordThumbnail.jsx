@@ -8,7 +8,7 @@ export default function RecordThumbnail({
   className = "",
 }) {
   return (
-    <div className={`${sizeClass} overflow-hidden rounded-[18px] bg-slate-100 flex-shrink-0 ${className}`.trim()}>
+    <div className={`${sizeClass} overflow-hidden rounded-xl bg-slate-100 flex-shrink-0 ${className}`.trim()}>
       {src ? (
         <img src={src} alt={alt} className="h-full w-full object-cover" />
       ) : (

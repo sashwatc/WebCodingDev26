@@ -55,7 +55,7 @@ export default function PhotoUploader({ photos = [], onChange, maxPhotos = 3, la
         onDragLeave={() => setIsDragging(false)}
         onDrop={handleDrop}
         onClick={() => fileInputRef.current?.click()}
-        className={`relative rounded-[18px] border-2 border-dashed p-6 text-center transition-all ${
+        className={`relative rounded-xl border-2 border-dashed p-6 text-center transition-colors ${
           isDragging
             ? "border-primary bg-slate-100"
             : "border-slate-300 bg-slate-50 hover:border-slate-400 hover:bg-slate-100"
@@ -81,7 +81,7 @@ export default function PhotoUploader({ photos = [], onChange, maxPhotos = 3, la
           </div>
         ) : (
           <div className="flex flex-col items-center gap-2">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white shadow-[0_8px_18px_rgba(15,23,42,0.05)]">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white">
               <Upload className="w-5 h-5 text-primary" />
             </div>
             <p className="text-sm font-semibold text-slate-700">
@@ -98,7 +98,7 @@ export default function PhotoUploader({ photos = [], onChange, maxPhotos = 3, la
       {photos.length > 0 && (
         <div className="flex gap-3 flex-wrap">
           {photos.map((url, i) => (
-            <div key={i} className="group relative h-24 w-24 overflow-hidden rounded-[18px] border border-slate-200 bg-white shadow-[0_8px_18px_rgba(15,23,42,0.05)]">
+            <div key={i} className="group relative h-24 w-24 overflow-hidden rounded-xl border border-slate-200 bg-white">
               <img src={url} alt={t("photo_uploader.uploaded_photo", { count: i + 1 })} className="w-full h-full object-cover" />
               <button
                 onClick={(e) => { e.stopPropagation(); removePhoto(i); }}

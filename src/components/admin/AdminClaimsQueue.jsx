@@ -197,10 +197,10 @@ export default function AdminClaimsQueue({ claims, foundItems = [] }) {
                       )}
                     </div>
 
-                    <p className="mt-2 text-sm text-slate-600">
-                      {claim.claimant_name} ({claim.claimant_email}) •{" "}
-                      {claim.created_date ? formatLocalizedDate(claim.created_date, "MMM d") : ""}
-                    </p>
+                    <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-sm text-slate-600">
+                      <span>{claim.claimant_name} ({claim.claimant_email})</span>
+                      <span>{claim.created_date ? formatLocalizedDate(claim.created_date, "MMM d") : ""}</span>
+                    </div>
                     <p className="mt-2 text-sm leading-6 text-slate-600">{claim.reason}</p>
 
                     {claim.claimant_rating ? (
@@ -344,13 +344,13 @@ export default function AdminClaimsQueue({ claims, foundItems = [] }) {
           {detailDialog && (
             <div className="space-y-4">
               <div className="grid gap-3 sm:grid-cols-2">
-                <div className="rounded-[18px] border border-slate-200 bg-slate-50 px-4 py-3 text-sm">
-                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">{t("admin_claims_queue.claimant")}</p>
+                <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm">
+                  <p className="text-sm font-semibold text-slate-700">{t("admin_claims_queue.claimant")}</p>
                   <p className="mt-2 font-medium text-slate-900">{detailDialog.claimant_name}</p>
                   <p className="mt-1 text-slate-600">{detailDialog.claimant_email}</p>
                 </div>
-                <div className="rounded-[18px] border border-slate-200 bg-slate-50 px-4 py-3 text-sm">
-                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">{t("admin_claims_queue.status")}</p>
+                <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm">
+                  <p className="text-sm font-semibold text-slate-700">{t("admin_claims_queue.status")}</p>
                   <div className="mt-2 flex flex-wrap items-center gap-2">
                     <StatusBadge status={detailDialog.status} />
                     <span className="text-slate-600">{t("claim_item.student_id")}: {detailDialog.student_id || t("common.not_available")}</span>
@@ -358,20 +358,20 @@ export default function AdminClaimsQueue({ claims, foundItems = [] }) {
                 </div>
               </div>
 
-              <div className="rounded-[18px] border border-slate-200 bg-slate-50 px-4 py-4">
-                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">{t("admin_claims_queue.reason")}</p>
+              <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4">
+                <p className="text-sm font-semibold text-slate-700">{t("admin_claims_queue.reason")}</p>
                 <p className="mt-2 text-sm leading-6 text-slate-700">{detailDialog.reason}</p>
               </div>
 
               {detailDialog.identifying_details && (
-                <div className="rounded-[18px] border border-slate-200 bg-slate-50 px-4 py-4">
-                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">{t("admin_claims_queue.identifying_details")}</p>
+                <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4">
+                  <p className="text-sm font-semibold text-slate-700">{t("admin_claims_queue.identifying_details")}</p>
                   <p className="mt-2 text-sm leading-6 text-slate-700">{detailDialog.identifying_details}</p>
                 </div>
               )}
 
               {detailDialog.received_confirmed_at && (
-                <div className="rounded-[18px] border border-emerald-200 bg-emerald-50 px-4 py-4 text-sm text-emerald-800">
+                <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-4 text-sm text-emerald-800">
                   {t("admin_claims_queue.received_on", {
                     date: formatLocalizedDate(detailDialog.received_confirmed_at, "MMM d, yyyy"),
                   })}
@@ -382,15 +382,15 @@ export default function AdminClaimsQueue({ claims, foundItems = [] }) {
                 <img
                   src={detailDialog.proof_photo_url}
                   alt={t("admin_claims_queue.proof_photo")}
-                  className="w-full rounded-[18px] border border-slate-200 object-contain"
+                  className="w-full rounded-xl border border-slate-200 object-contain"
                 />
               )}
 
               {detailDialog.risk_score != null && (
-                <div className={`rounded-[18px] border px-4 py-4 text-sm ${getRiskColor(detailDialog.risk_score)}`}>
+                <div className={`rounded-xl border px-4 py-4 text-sm ${getRiskColor(detailDialog.risk_score)}`}>
                   <p className="font-semibold">{t("admin_claims_queue.risk_score", { score: detailDialog.risk_score })}</p>
                   {detailDialog.risk_flags?.map((flag, index) => (
-                    <p key={index} className="mt-1 text-xs">• {flag}</p>
+                    <p key={index} className="mt-1 text-xs">{flag}</p>
                   ))}
                 </div>
               )}
@@ -401,8 +401,8 @@ export default function AdminClaimsQueue({ claims, foundItems = [] }) {
               </div>
 
               {detailDialog.claimant_rating ? (
-                <div className="rounded-[18px] border border-slate-200 bg-slate-50 px-4 py-4">
-                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">{t("admin_claims_queue.claimant_rating")}</p>
+                <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4">
+                  <p className="text-sm font-semibold text-slate-700">{t("admin_claims_queue.claimant_rating")}</p>
                   <div className="mt-3 flex gap-0.5">
                     {Array.from({ length: 5 }).map((_, index) => (
                       <Star
@@ -416,7 +416,7 @@ export default function AdminClaimsQueue({ claims, foundItems = [] }) {
                   {detailDialog.claimant_review && (
                     <p className="mt-3 text-sm leading-6 text-slate-700">{detailDialog.claimant_review}</p>
                   )}
-                  <p className="mt-3 text-xs uppercase tracking-[0.14em] text-slate-500">
+                  <p className="mt-3 text-xs text-slate-500">
                     {t("admin_claims_queue.review_status", {
                       status: detailDialog.review_status
                         ? translateStatus(t, detailDialog.review_status)

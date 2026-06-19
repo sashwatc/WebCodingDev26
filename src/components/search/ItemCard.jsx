@@ -21,15 +21,15 @@ export default function ItemCard({ item, viewMode = "grid" }) {
   const detailHref = isLostReport ? `/ItemDetails?type=lost&id=${item.id}` : `/ItemDetails?id=${item.id}`;
   const detailLabel = isLostReport ? t("common.view_report") : t("common.view_item");
   const typeBadgeClasses = isLostReport
-    ? "border-rose-200 bg-rose-100 text-rose-700"
-    : "border-sky-200 bg-sky-100 text-sky-700";
+    ? "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-800 dark:bg-rose-950/50 dark:text-rose-200"
+    : "border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-800 dark:bg-sky-950/50 dark:text-sky-200";
 
   if (viewMode === "list") {
     return (
-      <Card className="overflow-hidden border-slate-200 shadow-none">
+      <Card className="overflow-hidden border-slate-200 bg-white shadow-none dark:border-slate-700 dark:bg-slate-900">
         <CardContent className="p-5">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
-            <div className="h-20 w-20 flex-shrink-0 overflow-hidden rounded-md bg-slate-100">
+            <div className="h-20 w-20 flex-shrink-0 overflow-hidden rounded-lg bg-slate-100 dark:bg-slate-800">
               {imageUrl ? (
                 <img src={imageUrl} alt={item.title} className="w-full h-full object-cover" />
               ) : (
@@ -41,7 +41,7 @@ export default function ItemCard({ item, viewMode = "grid" }) {
 
             <div className="flex-1 min-w-0">
               <div className="mb-2 flex flex-wrap items-center gap-2">
-                <h3 className="font-semibold text-slate-900">{item.title}</h3>
+                <h3 className="font-semibold text-slate-950">{item.title}</h3>
                 <Badge variant="secondary" className={typeBadgeClasses}>
                   {isLostReport ? t("common.lost") : t("common.found")}
                 </Badge>

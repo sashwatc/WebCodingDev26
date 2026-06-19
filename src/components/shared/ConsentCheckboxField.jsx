@@ -25,7 +25,7 @@ export function ConsentCheckboxField({
     <div className="space-y-2">
       <div
         className={cn(
-          "rounded-[20px] border px-4 py-4 transition-colors",
+          "rounded-xl border px-4 py-4 transition-colors",
           checked ? palette.active : palette.base,
           className
         )}>

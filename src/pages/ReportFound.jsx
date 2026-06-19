@@ -1,6 +1,6 @@
 /**
- * FindBack AI - Report Found Item Page
- * Multi-section form with validation, photo upload, AI tag generation,
+ * Lost Then Found - Report Found Item Page
+ * Multi-section form with validation, photo upload, tag suggestions,
  * and description cleanup. Items go into moderation queue by default.
  */
 
@@ -26,7 +26,7 @@ import {
   PlusCircle,
   Loader2,
   CheckCircle2,
-  Sparkles,
+  FileText,
   MapPin,
   User,
   Tag,
@@ -63,7 +63,7 @@ export default function ReportFound() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const [step, setStep] = useState(1);
-  const [aiProcessing, setAiProcessing] = useState(false);
+  const [helperProcessing, setHelperProcessing] = useState(false);
   const [form, setForm] = useState(() => createInitialForm());
   const [errors, setErrors] = useState({});
   const [generatedTags, setGeneratedTags] = useState([]);
@@ -125,18 +125,18 @@ export default function ReportFound() {
 
   const handleGenerateTags = async () => {
     if (!form.title && !form.description) return;
-    setAiProcessing(true);
+    setHelperProcessing(true);
     const tags = await generateTags(form.title, form.description, form.category);
     setGeneratedTags(tags);
-    setAiProcessing(false);
+    setHelperProcessing(false);
   };
 
   const handleCleanDescription = async () => {
     if (!form.description.trim()) return;
-    setAiProcessing(true);
+    setHelperProcessing(true);
     const cleaned = await cleanupDescription(form.description);
     updateField("ai_description", cleaned);
-    setAiProcessing(false);
+    setHelperProcessing(false);
     toast({
       title: t("report_found.description_enhanced"),
       description: t("report_found.description_enhanced_message"),

@@ -192,7 +192,7 @@ export default function ReportLost() {
                   <CardContent className="p-5">
                     <div className="flex items-start gap-4">
                       {item.photo_urls?.[0] ? (
-                        <img src={item.photo_urls[0]} alt={item.title} className="h-20 w-20 rounded-[18px] object-cover flex-shrink-0" />
+                        <img src={item.photo_urls[0]} alt={item.title} className="h-20 w-20 rounded-xl object-cover flex-shrink-0" />
                       ) : null}
                       <div className="min-w-0 flex-1">
                         <div className="mb-1 flex items-center gap-2">

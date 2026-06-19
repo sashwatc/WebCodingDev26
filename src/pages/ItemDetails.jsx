@@ -185,7 +185,7 @@ export default function ItemDetails() {
       </Button>
 
       <div className="grid md:grid-cols-5 gap-8">
-        {/* Image Gallery — 3 columns */}
+        {/* Image gallery: 3 columns */}
         <div className="md:col-span-3">
           <div className="relative aspect-[4/3] rounded-xl bg-slate-100 overflow-hidden mb-3">
             {photos.length > 0 ? (
@@ -237,7 +237,7 @@ export default function ItemDetails() {
           )}
         </div>
 
-        {/* Item Details — 2 columns */}
+        {/* Item details: 2 columns */}
         <div className="md:col-span-2 space-y-5">
           <div>
             <div className="flex items-center gap-2 mb-2">
@@ -378,7 +378,7 @@ export default function ItemDetails() {
           {/* Claim Button */}
           {!isLostReport && item.status === "approved" && (
             <Link to={`/ClaimItem?id=${item.id}`} className="block">
-              <Button size="lg" className="w-full bg-[hsl(174,60%,40%)] hover:bg-[hsl(174,60%,35%)] text-white gap-2 shadow-md">
+              <Button size="lg" className="w-full gap-2">
                 <CheckCircle2 className="w-5 h-5" />
                 {t("item_details.claim_button")}
               </Button>
@@ -411,10 +411,10 @@ export default function ItemDetails() {
 
       {/* Admin: Match Panel */}
       {isAdmin && !isLostReport && matchingReports.length > 0 && (
-        <Card className="mt-8 border-l-4 border-l-purple-500">
+        <Card className="mt-8 border-slate-200">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
-              <Brain className="w-5 h-5 text-purple-600" />
+              <Brain className="w-5 h-5 text-primary" />
               {t("item_details.match_suggestions")}
             </CardTitle>
           </CardHeader>
@@ -423,7 +423,7 @@ export default function ItemDetails() {
               {matchingReports.map(report => {
                 const match = report.matched_items?.find(m => m.found_item_id === itemId);
                 return (
-                  <div key={report.id} className="flex items-center gap-4 p-3 bg-purple-50 rounded-lg">
+                  <div key={report.id} className="flex items-center gap-4 rounded-xl border border-slate-200 bg-slate-50 p-3">
                     <div className="flex-1">
                       <p className="font-medium text-sm text-slate-900">
                         {t("item_details.lost_report_label", { title: report.item_type || t("item_details.lost_item_report") })}
@@ -435,7 +435,7 @@ export default function ItemDetails() {
                         })}
                       </p>
                     </div>
-                    <Badge className="bg-purple-100 text-purple-800">
+                    <Badge variant="outline">
                       {t("item_details.match_percent", { count: match?.confidence || 0 })}
                     </Badge>
                   </div>

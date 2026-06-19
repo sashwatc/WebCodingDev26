@@ -50,7 +50,6 @@ import schoolMark from "@/assets/Spartan_Head.png";
 export default function Navbar() {
   const { t } = useTranslation();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [scrolled, setScrolled] = useState(false);
   const location = useLocation();
   const {
     isAdminMode,
@@ -71,12 +70,6 @@ export default function Navbar() {
     logout,
   } = useAuth();
   const { toast } = useToast();
-
-  useEffect(() => {
-    const handleScroll = () => setScrolled(window.scrollY > 10);
-    window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
 
   useEffect(() => {
     setMobileOpen(false);
@@ -157,32 +150,30 @@ export default function Navbar() {
   return (
     <header
       role="banner"
-      className={`fixed inset-x-0 top-0 z-50 border-b bg-background/95 backdrop-blur ${
-        scrolled ? "shadow-[0_18px_36px_rgba(15,23,42,0.08)]" : ""
-      }`}
+      className="fixed inset-x-0 top-0 z-50 border-b border-border bg-background"
     >
       <nav className="page-shell" aria-label={t("navbar.main_navigation")}>
         <div className="flex min-h-16 items-center justify-between gap-4 py-2">
-          <Link to="/Home" className="flex items-center gap-3" aria-label={t("navbar.brand_home", { brand: BRAND_NAME })}>
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-[linear-gradient(180deg,#ffffff,#eef2ff)] shadow-[0_10px_22px_rgba(15,23,42,0.08)] dark:border-slate-700 dark:bg-slate-900 dark:shadow-[0_14px_28px_rgba(2,8,23,0.28)]">
+          <Link to="/Home" className="flex shrink-0 items-center gap-3" aria-label={t("navbar.brand_home", { brand: BRAND_NAME })}>
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
               <img src={schoolMark} alt="" className="h-6 w-6 object-contain" />
             </div>
             <div className="min-w-0">
-              <p className="text-sm font-semibold leading-none text-foreground [text-shadow:0_2px_8px_rgba(15,23,42,0.06)]">{BRAND_NAME}</p>
-              <p className="mt-1 text-[11px] uppercase tracking-[0.16em] text-muted-foreground">{SCHOOL_NAME}</p>
+              <p className="whitespace-nowrap text-sm font-semibold leading-none text-foreground">{BRAND_NAME}</p>
+              <p className="mt-1 text-[11px] font-medium text-muted-foreground">{SCHOOL_NAME}</p>
             </div>
           </Link>
 
-          <div className="hidden lg:flex items-center gap-1">
+          <div className="hidden xl:flex items-center gap-1">
             {navLinks.map(({ to, label, icon: Icon }) => (
               <Link
                 key={to}
                 to={to}
                 aria-current={isActive(to) ? "page" : undefined}
-                className={`inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium transition-all ${
+                className={`inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
                   isActive(to)
-                    ? "bg-[linear-gradient(180deg,#ffffff,#f8fafc)] text-foreground shadow-[0_10px_18px_rgba(15,23,42,0.05)] dark:bg-none dark:bg-slate-800 dark:text-white dark:shadow-[0_12px_24px_rgba(2,8,23,0.22)]"
-                    : "text-muted-foreground hover:bg-white/80 hover:text-foreground hover:shadow-[0_10px_18px_rgba(15,23,42,0.04)] dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white dark:hover:shadow-[0_12px_24px_rgba(2,8,23,0.18)]"
+                    ? "bg-slate-100 text-foreground dark:bg-slate-800 dark:text-white"
+                    : "text-muted-foreground hover:bg-slate-100 hover:text-foreground dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
                 }`}
               >
                 <Icon className="h-4 w-4" />
@@ -192,11 +183,11 @@ export default function Navbar() {
           </div>
 
           <div className="flex items-center gap-2">
-            <div className="hidden md:flex items-center rounded-md border border-border bg-muted/70 p-1">
+            <div className="hidden md:flex items-center rounded-lg border border-border bg-muted p-1">
                 <button
                   onClick={() => setIsAdminMode(false)}
                   aria-pressed={!isAdmin}
-                  className={`rounded px-3 py-1.5 text-xs font-semibold ${
+                  className={`rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${
                     !isAdmin ? "bg-background text-foreground" : "text-muted-foreground hover:text-foreground"
                   }`}
                 >
@@ -205,7 +196,7 @@ export default function Navbar() {
                 <button
                   onClick={handleAdminView}
                   aria-pressed={isAdmin}
-                  className={`rounded px-3 py-1.5 text-xs font-semibold ${
+                  className={`rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${
                     isAdmin ? "bg-background text-foreground" : "text-muted-foreground hover:text-foreground"
                   }`}
                 >
@@ -358,7 +349,7 @@ export default function Navbar() {
             <Button
               variant="outline"
               size="icon"
-              className="lg:hidden"
+              className="xl:hidden"
               onClick={() => setMobileOpen(!mobileOpen)}
               aria-label={mobileOpen ? t("navbar.close_menu") : t("navbar.open_menu")}
               aria-expanded={mobileOpen}
@@ -370,7 +361,7 @@ export default function Navbar() {
       </nav>
 
       {mobileOpen && (
-        <div className="border-t bg-background lg:hidden">
+        <div className="border-t bg-background xl:hidden">
           <div className="page-shell space-y-3 py-4">
             <div className="flex items-center rounded-md border border-border bg-muted p-1">
                 <button

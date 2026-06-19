@@ -71,7 +71,7 @@ export default function AdminDashboard() {
           ].map((stat) => (
             <div key={stat.label} className="stat-panel">
               <p className="text-2xl font-semibold text-slate-950">{stat.value}</p>
-              <p className="mt-1 text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">{stat.label}</p>
+              <p className="mt-1 text-sm font-medium text-slate-600">{stat.label}</p>
             </div>
           ))}
         </div>
@@ -129,7 +129,7 @@ export default function AdminDashboard() {
           <TabsContent value="reports">
             <div className="space-y-4">
               <div className="surface-card p-5">
-                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">{t("admin_dashboard.lost_reports")}</p>
+                <p className="text-sm font-semibold text-slate-950">{t("admin_dashboard.lost_reports")}</p>
                 <p className="mt-2 text-sm text-slate-600">{t("admin_dashboard.reports_summary", { count: lostReports.length })}</p>
               </div>
 
@@ -157,9 +157,11 @@ export default function AdminDashboard() {
                               )}
                             </div>
                             <p className="mt-2 text-sm leading-6 text-slate-600">{report.description}</p>
-                            <p className="mt-3 text-xs uppercase tracking-[0.14em] text-slate-500">
-                              {report.contact_name} • {report.date_lost ? formatLocalizedDate(report.date_lost, "MMM d, yyyy") : t("common.not_available")} • {translateLocation(t, report.last_seen_location) || t("admin_dashboard.unknown_location")}
-                            </p>
+                            <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-500">
+                              <span>{report.contact_name}</span>
+                              <span>{report.date_lost ? formatLocalizedDate(report.date_lost, "MMM d, yyyy") : t("common.not_available")}</span>
+                              <span>{translateLocation(t, report.last_seen_location) || t("admin_dashboard.unknown_location")}</span>
+                            </div>
                           </div>
                         </div>
                         <Badge variant="outline" className="capitalize self-start">{translateUrgency(t, report.urgency)}</Badge>
@@ -182,13 +184,12 @@ export default function AdminDashboard() {
                 {auditLogs.map((log) => (
                   <div key={log.id} className="surface-card p-4">
                     <div className="flex items-start gap-3">
-                      <div className="mt-1.5 h-2 w-2 rounded-full bg-primary" />
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-medium text-slate-900">{log.action}</p>
                         <p className="mt-1 text-sm text-slate-600">{log.details}</p>
                       </div>
                       <div className="text-right">
-                        <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">{log.performed_by}</p>
+                        <p className="text-xs font-semibold text-slate-500">{log.performed_by}</p>
                         <p className="mt-1 text-[11px] text-slate-500">
                           {log.created_date ? formatLocalizedDate(log.created_date, "MMM d, h:mm a") : ""}
                         </p>

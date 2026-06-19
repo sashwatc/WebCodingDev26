@@ -1,6 +1,6 @@
 /**
- * FindBack AI - Home Page
- * Leads with search, then surfaces the two main reporting actions.
+ * Lost Then Found - Home Page
+ * Prioritizes the first user decision: search first, then report only if needed.
  */
 
 import React, { useState, useMemo } from "react";
@@ -11,7 +11,6 @@ import { appClient } from "@/api/appClient";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { WebGLShader } from "@/components/ui/web-gl-shader";
 import StatusBadge from "@/components/ui/StatusBadge";
 import { useAuth } from "@/lib/AuthContext";
 import { useMode } from "@/lib/ModeContext";
@@ -29,11 +28,19 @@ import {
   Sparkles,
 } from "lucide-react";
 
+const getItemPhoto = (item) => (
+  item?.photo_urls?.[0]
+  || item?.photoUrls?.[0]
+  || item?.image_url
+  || item?.imageUrl
+  || ""
+);
+
 export default function Home() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { user, hasAdminAccess } = useAuth();
-  const { isAdminMode, theme } = useMode();
+  const { isAdminMode } = useMode();
   const [homeSearchQuery, setHomeSearchQuery] = useState("");
   const [activeMode, setActiveMode] = useState("none"); // "none" | "lost" | "found"
   const [assistantSearchQuery, setAssistantSearchQuery] = useState("");
@@ -91,19 +98,35 @@ export default function Home() {
       label: t("home.available_items"),
       value: approvedItems.length,
       helper: t("home.available_items_helper"),
-      icon: Package,
     },
     {
       label: t("home.matched_reports"),
       value: matchedReports.length,
       helper: t("home.matched_reports_helper"),
-      icon: Search,
     },
     {
       label: t("home.returned_items"),
       value: returnedItems.length,
       helper: t("home.returned_items_helper"),
-      icon: CheckCircle2,
+    },
+  ];
+
+  const reportActions = [
+    {
+      icon: AlertTriangle,
+      title: t("home.cant_find_it"),
+      description: t("home.lost_helper"),
+      to: "/ReportLost",
+      action: t("common.report_lost_item"),
+      iconClassName: "text-amber-700 dark:text-amber-200",
+    },
+    {
+      icon: PlusCircle,
+      title: t("home.found_something"),
+      description: t("home.found_helper"),
+      to: "/ReportFound",
+      action: t("common.report_found_item"),
+      iconClassName: "text-emerald-700 dark:text-emerald-200",
     },
   ];
 
@@ -113,44 +136,27 @@ export default function Home() {
     navigate(query ? `/Search?q=${encodeURIComponent(query)}` : "/Search");
   };
 
-  const moreTools = [
-    user
-      ? {
-          to: "/UserDashboard",
-          title: t("home.my_dashboard_title"),
-          description: t("home.my_dashboard_description"),
-          icon: LayoutDashboard,
-        }
-      : {
-          to: "/Documentation",
-          title: t("home.project_documentation_title"),
-          description: t("home.project_documentation_description"),
-          icon: ClipboardList,
-        },
-    hasAdminAccess
-      ? {
-          to: "/AdminDashboard",
-          title: t("home.admin_workspace_title"),
-          description: isAdminWorkspace
-            ? t("home.admin_workspace_active")
-            : t("home.admin_workspace_inactive"),
-          icon: Shield,
-        }
-      : null,
-  ].filter(Boolean);
-
   return (
-    <div className="relative isolate overflow-hidden bg-transparent">
-      <div className="pointer-events-none absolute inset-0">
-        <WebGLShader variant="blue-flow" theme={theme} className={theme === "dark" ? "opacity-60" : "opacity-100"} />
-      </div>
+    <div className="bg-background">
+      <div className="page-shell pb-12 pt-8">
+        <section className="surface-card overflow-hidden" aria-labelledby="home-title">
+          <div className="grid lg:grid-cols-[220px_minmax(0,1fr)]">
+            <aside className="border-b border-slate-200 bg-slate-50 p-5 dark:border-slate-700 dark:bg-slate-800 lg:border-b-0 lg:border-r">
+              <p className="text-sm font-semibold text-slate-950">{t("home.kicker")}</p>
+              <p className="mt-2 text-sm leading-6 text-slate-600">{t("home.front_desk_note")}</p>
 
-      <div className="page-shell relative z-10 pb-10 pt-7">
-        <section className="page-header mb-5">
-          <span className="page-kicker">{t("home.kicker")}</span>
-          <h1 className="page-title">{t("home.title")}</h1>
-          <p className="page-subtitle">{t("home.subtitle")}</p>
-        </section>
+              <dl className="mt-6 space-y-4" aria-label={t("home.quick_actions")}>
+                {publicStats.map((stat) => (
+                  <div key={stat.label} className="border-t border-slate-200 pt-4 first:border-t-0 first:pt-0 dark:border-slate-700">
+                    <dt className="text-sm font-medium text-slate-700">{stat.label}</dt>
+                    <dd className="mt-1 flex items-baseline justify-between gap-3">
+                      <span className="text-2xl font-semibold text-slate-950">{stat.value}</span>
+                      <span className="text-xs text-slate-500">{stat.helper}</span>
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+            </aside>
 
         <section className="mb-8 space-y-4">
           <div className="hero-panel bg-white p-6 sm:p-8">
@@ -394,88 +400,64 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="mb-8 grid gap-4 sm:grid-cols-3">
-        {publicStats.map((stat) => (
-          <div key={stat.label} className="stat-panel">
-            <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-md bg-slate-100 text-primary">
-              <stat.icon className="h-4 w-4" />
+        <section className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1.15fr)_minmax(280px,0.85fr)]">
+          <div className="surface-card">
+            <div className="flex items-center justify-between gap-4 border-b border-slate-200 px-5 py-4 dark:border-slate-700">
+              <div>
+                <h2 className="section-heading">{t("home.recently_approved_items")}</h2>
+                <p className="mt-1 text-sm text-slate-600">{t("home.recently_approved_subtitle")}</p>
+              </div>
+              <Button asChild variant="outline" size="sm">
+                <Link to="/Search">{t("home.open_search")}</Link>
+              </Button>
             </div>
-            <p className="text-2xl font-semibold text-slate-950">{stat.value}</p>
-            <p className="mt-1 text-sm font-medium text-slate-800">{stat.label}</p>
-            <p className="mt-2 text-xs uppercase tracking-[0.14em] text-slate-500">{stat.helper}</p>
-          </div>
-        ))}
-      </section>
 
-        <section className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(280px,0.8fr)]">
-        <div className="surface-card">
-          <div className="flex items-center justify-between gap-4 border-b px-5 py-4">
-            <div>
-              <h2 className="section-heading">{t("home.recently_approved_items")}</h2>
-              <p className="mt-1 text-sm text-slate-600">{t("home.recently_approved_subtitle")}</p>
-            </div>
-            <Link to="/Search">
-              <Button variant="outline" size="sm">{t("home.open_search")}</Button>
-            </Link>
-          </div>
-
-          {recentApprovedItems.length > 0 ? (
-            <div className="divide-y">
-              {recentApprovedItems.map((item) => (
-                <div key={item.id} className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Link to={`/ItemDetails?id=${item.id}`} className="font-semibold text-slate-900 hover:underline">
-                        {item.title}
-                      </Link>
-                      <StatusBadge status={item.status} />
-                      {item.category && <Badge variant="outline">{translateCategory(t, item.category)}</Badge>}
+            {recentApprovedItems.length > 0 ? (
+              <div className="divide-y divide-slate-200 dark:divide-slate-700">
+                {recentApprovedItems.map((item) => (
+                  <Link key={item.id} to={`/ItemDetails?id=${item.id}`} className="group block px-5 py-4 transition-colors hover:bg-slate-50 dark:hover:bg-slate-800">
+                    <div className="flex gap-4">
+                      <div className="h-16 w-16 flex-shrink-0 overflow-hidden rounded-lg bg-slate-100 dark:bg-slate-800">
+                        {getItemPhoto(item) ? (
+                          <img
+                            src={getItemPhoto(item)}
+                            alt={t("home.photo_alt", { item: item.title })}
+                            className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-[1.03]"
+                          />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center">
+                            <Package className="h-6 w-6 text-slate-300" />
+                          </div>
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="font-semibold text-slate-950 group-hover:underline">{item.title}</p>
+                          <StatusBadge status={item.status} />
+                        </div>
+                        <p className="mt-1 text-sm text-slate-600">
+                          {translateLocation(t, item.location_found) || t("common.unknown_location")}
+                        </p>
+                        {item.category && (
+                          <Badge variant="outline" className="mt-2">
+                            {translateCategory(t, item.category)}
+                          </Badge>
+                        )}
+                      </div>
+                      <ArrowRight className="mt-1 h-4 w-4 flex-shrink-0 text-slate-500 transition-transform group-hover:translate-x-0.5" />
                     </div>
-                    <p className="mt-2 text-sm text-slate-600">{item.ai_description || item.description}</p>
-                    <p className="mt-2 text-xs uppercase tracking-[0.14em] text-slate-500">
-                      {translateLocation(t, item.location_found) || t("common.unknown_location")} • {item.date_found ? formatLocalizedDate(item.date_found, "MMM d, yyyy") : t("common.date_unavailable")}
-                    </p>
-                  </div>
-                  <Link to={`/ItemDetails?id=${item.id}`}>
-                    <Button variant="outline" size="sm">{t("common.view")}</Button>
                   </Link>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="px-5 py-8 text-sm text-slate-500">{t("home.no_approved_items")}</div>
-          )}
-        </div>
-
-        <div className="space-y-6">
-              <div className="surface-card">
-                <div className="border-b px-5 py-4">
-                  <h2 className="section-heading">{t("home.quick_actions")}</h2>
-                  <p className="mt-1 text-sm text-slate-600">
-                    {t("home.quick_actions_subtitle")}
-                  </p>
-                </div>
-            <div className="divide-y">
-              {moreTools.map((tool) => (
-                <Link key={tool.title} to={tool.to} className="block px-5 py-4 hover:bg-slate-50">
-                  <div className="flex items-start gap-3">
-                    <div className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-md bg-slate-100 text-primary">
-                      <tool.icon className="h-4 w-4" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-semibold text-slate-900">{tool.title}</p>
-                      <p className="mt-1 text-sm leading-6 text-slate-600">{tool.description}</p>
-                    </div>
-                  </div>
-                </Link>
-              ))}
-            </div>
+                ))}
+              </div>
+            ) : (
+              <div className="px-5 py-8 text-sm text-slate-500">{t("home.no_approved_items")}</div>
+            )}
           </div>
 
-          {isAdminWorkspace && (
-            <>
+          {isAdminWorkspace ? (
+            <div className="space-y-6">
               <div className="surface-card">
-                <div className="border-b px-5 py-4">
+                <div className="border-b border-slate-200 px-5 py-4 dark:border-slate-700">
                   <h2 className="section-heading">{t("home.admin_summary")}</h2>
                   <p className="mt-1 text-sm text-slate-600">{t("home.admin_summary_subtitle")}</p>
                 </div>
@@ -496,19 +478,20 @@ export default function Home() {
               </div>
 
               <div className="surface-card">
-                <div className="border-b px-5 py-4">
+                <div className="border-b border-slate-200 px-5 py-4 dark:border-slate-700">
                   <h2 className="section-heading">{t("home.recent_admin_activity")}</h2>
                   <p className="mt-1 text-sm text-slate-600">{t("home.recent_admin_activity_subtitle")}</p>
                 </div>
                 {recentActivity.length > 0 ? (
-                  <div className="divide-y">
+                  <div className="divide-y divide-slate-200 dark:divide-slate-700">
                     {recentActivity.map((log) => (
                       <div key={log.id} className="px-5 py-4">
-                        <p className="text-sm font-medium text-slate-900">{log.action}</p>
+                        <p className="text-sm font-medium text-slate-950">{log.action}</p>
                         <p className="mt-1 text-sm text-slate-600">{log.details}</p>
-                        <p className="mt-2 text-xs uppercase tracking-[0.14em] text-slate-500">
-                          {log.performed_by} • {log.created_date ? formatLocalizedDate(log.created_date, "MMM d, h:mm a") : t("home.no_date")}
-                        </p>
+                        <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-500">
+                          <span>{log.performed_by}</span>
+                          <span>{log.created_date ? formatLocalizedDate(log.created_date, "MMM d, h:mm a") : t("home.no_date")}</span>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -516,9 +499,20 @@ export default function Home() {
                   <div className="px-5 py-8 text-sm text-slate-500">{t("home.no_activity_logged")}</div>
                 )}
               </div>
-            </>
+            </div>
+          ) : (
+            <div className="surface-card p-5">
+              <h2 className="section-heading">{t("home.my_dashboard_title")}</h2>
+              <p className="mt-2 text-sm leading-6 text-slate-600">
+                {user ? t("home.my_dashboard_description") : t("home.project_documentation_description")}
+              </p>
+              <Button asChild variant="outline" className="mt-5">
+                <Link to={user ? "/UserDashboard" : "/Documentation"}>
+                  {user ? t("navbar.my_dashboard") : t("footer.project_documentation")}
+                </Link>
+              </Button>
+            </div>
           )}
-        </div>
         </section>
       </div>
     </div>

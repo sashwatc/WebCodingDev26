@@ -16,7 +16,7 @@ const sections = [
   },
   {
     title: "2. Where Data Is Stored",
-    body: "In hosted deployments, records and uploaded photos are stored through the app backend in Supabase. In offline judging mode, the app can fall back to local seeded records for demonstration.",
+    body: "Records and uploaded photos are stored through the configured Spring Boot backend. Local development uses the backend service running separately from this frontend.",
   },
   {
     title: "3. How Information Is Used",
@@ -28,7 +28,7 @@ const sections = [
   },
   {
     title: "5. Data Retention in Demo Mode",
-    body: "Hosted deployments keep data in the configured backend. Offline judging mode may rely on local fallback files, which can be reset independently from a hosted deployment.",
+    body: "Hosted deployments keep data in the configured backend. Demo data and retention behavior are controlled by the backend environment used for the presentation.",
   },
   {
     title: "6. Contact and References",
