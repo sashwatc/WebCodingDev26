@@ -6,7 +6,7 @@ Lost Then Found is a React-based PVHS lost-and-found website built for the FBLA 
 
 - Custom school lost-and-found workflow with pages for home, search, report found, report lost, item details, claiming, user dashboard, admin dashboard, FAQ, privacy, accessibility, sources, and project documentation
 - Responsive layouts designed for phones, tablets, and desktops
-- Supabase-ready backend routing for all entities, uploads, and sign-in records, with local fallback for offline judging
+- Spring Boot-ready API integration for all entities, uploads, and sign-in records
 - Intelligent matching helpers for lost reports, suggested tags, and claim risk scoring
 - Accessibility improvements including a skip link, route announcements, keyboard-friendly components, reduced-motion support, and visible focus treatment
 
@@ -27,23 +27,23 @@ npm install
 npm run dev
 ```
 
-Open `http://localhost:4173`.
+Open `http://localhost:5173`.
 
 Notes:
 
-- `npm run dev` uses a preview-safe static server so it works in embedded IDE previews and browser tabs.
-- If you want the standard Vite dev server with HMR in a normal browser, run `npm run dev:vite` and open `http://localhost:5173`.
-- When using `npm run dev`, refresh the page after code changes to see the rebuilt output.
+- Start the Spring Boot backend separately:
+
+  ```bash
+  cd path/to/spring-backend
+  ./mvnw spring-boot:run
+  ```
+
+- The backend runs on `http://localhost:8080`.
+- The frontend calls `/api/*`, and Vite proxies those requests to `http://127.0.0.1:8080` during local development.
+- Leave `VITE_API_URL` blank for local Vite development.
 - Demo student account: `Jordan Kim` / `jordan.kim@pleasantvalley.edu`
 - Demo admin account: `Avery Patel` / `avery.patel@pleasantvalley.edu`
 - Admin unlock password: `PVHS-Admin-2026`
-
-`npm run dev` now starts both parts of the app:
-
-- the website on `http://localhost:4173`
-- the items API on `http://localhost:5001`
-
-The website calls `/api/items`, and Vite proxies that to the local backend during development.
 
 ## Build and Quality Checks
 
@@ -54,36 +54,19 @@ npm run build
 
 ## Deployment
 
-For a standard deployment, build the frontend and run the Node server:
+For a standard frontend deployment:
 
 ```bash
 npm install
 npm run build
-npm start
 ```
 
-This serves both:
-
-- the built frontend
-- the `/api/*` backend routes
-
-from the same deployment and same origin, which means the website can load backend items without extra proxy setup.
+Deploy the built frontend from `dist/` and run the Spring Boot API as a separate backend service.
 
 ### Data Storage
 
-- If `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are set, the full app data layer uses Supabase.
-- If Supabase is not configured but `MONGO_URI` is set, found items and entities fall back to MongoDB-backed collections.
-- If neither hosted backend is configured, the app uses local seeded JSON files so the judging build still works offline.
-
-### Supabase Setup
-
-1. Create a Supabase project.
-2. Run [schema.sql](/Users/arjuntambe/WebCodingDev26/supabase/schema.sql) in the Supabase SQL editor.
-3. Add the variables from [.env.example](/Users/arjuntambe/WebCodingDev26/.env.example) to your deployment:
-   `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and optionally `SUPABASE_STORAGE_BUCKET`.
-4. Start the app with `npm start` or `npm run dev`.
-
-The server automatically creates the configured storage bucket if it does not already exist and uploads item photos there.
+- Local development data is seeded by the Spring Boot backend.
+- The frontend can also fall back to its local browser cache if the backend is unavailable.
 
 ### Split Frontend / Backend Deployments
 
@@ -92,12 +75,14 @@ If you deploy the frontend and backend separately, set `VITE_API_URL` during the
 Example:
 
 ```bash
-VITE_API_URL=https://your-api.example.com npm run build
+VITE_API_URL=https://your-backend-domain.com npm run build
 ```
+
+Do not include `/api` at the end of `VITE_API_URL`.
 
 ## Judging Build Notes
 
-- The app can run against Supabase for hosted deployments or local seeded files for offline judging.
+- The app is intended to run against the Spring Boot API for hosted deployments.
 - The application logic, page flows, seeded records, and content are customized for this project rather than assembled from a generic website template.
 - Admin views require sign-in plus the admin unlock password in this build.
 

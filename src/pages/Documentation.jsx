@@ -14,7 +14,7 @@ const documentationCards = [
   {
     icon: Code2,
     title: "Modern Frontend Stack",
-    body: "The project uses React, React Router, TanStack Query, Radix-based UI primitives, Framer Motion, and local browser persistence for a portable judging build.",
+    body: "The project uses React, React Router, TanStack Query, Radix-based UI primitives, Framer Motion, and a Spring Boot API contract.",
   },
   {
     icon: Shield,
@@ -35,7 +35,7 @@ const checklist = [
   "Claim submission flow with verification details and admin-side risk review",
   "User dashboard for claims, reports, and notifications",
   "Admin dashboard with moderation queues, analytics, and audit activity",
-  "Standalone local sign-in for demos and judging portability",
+  "Simple API-backed sign-in for demos and judging portability",
 ];
 
 export default function Documentation() {
@@ -86,7 +86,7 @@ export default function Documentation() {
           </CardHeader>
           <CardContent className="space-y-3 text-sm text-slate-600 leading-relaxed">
             <p>
-                The app can run in two modes: a hosted Supabase-backed deployment for shared data, or a local fallback mode for offline judging and demos.
+                The frontend runs as a Vite React app and connects to a separate Spring Boot API for shared lost-and-found data.
             </p>
             <p>
                 The application logic, page layouts, workflows, seeded data, and copy were customized for the lost-and-found scenario rather than assembled from a website theme.
@@ -102,14 +102,12 @@ export default function Documentation() {
               <CardTitle>Run Locally</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2 text-sm text-slate-600">
+              <p>Start the backend in the Spring Boot repo:</p>
+              <p><code className="rounded bg-slate-100 px-2 py-1">./mvnw spring-boot:run</code></p>
               <p><code className="rounded bg-slate-100 px-2 py-1">npm install</code></p>
               <p><code className="rounded bg-slate-100 px-2 py-1">npm run dev</code></p>
-              <p>Open <code className="rounded bg-slate-100 px-2 py-1">http://localhost:4173</code>.</p>
-              <p>
-                For the standard Vite dev server with hot reload, use{" "}
-                <code className="rounded bg-slate-100 px-2 py-1">npm run dev:vite</code> and open{" "}
-                <code className="rounded bg-slate-100 px-2 py-1">http://localhost:5173</code>.
-              </p>
+              <p>Open <code className="rounded bg-slate-100 px-2 py-1">http://localhost:5173</code>.</p>
+              <p>Local API: <code className="rounded bg-slate-100 px-2 py-1">http://localhost:8080</code>.</p>
               <p>Student demo: <code className="rounded bg-slate-100 px-2 py-1">Jordan Kim</code> / <code className="rounded bg-slate-100 px-2 py-1">jordan.kim@pleasantvalley.edu</code></p>
               <p>Admin demo: <code className="rounded bg-slate-100 px-2 py-1">Avery Patel</code> / <code className="rounded bg-slate-100 px-2 py-1">avery.patel@pleasantvalley.edu</code></p>
               <p>Admin unlock password: <code className="rounded bg-slate-100 px-2 py-1">PVHS-Admin-2026</code></p>

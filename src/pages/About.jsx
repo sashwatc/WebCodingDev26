@@ -38,8 +38,8 @@ const highlights = [
   },
   {
     icon: MonitorSmartphone,
-    title: "Hosted or portable deployment",
-    description: "The app can run with a hosted Supabase backend for shared data or fall back to local seeded records for offline judging demos.",
+    title: "Split frontend/backend deployment",
+    description: "The React frontend talks to a Spring Boot API locally through Vite proxying and in production through a configured API URL.",
   },
 ];
 
@@ -48,7 +48,7 @@ const technicalNotes = [
   "TanStack Query for cached entity reads, invalidation, and async UI refresh",
   "Radix-based UI primitives for accessible dialogs, menus, tabs, and drawers",
   "Framer Motion with reduced-motion support for intentional but restrained animation",
-  "Express API routes backed by Supabase tables and storage, with local fallback for offline judging",
+  "Spring Boot API integration for items, reports, claims, notifications, audit logs, auth, and uploads",
 ];
 
 export default function About() {
@@ -86,7 +86,7 @@ export default function About() {
             </div>
             <p className="text-sm text-slate-600 leading-relaxed">
               The project emphasizes original workflows and application logic rather than relying on a premade site template.
-              The hosted path uses Supabase for shared persistence, while the judging fallback still works locally without extra infrastructure.
+              The frontend stays focused on the user experience while a separate Spring Boot service owns persistence and API workflows.
             </p>
             <div className="space-y-3">
               {technicalNotes.map((note) => (

@@ -35,11 +35,11 @@ const faqs = [
   },
   {
     q: "Is this build connected to a live backend?",
-    a: "It can be. The app supports a hosted Supabase backend for shared data and uploads, and it also keeps a local fallback mode for offline judging or development.",
+    a: "Yes. The frontend is built to call the Spring Boot API for shared data, uploads, and sign-in records. In local development, Vite proxies /api requests to the backend on port 8080.",
   },
   {
     q: "Is my information private?",
-    a: "The app is designed to collect only what is needed for a lost-and-found workflow. In hosted mode, records are stored through the configured backend. In offline judging mode, data can stay in the local fallback store instead.",
+    a: "The app is designed to collect only what is needed for a lost-and-found workflow. Records are stored through the configured backend, and sensitive storage or review details stay limited to admin views.",
   },
   {
     q: `Can staff members use ${BRAND_NAME} too?`,
