@@ -7,7 +7,7 @@ import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
@@ -55,6 +55,31 @@ export default function ReportLost() {
     confirm_accuracy: false,
   });
   const [errors, setErrors] = useState({});
+  const [formStep, setFormStep] = useState(1);
+
+  const handleNextStep = () => {
+    const errs = {};
+    if (formStep === 1) {
+      if (!form.item_type.trim()) errs.item_type = t("report_lost.item_type_required");
+    } else if (formStep === 2) {
+      if (!form.date_lost) errs.date_lost = t("report_lost.date_lost_required");
+    }
+    
+    setErrors(errs);
+    if (Object.keys(errs).length === 0) {
+      setFormStep((prev) => prev + 1);
+    } else {
+      toast({
+        title: t("report_lost.missing_fields"),
+        description: t("report_lost.missing_fields_message"),
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handlePrevStep = () => {
+    setFormStep((prev) => Math.max(1, prev - 1));
+  };
 
   const { data: foundItems = [] } = useQuery({
     queryKey: ["foundItemsForMatching"],
@@ -227,16 +252,57 @@ export default function ReportLost() {
         <p className="page-subtitle">{t("report_lost.subtitle")}</p>
       </div>
 
+      {/* Progress Tracker */}
+      <div className="mb-8 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl p-5 shadow-sm">
+        <div className="flex justify-between items-center relative">
+          {/* Progress bar background line */}
+          <div className="absolute left-0 right-0 h-0.5 bg-slate-200 dark:bg-slate-800 top-1/2 -translate-y-1/2 z-0" />
+          {/* Active progress bar line */}
+          <div 
+            className="absolute left-0 h-0.5 bg-primary top-1/2 -translate-y-1/2 z-0 transition-all duration-300"
+            style={{ width: `${((formStep - 1) / 2) * 100}%` }}
+          />
+
+          {[
+            { step: 1, label: t("report_found.step_identity", "Item Identity") },
+            { step: 2, label: t("report_found.step_location", "Time & Place") },
+            { step: 3, label: t("report_found.step_details", "Verification & Contact") }
+          ].map((item) => {
+            const isCompleted = formStep > item.step;
+            const isActive = formStep === item.step;
+            return (
+              <div key={item.step} className="flex flex-col items-center relative z-10">
+                <div 
+                  className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300 ${
+                    isCompleted 
+                      ? "bg-emerald-600 text-white" 
+                      : isActive 
+                        ? "bg-primary text-white ring-4 ring-primary/20" 
+                        : "bg-slate-100 dark:bg-slate-800 text-slate-400 border border-slate-200"
+                  }`}
+                >
+                  {isCompleted ? "✓" : item.step}
+                </div>
+                <span className={`text-xs font-medium mt-2 ${isActive ? "text-primary font-semibold" : "text-slate-500"}`}>
+                  {item.label}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
       <form onSubmit={handleSubmit} className="space-y-6" noValidate>
-        <div className="form-shell divide-y divide-slate-200">
-          <Card className="rounded-none border-0 bg-transparent shadow-none">
-            <CardHeader className="p-6 pb-4 sm:p-8 sm:pb-4">
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <AlertTriangle className="w-5 h-5 text-primary" />
-                {t("report_lost.details")}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4 p-6 pt-0 sm:p-8 sm:pt-0">
+        <div className="form-shell">
+          {formStep === 1 && (
+            <section className="space-y-6 animate-in fade-in duration-300 p-6 sm:p-8">
+              <div className="space-y-2">
+                <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-950">
+                  <AlertTriangle className="w-5 h-5 text-primary" />
+                  {t("report_lost.details")}
+                </h2>
+              </div>
+
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
                   <Label htmlFor="item_type">{t("report_lost.item_type")}</Label>
@@ -254,12 +320,6 @@ export default function ReportLost() {
                 </div>
               </div>
 
-              <div>
-                <Label htmlFor="lost_desc">{t("report_lost.description_label")}</Label>
-                <Textarea id="lost_desc" placeholder={t("report_lost.description_placeholder")} rows={4} value={form.description} onChange={(event) => updateField("description", event.target.value)} className={errors.description ? "border-red-400" : ""} />
-                {errors.description && <p className="mt-1 text-xs text-red-500">{errors.description}</p>}
-              </div>
-
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
                   <Label>{t("common.color")}</Label>
@@ -274,6 +334,25 @@ export default function ReportLost() {
                   <Label htmlFor="lost_brand">{t("common.brand")}</Label>
                   <Input id="lost_brand" placeholder={t("report_lost.brand_placeholder")} value={form.brand} onChange={(event) => updateField("brand", event.target.value)} />
                 </div>
+              </div>
+
+              <PhotoUploader photos={form.photo_url ? [form.photo_url] : []} onChange={(urls) => updateField("photo_url", urls[0] || "")} maxPhotos={1} label={t("report_lost.reference_photo")} />
+
+              <div className="flex justify-end pt-4">
+                <Button type="button" size="lg" onClick={handleNextStep} className="px-8">
+                  {t("common.next", "Next")} →
+                </Button>
+              </div>
+            </section>
+          )}
+
+          {formStep === 2 && (
+            <section className="space-y-6 animate-in fade-in duration-300 p-6 sm:p-8">
+              <div className="space-y-2">
+                <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-950">
+                  <AlertTriangle className="w-5 h-5 text-primary" />
+                  {t("report_lost.details")}
+                </h2>
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2">
@@ -303,20 +382,37 @@ export default function ReportLost() {
                 </Select>
               </div>
 
-              <PhotoUploader photos={form.photo_url ? [form.photo_url] : []} onChange={(urls) => updateField("photo_url", urls[0] || "")} maxPhotos={1} label={t("report_lost.reference_photo")} />
-
               <div>
                 <Label htmlFor="extra_notes">{t("report_lost.additional_notes")}</Label>
-                <Textarea id="extra_notes" placeholder={t("report_lost.additional_notes_placeholder")} rows={2} value={form.extra_notes} onChange={(event) => updateField("extra_notes", event.target.value)} />
+                <Textarea id="extra_notes" placeholder={t("report_lost.additional_notes_placeholder")} rows={3} value={form.extra_notes} onChange={(event) => updateField("extra_notes", event.target.value)} />
               </div>
-            </CardContent>
-          </Card>
 
-          <Card className="rounded-none border-0 bg-transparent shadow-none">
-            <CardHeader className="p-6 pb-4 sm:p-8 sm:pb-4">
-              <CardTitle className="text-lg">{t("report_lost.contact_information")}</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4 p-6 pt-0 sm:p-8 sm:pt-0">
+              <div className="flex justify-between pt-4">
+                <Button type="button" variant="outline" size="lg" onClick={handlePrevStep}>
+                  ← {t("common.back")}
+                </Button>
+                <Button type="button" size="lg" onClick={handleNextStep} className="px-8">
+                  {t("common.next", "Next")} →
+                </Button>
+              </div>
+            </section>
+          )}
+
+          {formStep === 3 && (
+            <section className="space-y-6 animate-in fade-in duration-300 p-6 sm:p-8">
+              <div className="space-y-2">
+                <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-950">
+                  <AlertTriangle className="w-5 h-5 text-primary" />
+                  {t("report_lost.contact_information")}
+                </h2>
+              </div>
+
+              <div>
+                <Label htmlFor="lost_desc">{t("report_lost.description_label")}</Label>
+                <Textarea id="lost_desc" placeholder={t("report_lost.description_placeholder")} rows={4} value={form.description} onChange={(event) => updateField("description", event.target.value)} className={errors.description ? "border-red-400" : ""} />
+                {errors.description && <p className="mt-1 text-xs text-red-500">{errors.description}</p>}
+              </div>
+
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
                   <Label htmlFor="contact_name">{t("report_lost.full_name")}</Label>
@@ -329,6 +425,7 @@ export default function ReportLost() {
                   {errors.contact_email && <p className="mt-1 text-xs text-red-500">{errors.contact_email}</p>}
                 </div>
               </div>
+
               <div>
                 <Label htmlFor="student_id">{t("report_lost.student_id")}</Label>
                 <Input id="student_id" placeholder={t("report_lost.student_id_placeholder")} value={form.student_id} onChange={(event) => updateField("student_id", event.target.value)} />
@@ -342,15 +439,18 @@ export default function ReportLost() {
                 tone="amber">
                 {t("report_lost.confirm_text")}
               </ConsentCheckboxField>
-            </CardContent>
-          </Card>
 
-          <div className="p-6 sm:p-8">
-            <Button type="submit" size="lg" disabled={submitMutation.isPending} className="w-full gap-2">
-              {submitMutation.isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Brain className="w-5 h-5" />}
-              {submitMutation.isPending ? t("report_lost.submitting") : t("report_lost.submit_button")}
-            </Button>
-          </div>
+              <div className="flex justify-between pt-4 gap-3">
+                <Button type="button" variant="outline" size="lg" onClick={handlePrevStep}>
+                  ← {t("common.back")}
+                </Button>
+                <Button type="submit" size="lg" disabled={submitMutation.isPending} className="flex-1 gap-2">
+                  {submitMutation.isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Brain className="w-5 h-5" />}
+                  {submitMutation.isPending ? t("report_lost.submitting") : t("report_lost.submit_button")}
+                </Button>
+              </div>
+            </section>
+          )}
         </div>
       </form>
     </div>

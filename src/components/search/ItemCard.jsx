@@ -75,58 +75,70 @@ export default function ItemCard({ item, viewMode = "grid" }) {
   // Grid view
   return (
     <Link to={detailHref} className="block group">
-      <Card className="h-full overflow-hidden border-slate-200 shadow-none">
+      <Card className="h-full overflow-hidden border-slate-200 shadow-none transition-all duration-300 group-hover:shadow-[0_12px_24px_rgba(15,23,42,0.08)] group-hover:border-slate-300 bg-white">
         <div className="relative aspect-[4/3] overflow-hidden bg-slate-100">
           {imageUrl ? (
-            <img src={imageUrl} alt={item.title} className="h-full w-full object-cover" />
+            <img src={imageUrl} alt={item.title} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
           ) : (
-            <div className="w-full h-full flex items-center justify-center">
+            <div className="w-full h-full flex items-center justify-center transition-transform duration-500 group-hover:scale-105 bg-slate-50">
               <Package className="w-12 h-12 text-slate-200" />
             </div>
           )}
-          <div className="absolute left-3 top-3">
-            <StatusBadge status={item.status} />
+          
+          {/* Hover Overlay Button */}
+          <div className="absolute inset-0 bg-slate-950/15 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[1px]">
+            <span className="bg-white/95 text-slate-900 text-xs font-semibold px-4.5 py-2 rounded-xl shadow-md border border-slate-200/50 flex items-center gap-1.5 transform translate-y-2 group-hover:translate-y-0 transition-all duration-300">
+              <Eye className="w-4 h-4 text-primary" />
+              {detailLabel}
+            </span>
           </div>
-          <div className="absolute left-3 top-12">
-            <Badge variant="secondary" className={typeBadgeClasses}>
+
+          <div className="absolute left-3 top-3 flex flex-col gap-1.5">
+            <StatusBadge status={item.status} />
+            <Badge variant="secondary" className={`w-fit text-[10px] font-bold tracking-wider uppercase px-2 py-0.5 shadow-sm border ${typeBadgeClasses}`}>
               {isLostReport ? t("common.lost") : t("common.found")}
             </Badge>
           </div>
+
           {item.color && (
             <div className="absolute right-3 top-3">
-              <Badge variant="outline" className="bg-white text-slate-700">{translateColor(t, item.color)}</Badge>
+              <Badge variant="outline" className="bg-white/90 text-slate-700 text-[10px] font-semibold border-slate-200/60 shadow-sm">{translateColor(t, item.color)}</Badge>
             </div>
           )}
         </div>
 
-        <CardContent className="p-5">
-          <div className="mb-3 flex items-center justify-between gap-3 text-xs text-slate-500">
-            <span className="inline-flex items-center gap-1">
-              <MapPin className="w-3 h-3" /> {translateLocation(t, item.location_found) || t("common.unknown_location")}
-            </span>
-            <span>{item.date_found ? formatLocalizedDate(item.date_found, "MMM d") : ""}</span>
-          </div>
-          <h3 className="mb-2 line-clamp-2 text-lg font-semibold text-slate-900">
-            {item.title}
-          </h3>
-          <p className="mb-4 line-clamp-2 text-sm leading-7 text-slate-600">
-            {item.ai_description || item.description}
-          </p>
-          <div className="mb-4 flex items-center justify-between gap-3">
-            <Badge variant="outline" className="text-xs">{translateCategory(t, item.category)}</Badge>
-            <Button size="sm" variant="outline" className="gap-1">
-              <Eye className="w-3.5 h-3.5" />
-              {detailLabel}
-            </Button>
-          </div>
-          {/* Tags */}
-          {item.tags?.length > 0 && (
-            <div className="flex flex-wrap gap-1.5">
-              {item.tags.slice(0, 3).map((tag, i) => (
-                <Badge key={i} variant="outline" className="text-[10px]">{tag}</Badge>
-              ))}
+        <CardContent className="p-5 flex flex-col h-[calc(100%-75%)] justify-between">
+          <div>
+            <div className="mb-3 flex items-center justify-between gap-3 text-xs text-slate-400">
+              <span className="inline-flex items-center gap-1">
+                <MapPin className="w-3.5 h-3.5 text-slate-400" /> {translateLocation(t, item.location_found) || t("common.unknown_location")}
+              </span>
+              <span>{item.date_found ? formatLocalizedDate(item.date_found, "MMM d, yyyy") : ""}</span>
             </div>
-          )}
+            <h3 className="mb-2 line-clamp-1 text-lg font-bold text-slate-900 group-hover:text-primary transition-colors">
+              {item.title}
+            </h3>
+            <p className="mb-4 line-clamp-2 text-sm leading-6 text-slate-500">
+              {item.ai_description || item.description}
+            </p>
+          </div>
+
+          <div className="space-y-3">
+            <div className="flex items-center justify-between gap-3 border-t pt-3">
+              <Badge variant="outline" className="text-xs bg-slate-50 border-slate-200/80 text-slate-600 px-2.5 py-0.5">{translateCategory(t, item.category)}</Badge>
+              <span className="text-xs font-semibold text-primary inline-flex items-center gap-1 group-hover:underline">
+                {detailLabel} →
+              </span>
+            </div>
+            {/* Tags */}
+            {item.tags?.length > 0 && (
+              <div className="flex flex-wrap gap-1">
+                {item.tags.slice(0, 3).map((tag, i) => (
+                  <Badge key={i} variant="outline" className="text-[9px] text-slate-400 border-slate-100 bg-slate-50/50 px-1.5 py-0">{tag}</Badge>
+                ))}
+              </div>
+            )}
+          </div>
         </CardContent>
       </Card>
     </Link>

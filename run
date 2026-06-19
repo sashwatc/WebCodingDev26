@@ -1,0 +1,25 @@
+#!/bin/zsh
+# FindBack AI - Dev Server Launcher Script
+
+if [ "$1" = "ts" ]; then
+  echo "🚀 Starting the Lost Then Found website dev server..."
+  
+  # Start the dev server in the background
+  npm run dev &
+  DEV_PID=$!
+  
+  # Wait a few seconds for the dev server to build and bind to port 4173
+  echo "⏳ Waiting for port 4173 to bind..."
+  sleep 3
+  
+  # Open in the default browser
+  echo "🌐 Opening http://localhost:4173/ in browser..."
+  open "http://localhost:4173/"
+  
+  # Keep running to stream logs and hold the process
+  wait $DEV_PID
+else
+  echo "❌ Unknown command argument: $1"
+  echo "Usage: ./run ts"
+  exit 1
+fi

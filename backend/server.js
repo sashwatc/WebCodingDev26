@@ -1,4 +1,5 @@
 const fs = require("fs");
+const os = require("os");
 const path = require("path");
 
 require("dotenv").config({ path: path.resolve(__dirname, "../.env") });
@@ -19,12 +20,46 @@ const ROOT_DIR = path.resolve(__dirname, "..");
 const DIST_DIR = path.join(ROOT_DIR, "dist");
 const INDEX_FILE = path.join(DIST_DIR, "index.html");
 const hasBuiltClient = fs.existsSync(INDEX_FILE);
-const LOCAL_DEV_ORIGINS = new Set([
-  "http://localhost:5173",
-  "http://127.0.0.1:5173",
-  "http://localhost:4173",
-  "http://127.0.0.1:4173",
-]);
+
+function getLocalDevHostnames() {
+  const hostnames = new Set(["localhost", "127.0.0.1", "::1"]);
+
+  for (const entries of Object.values(os.networkInterfaces())) {
+    for (const entry of entries || []) {
+      if (entry.internal || entry.family !== "IPv4" || !entry.address) {
+        continue;
+      }
+
+      hostnames.add(entry.address);
+    }
+  }
+
+  return hostnames;
+}
+
+const LOCAL_DEV_HOSTNAMES = getLocalDevHostnames();
+
+function isPrivateNetworkHostname(hostname = "") {
+  if (LOCAL_DEV_HOSTNAMES.has(hostname)) {
+    return true;
+  }
+
+  if (/^10\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(hostname)) {
+    return true;
+  }
+
+  if (/^192\.168\.\d{1,3}\.\d{1,3}$/.test(hostname)) {
+    return true;
+  }
+
+  const match = hostname.match(/^172\.(\d{1,3})\.\d{1,3}\.\d{1,3}$/);
+  if (match) {
+    const secondOctet = Number(match[1]);
+    return secondOctet >= 16 && secondOctet <= 31;
+  }
+
+  return false;
+}
 
 const itemRoutes = require("./routes/items");
 const entityRoutes = require("./routes/entities");
@@ -40,9 +75,15 @@ app.use(
       }
 
       const normalizedOrigin = origin.replace(/\/$/, "");
-      if (LOCAL_DEV_ORIGINS.has(normalizedOrigin)) {
-        callback(null, true);
-        return;
+
+      try {
+        const parsedOrigin = new URL(normalizedOrigin);
+        if (isPrivateNetworkHostname(parsedOrigin.hostname)) {
+          callback(null, true);
+          return;
+        }
+      } catch {
+        // Fall through to the explicit allowlist checks below.
       }
 
       if (frontendUrl && normalizedOrigin === frontendUrl) {

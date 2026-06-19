@@ -3,7 +3,7 @@
  * Leads with search, then surfaces the two main reporting actions.
  */
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
@@ -18,6 +18,7 @@ import { useMode } from "@/lib/ModeContext";
 import { formatLocalizedDate, translateCategory, translateLocation } from "@/lib/i18n-helpers";
 import {
   AlertTriangle,
+  ArrowLeft,
   CheckCircle2,
   ClipboardList,
   LayoutDashboard,
@@ -25,6 +26,7 @@ import {
   PlusCircle,
   Search,
   Shield,
+  Sparkles,
 } from "lucide-react";
 
 export default function Home() {
@@ -33,6 +35,8 @@ export default function Home() {
   const { user, hasAdminAccess } = useAuth();
   const { isAdminMode, theme } = useMode();
   const [homeSearchQuery, setHomeSearchQuery] = useState("");
+  const [activeMode, setActiveMode] = useState("none"); // "none" | "lost" | "found"
+  const [assistantSearchQuery, setAssistantSearchQuery] = useState("");
 
   const { data: foundItems = [] } = useQuery({
     queryKey: ["homeFoundItems"],
@@ -63,6 +67,24 @@ export default function Home() {
   const recentApprovedItems = approvedItems.slice(0, 5);
   const recentActivity = auditLogs.slice(0, 4);
   const isAdminWorkspace = hasAdminAccess && isAdminMode;
+
+  const assistantLostMatches = useMemo(() => {
+    if (!assistantSearchQuery.trim() || activeMode !== "lost") return [];
+    const query = assistantSearchQuery.toLowerCase();
+    return approvedItems.filter(item => {
+      const text = [item.title, item.description, item.ai_description, item.color, item.category].filter(Boolean).join(" ").toLowerCase();
+      return text.includes(query);
+    }).slice(0, 3);
+  }, [assistantSearchQuery, approvedItems, activeMode]);
+
+  const assistantFoundMatches = useMemo(() => {
+    if (!assistantSearchQuery.trim() || activeMode !== "found") return [];
+    const query = assistantSearchQuery.toLowerCase();
+    return openReports.filter(report => {
+      const text = [report.item_type, report.description, report.color, report.category, report.brand].filter(Boolean).join(" ").toLowerCase();
+      return text.includes(query);
+    }).slice(0, 3);
+  }, [assistantSearchQuery, openReports, activeMode]);
 
   const publicStats = [
     {
@@ -131,92 +153,244 @@ export default function Home() {
         </section>
 
         <section className="mb-8 space-y-4">
-          <div className="hero-panel bg-white p-5 sm:p-6">
-            <form onSubmit={handleHomeSearch} className="space-y-3">
-              <label className="block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
-                {t("home.search_inventory")}
-              </label>
+          <div className="hero-panel bg-white p-6 sm:p-8">
+            {activeMode === "none" && (
+              <div className="space-y-6">
+                <div className="text-center max-w-2xl mx-auto space-y-2">
+                  <h2 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
+                    {t("home.how_can_we_help", "How can we help you today?")}
+                  </h2>
+                  <p className="text-slate-500">
+                    {t("home.choose_option_to_start", "Choose an option below to guide you through the process.")}
+                  </p>
+                </div>
 
-              <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+                <div className="grid gap-6 md:grid-cols-2">
+                  <button
+                    onClick={() => {
+                      setActiveMode("lost");
+                      setAssistantSearchQuery("");
+                    }}
+                    className="flex flex-col text-left p-6 rounded-2xl border border-slate-200 bg-slate-50 hover:bg-slate-100/85 transition-all duration-300 hover:scale-[1.01] hover:shadow-[0_12px_24px_rgba(15,23,42,0.06)] group"
+                  >
+                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-100 text-amber-700 mb-4 transition-transform group-hover:scale-110">
+                      <AlertTriangle className="h-6 w-6" />
+                    </div>
+                    <h3 className="text-xl font-semibold text-slate-900 mb-2">
+                      {t("home.i_lost_something_title", "I Lost Something")}
+                    </h3>
+                    <p className="text-sm text-slate-600 leading-relaxed mb-4">
+                      {t("home.i_lost_something_desc", "Tell us what went missing to find it in our current inventory or file a report.")}
+                    </p>
+                    <span className="mt-auto text-xs font-semibold uppercase tracking-[0.14em] text-amber-700 flex items-center gap-1">
+                      {t("home.find_or_report", "Find or Report")} →
+                    </span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setActiveMode("found");
+                      setAssistantSearchQuery("");
+                    }}
+                    className="flex flex-col text-left p-6 rounded-2xl border border-slate-200 bg-slate-50 hover:bg-slate-100/85 transition-all duration-300 hover:scale-[1.01] hover:shadow-[0_12px_24px_rgba(15,23,42,0.06)] group"
+                  >
+                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-sky-100 text-sky-700 mb-4 transition-transform group-hover:scale-110">
+                      <PlusCircle className="h-6 w-6" />
+                    </div>
+                    <h3 className="text-xl font-semibold text-slate-900 mb-2">
+                      {t("home.i_found_something_title", "I Found Something")}
+                    </h3>
+                    <p className="text-sm text-slate-600 leading-relaxed mb-4">
+                      {t("home.i_found_something_desc", "Check if someone reported this item lost, or register it as found.")}
+                    </p>
+                    <span className="mt-auto text-xs font-semibold uppercase tracking-[0.14em] text-sky-700 flex items-center gap-1">
+                      {t("home.check_and_register", "Check & Register")} →
+                    </span>
+                  </button>
+                </div>
+
+                <div className="border-t pt-6">
+                  <form onSubmit={handleHomeSearch} className="flex flex-col sm:flex-row gap-3">
+                    <div className="relative flex-1">
+                      <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
+                      <Input
+                        value={homeSearchQuery}
+                        onChange={(event) => setHomeSearchQuery(event.target.value)}
+                        className="h-12 rounded-xl border-slate-300 bg-white pl-12 text-sm"
+                        placeholder={t("home.quick_search_placeholder", "Or, search the found items inventory directly...")}
+                      />
+                    </div>
+                    <Button type="submit" size="lg" className="h-12 bg-primary px-6 text-white hover:bg-primary/90">
+                      {t("common.search_found_items")}
+                    </Button>
+                  </form>
+                </div>
+              </div>
+            )}
+
+            {activeMode === "lost" && (
+              <div className="space-y-6">
+                <div className="flex items-center justify-between border-b pb-4">
+                  <button
+                    onClick={() => setActiveMode("none")}
+                    className="flex items-center gap-2 text-sm text-slate-500 hover:text-slate-950 font-medium"
+                  >
+                    <ArrowLeft className="w-4 h-4" />
+                    {t("common.back")}
+                  </button>
+                  <Badge variant="outline" className="bg-amber-50 text-amber-800 border-amber-200">
+                    {t("home.mode_lost_item", "Lost Item Mode")}
+                  </Badge>
+                </div>
+
+                <div className="space-y-3">
+                  <h3 className="text-xl font-bold text-slate-950 flex items-center gap-2">
+                    <Search className="w-5 h-5 text-amber-600" />
+                    {t("home.lost_assistant_title", "Let's find your lost item")}
+                  </h3>
+                  <p className="text-sm text-slate-600">
+                    {t("home.lost_assistant_subtitle", "Type a description of your item (e.g. \"black water bottle\", \"red jacket\") to search instantly.")}
+                  </p>
+                </div>
+
                 <div className="relative">
                   <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
                   <Input
-                    value={homeSearchQuery}
-                    onChange={(event) => setHomeSearchQuery(event.target.value)}
-                    className="h-14 rounded-xl border-slate-300 bg-white pl-12 text-base"
-                    placeholder={t("home.search_placeholder")}
-                    aria-label={t("home.search_aria")}
+                    value={assistantSearchQuery}
+                    onChange={(event) => setAssistantSearchQuery(event.target.value)}
+                    className="h-14 rounded-xl border-slate-300 bg-white pl-12 text-base shadow-sm focus-visible:ring-amber-500"
+                    placeholder={t("home.lost_assistant_placeholder", "Start typing your item description...")}
+                    autoFocus
                   />
                 </div>
 
-                <Button
-                  type="submit"
-                  size="lg"
-                  className="h-14 gap-2 bg-[hsl(222,65%,18%)] px-6 text-white hover:bg-[hsl(222,65%,15%)]"
-                >
-                  <Search className="h-4 w-4" />
-                  {t("common.search_found_items")}
-                </Button>
+                {assistantSearchQuery.trim() && (
+                  <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                    {assistantLostMatches.length > 0 ? (
+                      <div className="space-y-3">
+                        <p className="text-sm font-semibold text-slate-800 flex items-center gap-2">
+                          <Sparkles className="w-4 h-4 text-purple-600 animate-pulse" />
+                          {t("home.we_found_matches", "We found matching items in our inventory! Do any of these look like yours?")}
+                        </p>
+                        <div className="grid gap-3 sm:grid-cols-3">
+                          {assistantLostMatches.map(item => (
+                            <Link
+                              key={item.id}
+                              to={`/ItemDetails?id=${item.id}`}
+                              className="block p-4 rounded-xl border border-slate-200 bg-slate-50 hover:bg-white hover:border-amber-400 transition-all hover:shadow-md"
+                            >
+                              <p className="font-semibold text-sm text-slate-900 truncate">{item.title}</p>
+                              <p className="text-xs text-slate-500 mt-1 truncate">{translateLocation(t, item.location_found)}</p>
+                              <p className="text-[10px] text-slate-400 mt-2">
+                                {item.date_found ? formatLocalizedDate(item.date_found, "MMM d") : ""}
+                              </p>
+                            </Link>
+                          ))}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="p-4 rounded-xl border border-slate-100 bg-slate-50 text-sm text-slate-600">
+                        {t("home.no_matches_found_yet", "No exact matches in the found inventory yet. Type more to search.")}
+                      </div>
+                    )}
+
+                    <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 rounded-xl bg-amber-50/50 border border-amber-100">
+                      <div className="text-left">
+                        <p className="text-sm font-medium text-slate-900">{t("home.still_cant_find", "Still can't find it?")}</p>
+                        <p className="text-xs text-slate-500">{t("home.still_cant_find_helper", "File a lost item report and we will notify you when a match is found.")}</p>
+                      </div>
+                      <Link to={`/ReportLost?description=${encodeURIComponent(assistantSearchQuery)}`} className="w-full sm:w-auto">
+                        <Button className="w-full bg-amber-600 text-white hover:bg-amber-700">
+                          {t("common.report_lost_item")}
+                        </Button>
+                      </Link>
+                    </div>
+                  </div>
+                )}
               </div>
+            )}
 
-              <p className="text-sm text-slate-600">
-                {t("home.search_help")}
-              </p>
-            </form>
-          </div>
-
-          <div className="grid gap-4 lg:grid-cols-2">
-            <Link to="/ReportLost" className="block">
-              <div className="surface-card bg-white p-6 sm:p-7 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_24px_44px_rgba(15,23,42,0.08)] min-h-[220px]">
-                <div className="flex h-full flex-col justify-between gap-6">
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">{t("home.lost_item")}</p>
-                      <h2 className="mt-3 text-2xl font-semibold tracking-tight text-slate-950">{t("home.cant_find_it")}</h2>
-                      <p className="mt-3 max-w-xl text-base leading-7 text-slate-600">
-                        {t("home.lost_description")}
-                      </p>
-                    </div>
-                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-50 text-amber-700">
-                      <AlertTriangle className="h-6 w-6" />
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between gap-4">
-                    <span className="text-sm font-medium text-slate-500">{t("home.lost_helper")}</span>
-                    <Button variant="outline" size="lg" className="shrink-0">
-                      {t("common.report_lost_item")}
-                    </Button>
-                  </div>
+            {activeMode === "found" && (
+              <div className="space-y-6">
+                <div className="flex items-center justify-between border-b pb-4">
+                  <button
+                    onClick={() => setActiveMode("none")}
+                    className="flex items-center gap-2 text-sm text-slate-500 hover:text-slate-950 font-medium"
+                  >
+                    <ArrowLeft className="w-4 h-4" />
+                    {t("common.back")}
+                  </button>
+                  <Badge variant="outline" className="bg-sky-50 text-sky-800 border-sky-200">
+                    {t("home.mode_found_item", "Found Item Mode")}
+                  </Badge>
                 </div>
-              </div>
-            </Link>
 
-            <Link to="/ReportFound" className="block">
-              <div className="surface-card bg-white p-6 sm:p-7 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_24px_44px_rgba(15,23,42,0.08)] min-h-[220px]">
-                <div className="flex h-full flex-col justify-between gap-6">
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">{t("home.found_item")}</p>
-                      <h2 className="mt-3 text-2xl font-semibold tracking-tight text-slate-950">{t("home.found_something")}</h2>
-                      <p className="mt-3 max-w-xl text-base leading-7 text-slate-600">
-                        {t("home.found_description")}
-                      </p>
-                    </div>
-                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-sky-50 text-sky-700">
-                      <PlusCircle className="h-6 w-6" />
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between gap-4">
-                    <span className="text-sm font-medium text-slate-500">{t("home.found_helper")}</span>
-                    <Button variant="outline" size="lg" className="shrink-0">
-                      {t("common.report_found_item")}
-                    </Button>
-                  </div>
+                <div className="space-y-3">
+                  <h3 className="text-xl font-bold text-slate-950 flex items-center gap-2">
+                    <Search className="w-5 h-5 text-sky-600" />
+                    {t("home.found_assistant_title", "Report a found item")}
+                  </h3>
+                  <p className="text-sm text-slate-600">
+                    {t("home.found_assistant_subtitle", "Search active lost reports first to see if a student is already looking for this item.")}
+                  </p>
                 </div>
+
+                <div className="relative">
+                  <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
+                  <Input
+                    value={assistantSearchQuery}
+                    onChange={(event) => setAssistantSearchQuery(event.target.value)}
+                    className="h-14 rounded-xl border-slate-300 bg-white pl-12 text-base shadow-sm focus-visible:ring-sky-500"
+                    placeholder={t("home.found_assistant_placeholder", "Type item description to check lost reports...")}
+                    autoFocus
+                  />
+                </div>
+
+                {assistantSearchQuery.trim() && (
+                  <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                    {assistantFoundMatches.length > 0 ? (
+                      <div className="space-y-3">
+                        <p className="text-sm font-semibold text-slate-800 flex items-center gap-2">
+                          <Sparkles className="w-4 h-4 text-purple-600 animate-pulse" />
+                          {t("home.reported_lost_matches", "We found matching active lost reports! Does it match any of these?")}
+                        </p>
+                        <div className="grid gap-3 sm:grid-cols-3">
+                          {assistantFoundMatches.map(report => (
+                            <Link
+                              key={report.id}
+                              to={`/ItemDetails?type=lost&id=${report.id}`}
+                              className="block p-4 rounded-xl border border-slate-200 bg-slate-50 hover:bg-white hover:border-sky-400 transition-all hover:shadow-md"
+                            >
+                              <p className="font-semibold text-sm text-slate-900 truncate">{report.title}</p>
+                              <p className="text-xs text-slate-500 mt-1 truncate">{translateLocation(t, report.location_found)}</p>
+                              <p className="text-[10px] text-slate-400 mt-2">
+                                {report.date_found ? formatLocalizedDate(report.date_found, "MMM d") : ""}
+                              </p>
+                            </Link>
+                          ))}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="p-4 rounded-xl border border-slate-100 bg-slate-50 text-sm text-slate-600">
+                        {t("home.no_matching_lost_reports", "No active lost reports match your description yet.")}
+                      </div>
+                    )}
+
+                    <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 rounded-xl bg-sky-50/50 border border-sky-100">
+                      <div className="text-left">
+                        <p className="text-sm font-medium text-slate-900">{t("home.ready_to_register", "Ready to submit the found item?")}</p>
+                        <p className="text-xs text-slate-500">{t("home.ready_to_register_helper", "Register the item so the owner can search for it in the system.")}</p>
+                      </div>
+                      <Link to={`/ReportFound?title=${encodeURIComponent(assistantSearchQuery)}`} className="w-full sm:w-auto">
+                        <Button className="w-full bg-sky-600 text-white hover:bg-sky-700">
+                          {t("common.report_found_item")}
+                        </Button>
+                      </Link>
+                    </div>
+                  </div>
+                )}
               </div>
-            </Link>
+            )}
           </div>
         </section>
 

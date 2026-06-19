@@ -23,7 +23,8 @@ import { getPrimaryRecordPhoto } from "@/lib/media";
 import { formatLocalizedDate, translateStatus } from "@/lib/i18n-helpers";
 import {
   AlertTriangle, FileCheck, Bell, Eye,
-  Brain, CheckCircle2, Loader2, Star
+  Brain, CheckCircle2, Loader2, Star,
+  ShieldAlert, Clock, Sparkles, ArrowRight
 } from "lucide-react";
 
 export default function UserDashboard() {
@@ -184,79 +185,192 @@ export default function UserDashboard() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-10">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-slate-900">{t("user_dashboard.title")}</h1>
-        <p className="text-slate-500 mt-1">
-          {t("user_dashboard.welcome", {
-            suffix: user?.full_name ? `, ${user.full_name.split(" ")[0]}` : "",
-          })}
-        </p>
+    <div className="page-shell max-w-6xl py-10 space-y-8">
+      {/* Page Header */}
+      <div className="page-header flex flex-col md:flex-row md:items-center md:justify-between gap-4 pb-4 border-b border-slate-100">
+        <div>
+          <span className="page-kicker">{t("user_dashboard.kicker", "Personal Command Center")}</span>
+          <h1 className="page-title text-4xl font-extrabold tracking-tight text-slate-900 mt-1">
+            {t("user_dashboard.title", "My Account Dashboard")}
+          </h1>
+          <p className="page-subtitle mt-2 max-w-2xl text-slate-500">
+            {t("user_dashboard.welcome", {
+              suffix: user?.full_name ? `, ${user.full_name.split(" ")[0]}` : "",
+            })}
+          </p>
+        </div>
+        <div className="flex gap-3">
+          <Link to="/Search">
+            <Button className="bg-primary hover:bg-primary/95 text-white gap-2 font-medium px-5 py-2.5 rounded-lg shadow-sm transition-all hover:scale-[1.02]">
+              <Eye className="w-4 h-4" />
+              {t("user_dashboard.browse_items", "Browse Lost & Found")}
+            </Button>
+          </Link>
+        </div>
       </div>
 
-      {/* Quick Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-        {[
-          { label: t("user_dashboard.lost_reports"), value: lostReports.length, icon: AlertTriangle, color: "text-amber-600 bg-amber-50" },
-          { label: t("user_dashboard.active_claims"), value: claims.filter(c => !["completed", "rejected"].includes(c.status)).length, icon: FileCheck, color: "text-blue-600 bg-blue-50" },
-          { label: t("user_dashboard.unread_alerts"), value: notifications.filter(n => !n.is_read).length, icon: Bell, color: "text-red-600 bg-red-50" },
-        ].map(stat => (
-          <Card key={stat.label}>
-            <CardContent className="p-4 flex items-center gap-3">
-              <div className={`w-10 h-10 rounded-lg ${stat.color} flex items-center justify-center flex-shrink-0`}>
-                <stat.icon className="w-5 h-5" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-slate-900">{stat.value}</p>
-                <p className="text-xs text-slate-500">{stat.label}</p>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+      {/* Quick Stats Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {/* Stat 1: Reports */}
+        <div className="stat-panel relative overflow-hidden group hover:scale-[1.02] hover:shadow-md transition-all duration-300">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-amber-500/10 rounded-bl-full translate-x-4 -translate-y-4 group-hover:scale-110 transition-transform duration-300" />
+          <div className="flex items-center gap-4 relative z-10">
+            <div className="w-12 h-12 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center border border-amber-100/80 shadow-sm">
+              <AlertTriangle className="w-6 h-6" />
+            </div>
+            <div>
+              <p className="text-3xl font-extrabold text-slate-900">{lostReports.length}</p>
+              <p className="text-sm font-semibold text-slate-500 mt-0.5">{t("user_dashboard.lost_reports")}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Stat 2: Claims */}
+        <div className="stat-panel relative overflow-hidden group hover:scale-[1.02] hover:shadow-md transition-all duration-300">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-blue-500/10 rounded-bl-full translate-x-4 -translate-y-4 group-hover:scale-110 transition-transform duration-300" />
+          <div className="flex items-center gap-4 relative z-10">
+            <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center border border-blue-100/80 shadow-sm">
+              <FileCheck className="w-6 h-6" />
+            </div>
+            <div>
+              <p className="text-3xl font-extrabold text-slate-900">
+                {claims.filter(c => !["completed", "rejected"].includes(c.status)).length}
+              </p>
+              <p className="text-sm font-semibold text-slate-500 mt-0.5">{t("user_dashboard.active_claims")}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Stat 3: Alerts */}
+        <div className="stat-panel relative overflow-hidden group hover:scale-[1.02] hover:shadow-md transition-all duration-300">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-rose-500/10 rounded-bl-full translate-x-4 -translate-y-4 group-hover:scale-110 transition-transform duration-300" />
+          <div className="flex items-center gap-4 relative z-10">
+            <div className="w-12 h-12 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center border border-rose-100/80 shadow-sm">
+              <Bell className="w-6 h-6 animate-pulse" />
+            </div>
+            <div>
+              <p className="text-3xl font-extrabold text-slate-900">
+                {notifications.filter(n => !n.is_read).length}
+              </p>
+              <p className="text-sm font-semibold text-slate-500 mt-0.5">{t("user_dashboard.unread_alerts")}</p>
+            </div>
+          </div>
+        </div>
       </div>
 
-      <Tabs defaultValue="reports">
-        <TabsList className="mb-4">
-          <TabsTrigger value="reports">{t("user_dashboard.tab_reports")}</TabsTrigger>
-          <TabsTrigger value="claims">{t("user_dashboard.tab_claims")}</TabsTrigger>
-          <TabsTrigger value="notifications">{t("user_dashboard.tab_notifications")}</TabsTrigger>
+      {/* Tabs */}
+      <Tabs defaultValue="reports" className="w-full">
+        <TabsList className="bg-slate-100/80 p-1 rounded-xl mb-6 flex w-fit border border-slate-200/50">
+          <TabsTrigger
+            value="reports"
+            className="px-5 py-2.5 rounded-lg text-sm font-semibold transition-all data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm"
+          >
+            {t("user_dashboard.tab_reports")}
+          </TabsTrigger>
+          <TabsTrigger
+            value="claims"
+            className="px-5 py-2.5 rounded-lg text-sm font-semibold transition-all data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm"
+          >
+            {t("user_dashboard.tab_claims")}
+          </TabsTrigger>
+          <TabsTrigger
+            value="notifications"
+            className="px-5 py-2.5 rounded-lg text-sm font-semibold transition-all data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm"
+          >
+            {t("user_dashboard.tab_notifications")}
+            {notifications.filter(n => !n.is_read).length > 0 && (
+              <span className="ml-2 w-2 h-2 rounded-full bg-rose-500 inline-block animate-ping" />
+            )}
+          </TabsTrigger>
         </TabsList>
 
         {/* Lost Reports Tab */}
-        <TabsContent value="reports">
+        <TabsContent value="reports" className="space-y-4">
           {lrLoading ? (
-            <div className="space-y-3">{Array(3).fill(0).map((_, i) => <Skeleton key={i} className="h-20 rounded-lg" />)}</div>
+            <div className="space-y-4">
+              {Array(3).fill(0).map((_, i) => (
+                <Skeleton key={i} className="h-24 w-full rounded-xl" />
+              ))}
+            </div>
           ) : lostReports.length === 0 ? (
             <EmptyState icon={AlertTriangle} message={t("user_dashboard.no_lost_reports")} />
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-4">
               {lostReports.map(report => (
-                <Card key={report.id} className="hover:shadow-sm transition-shadow">
-                  <CardContent className="p-4">
-                    <div className="flex items-start gap-4">
-                      <RecordThumbnail
-                        src={getPrimaryRecordPhoto(report)}
-                        alt={report.item_type || "Lost report"}
-                      />
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <h3 className="font-semibold text-slate-900">{report.item_type}</h3>
-                          <StatusBadge status={report.status} />
+                <Card key={report.id} className="hover:shadow-md transition-all duration-300 border-slate-200/90 overflow-hidden">
+                  <CardContent className="p-5">
+                    <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
+                      <div className="flex items-start gap-4">
+                        <div className="shrink-0 relative">
+                          <RecordThumbnail
+                            src={getPrimaryRecordPhoto(report)}
+                            alt={report.item_type || "Lost report"}
+                            className="w-16 h-16 rounded-lg object-cover border border-slate-100 shadow-sm"
+                          />
                         </div>
-                        <p className="text-sm text-slate-500 line-clamp-1 mb-2">{report.description}</p>
-                        <p className="text-xs text-slate-400">
-                          {t("user_dashboard.reported_on", {
-                            date: report.created_date ? formatLocalizedDate(report.created_date, "MMM d, yyyy") : t("home.no_date"),
-                          })}
-                        </p>
+                        <div>
+                          <div className="flex flex-wrap items-center gap-2 mb-1.5">
+                            <h3 className="font-bold text-slate-900 text-lg leading-tight">{report.item_type}</h3>
+                            <StatusBadge status={report.status} />
+                          </div>
+                          <p className="text-sm text-slate-600 leading-relaxed max-w-xl">{report.description}</p>
+                          <div className="flex flex-wrap items-center gap-3 mt-3 text-xs text-slate-400 font-medium">
+                            <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded">
+                              {t("user_dashboard.reported_on_label", "Reported")}:{" "}
+                              {report.created_date ? formatLocalizedDate(report.created_date, "MMM d, yyyy") : t("home.no_date")}
+                            </span>
+                            {report.location_lost && (
+                              <span>• {report.location_lost}</span>
+                            )}
+                          </div>
+                        </div>
                       </div>
+
                       {report.matched_items?.length > 0 && (
-                        <Badge className="bg-purple-100 text-purple-800 flex-shrink-0 gap-1">
-                          <Brain className="w-3 h-3" />
-                          {t("user_dashboard.matches", { count: report.matched_items.length })}
-                        </Badge>
+                        <div className="shrink-0 flex items-center md:self-center">
+                          <Badge className="bg-purple-100 hover:bg-purple-200 text-purple-800 font-bold border border-purple-200/50 flex items-center gap-1.5 py-1 px-3 rounded-full text-xs shadow-sm transition-all duration-300">
+                            <Brain className="w-3.5 h-3.5 animate-pulse text-purple-700" />
+                            {t("user_dashboard.matches", { count: report.matched_items.length })}
+                          </Badge>
+                        </div>
                       )}
                     </div>
+
+                    {/* AI Suggestions Accordion-style layout */}
+                    {report.matched_items?.length > 0 && (
+                      <div className="mt-4 pt-4 border-t border-slate-100 bg-purple-50/20 -mx-5 -mb-5 px-5 py-4">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Sparkles className="w-4 h-4 text-purple-600 shrink-0" />
+                          <h4 className="text-xs font-bold text-purple-950 uppercase tracking-wider">
+                            {t("user_dashboard.ai_suggested_matches", "AI-Suggested Found Matches")}
+                          </h4>
+                        </div>
+                        <p className="text-xs text-purple-800 mb-3">
+                          {t("user_dashboard.ai_suggested_matches_desc", "We found matching items reported around the same time or location. Select one to view or claim:")}
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          {report.matched_items.map(matchId => {
+                            const matchedItem = foundItemsById[matchId];
+                            if (!matchedItem) return null;
+                            return (
+                              <Link
+                                key={matchId}
+                                to={`/ItemDetails?id=${matchId}`}
+                                className="flex items-center gap-2.5 bg-white hover:bg-purple-50 border border-purple-200/80 px-3 py-2 rounded-lg transition-all text-xs font-semibold text-purple-950 hover:border-purple-300 shadow-sm"
+                              >
+                                <RecordThumbnail
+                                  src={matchedItem.photo_urls?.[0]}
+                                  alt={matchedItem.title}
+                                  className="w-6 h-6 rounded-md object-cover shrink-0 border border-slate-100"
+                                />
+                                <span>{matchedItem.title}</span>
+                                <ArrowRight className="w-3.5 h-3.5 text-purple-600 transition-transform group-hover:translate-x-0.5" />
+                              </Link>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               ))}
@@ -265,47 +379,71 @@ export default function UserDashboard() {
         </TabsContent>
 
         {/* Claims Tab */}
-        <TabsContent value="claims">
+        <TabsContent value="claims" className="space-y-4">
           {clLoading ? (
-            <div className="space-y-3">{Array(3).fill(0).map((_, i) => <Skeleton key={i} className="h-20 rounded-lg" />)}</div>
+            <div className="space-y-4">
+              {Array(3).fill(0).map((_, i) => (
+                <Skeleton key={i} className="h-24 w-full rounded-xl" />
+              ))}
+            </div>
           ) : claims.length === 0 ? (
             <EmptyState icon={FileCheck} message={t("user_dashboard.no_claims")} />
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-4">
               {claims.map(claim => (
-                <Card key={claim.id} className="hover:shadow-sm transition-shadow">
-                  <CardContent className="p-4">
-                    <div className="flex items-start gap-4">
-                      <RecordThumbnail
-                        src={getPrimaryRecordPhoto(claim, foundItemsById[claim.found_item_id])}
-                        alt={claim.found_item_title || "Claim"}
-                      />
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <h3 className="font-semibold text-slate-900">{claim.found_item_title || t("common.claim")}</h3>
+                <Card key={claim.id} className="hover:shadow-md transition-all duration-300 border-slate-200/90 overflow-hidden">
+                  <CardContent className="p-5">
+                    <div className="flex flex-col sm:flex-row gap-5 items-start">
+                      <div className="relative shrink-0 w-24 h-24 sm:w-28 sm:h-28 rounded-xl overflow-hidden border border-slate-100 bg-slate-50 flex items-center justify-center shadow-inner">
+                        <img
+                          src={getPrimaryRecordPhoto(claim, foundItemsById[claim.found_item_id])}
+                          alt={claim.found_item_title || "Claim"}
+                          className="w-full h-full object-cover"
+                        />
+                        <div className="absolute top-2 left-2">
                           <StatusBadge status={claim.status} />
                         </div>
-                        <p className="text-sm text-slate-500 line-clamp-1 mb-2">{claim.reason}</p>
-                        <p className="text-xs text-slate-400">
-                          {t("user_dashboard.submitted_on", {
-                            date: claim.created_date ? formatLocalizedDate(claim.created_date, "MMM d, yyyy") : t("home.no_date"),
-                          })}
-                        </p>
+                      </div>
+
+                      <div className="flex-1 space-y-2">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <h3 className="font-bold text-lg text-slate-900 leading-tight">
+                            {claim.found_item_title || t("common.claim")}
+                          </h3>
+                          <span className="text-xs text-slate-400 font-semibold">
+                            {t("user_dashboard.submitted_on", {
+                              date: claim.created_date ? formatLocalizedDate(claim.created_date, "MMM d, yyyy") : t("home.no_date"),
+                            })}
+                          </span>
+                        </div>
+
+                        <p className="text-sm text-slate-600 leading-relaxed">{claim.reason}</p>
+
                         {claim.admin_notes && (
-                          <div className="mt-2 text-xs bg-blue-50 text-blue-700 p-2 rounded">
-                            {t("user_dashboard.admin_note", { note: claim.admin_notes })}
+                          <div className="mt-2.5 text-xs bg-blue-50/50 border border-blue-100/50 text-blue-800 p-3 rounded-lg flex items-start gap-2.5">
+                            <ShieldAlert className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+                            <div>
+                              <span className="font-bold text-blue-900">{t("user_dashboard.admin_note_label", "Admin Update:")}</span>{" "}
+                              {claim.admin_notes}
+                            </div>
                           </div>
                         )}
 
+                        {/* Approved claims requiring pickup confirmation */}
                         {claim.status === "approved" && !claim.received_confirmed_at && (
-                          <div className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 p-3">
-                            <p className="text-sm font-medium text-emerald-900">{t("user_dashboard.received_question")}</p>
-                            <p className="mt-1 text-xs text-emerald-700">
-                              {t("user_dashboard.received_description")}
-                            </p>
+                          <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50/30 p-4 space-y-3">
+                            <div>
+                              <p className="text-sm font-bold text-emerald-950 flex items-center gap-1.5">
+                                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                                {t("user_dashboard.received_question")}
+                              </p>
+                              <p className="mt-1 text-xs text-emerald-800 leading-relaxed">
+                                {t("user_dashboard.received_description")}
+                              </p>
+                            </div>
                             <Button
                               size="sm"
-                              className="mt-3 bg-emerald-600 text-white hover:bg-emerald-700"
+                              className="bg-emerald-600 hover:bg-emerald-700 text-white font-medium gap-1.5 px-4 rounded-lg shadow-sm"
                               disabled={confirmReceivedMutation.isPending}
                               onClick={() => confirmReceivedMutation.mutate(claim)}
                             >
@@ -320,31 +458,39 @@ export default function UserDashboard() {
                         )}
 
                         {claim.received_confirmed_at && (
-                          <p className="mt-3 text-xs text-emerald-700">
-                            {t("user_dashboard.confirmed_received", {
-                              date: formatLocalizedDate(claim.received_confirmed_at, "MMM d, yyyy"),
-                            })}
-                          </p>
+                          <div className="mt-3 bg-emerald-50/30 border border-emerald-100 text-emerald-800 px-3 py-2 rounded-lg text-xs font-semibold flex items-center gap-2">
+                            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                            <span>
+                              {t("user_dashboard.confirmed_received", {
+                                date: formatLocalizedDate(claim.received_confirmed_at, "MMM d, yyyy"),
+                              })}
+                            </span>
+                          </div>
                         )}
 
+                        {/* Interactive Feedback / Star rating section */}
                         {(claim.status === "completed" || claim.received_confirmed_at) && (
-                          <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3">
-                            <div className="flex items-center justify-between gap-3">
+                          <div className="mt-4 rounded-xl border border-amber-100 bg-amber-50/30 p-4 space-y-3">
+                            <div className="flex flex-wrap items-center justify-between gap-3">
                               <div>
-                                <p className="text-sm font-semibold text-slate-900">{t("user_dashboard.leave_rating")}</p>
-                                <p className="text-xs text-slate-500">
+                                <h4 className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
+                                  <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
+                                  {t("user_dashboard.leave_rating")}
+                                </h4>
+                                <p className="text-xs text-slate-500 mt-0.5">
                                   {t("user_dashboard.rating_reviewed")}
                                 </p>
                               </div>
                               {claim.review_status && (
                                 <Badge
-                                  className={
+                                  className={`text-xs px-2 py-0.5 ${
                                     claim.review_status === "approved"
-                                      ? "bg-emerald-100 text-emerald-700"
+                                      ? "bg-emerald-100 text-emerald-800 border-emerald-200"
                                       : claim.review_status === "rejected"
-                                        ? "bg-red-100 text-red-700"
-                                        : "bg-amber-100 text-amber-700"
-                                  }
+                                        ? "bg-red-100 text-red-800 border-red-200"
+                                        : "bg-amber-100 text-amber-800 border-amber-200"
+                                  }`}
+                                  variant="outline"
                                 >
                                   {t("user_dashboard.review_status", {
                                     status: translateStatus(t, claim.review_status),
@@ -353,7 +499,7 @@ export default function UserDashboard() {
                               )}
                             </div>
 
-                            <div className="mt-3 flex gap-1">
+                            <div className="flex gap-1">
                               {Array.from({ length: 5 }).map((_, index) => {
                                 const draft = reviewDrafts[claim.id] || {
                                   rating: claim.claimant_rating || 0,
@@ -364,7 +510,7 @@ export default function UserDashboard() {
                                   <button
                                     key={index}
                                     type="button"
-                                    className="rounded-md p-1 transition hover:bg-amber-100"
+                                    className="rounded-md p-1 transition hover:bg-amber-100 hover:scale-110 active:scale-95 duration-150"
                                     aria-label={t("user_dashboard.rate_stars", { count: index + 1 })}
                                     disabled={claim.review_status === "pending" || claim.review_status === "approved"}
                                     onClick={() =>
@@ -377,7 +523,11 @@ export default function UserDashboard() {
                                       }))
                                     }
                                   >
-                                    <Star className={`w-5 h-5 ${filled ? "fill-amber-400 text-amber-400" : "text-slate-300"}`} />
+                                    <Star
+                                      className={`w-6 h-6 transition-all duration-200 ${
+                                        filled ? "fill-amber-400 text-amber-400 drop-shadow-[0_0_4px_rgba(251,191,36,0.35)]" : "text-slate-300 hover:text-amber-300"
+                                      }`}
+                                    />
                                   </button>
                                 );
                               })}
@@ -385,10 +535,10 @@ export default function UserDashboard() {
 
                             <Textarea
                               rows={3}
-                              className="mt-3 bg-white"
+                              className="bg-white border-slate-200 focus-visible:ring-amber-400 placeholder:text-slate-400 text-sm leading-relaxed rounded-lg"
                               placeholder={t("user_dashboard.rating_placeholder")}
                               disabled={claim.review_status === "pending" || claim.review_status === "approved"}
-                              value={(reviewDrafts[claim.id]?.review ?? claim.claimant_review ?? "")}
+                              value={reviewDrafts[claim.id]?.review ?? claim.claimant_review ?? ""}
                               onChange={(event) =>
                                 setReviewDrafts((prev) => ({
                                   ...prev,
@@ -401,17 +551,20 @@ export default function UserDashboard() {
                             />
 
                             {claim.review_status === "approved" && claim.claimant_review && (
-                              <p className="mt-2 text-xs text-emerald-700">
+                              <p className="text-xs font-semibold text-emerald-800 flex items-center gap-1.5">
+                                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                                 {t("user_dashboard.review_visible")}
                               </p>
                             )}
                             {claim.review_status === "pending" && (
-                              <p className="mt-2 text-xs text-amber-700">
+                              <p className="text-xs font-semibold text-amber-800 flex items-center gap-1.5 animate-pulse">
+                                <Clock className="w-4 h-4 text-amber-600" />
                                 {t("user_dashboard.review_pending")}
                               </p>
                             )}
                             {claim.review_status === "rejected" && (
-                              <p className="mt-2 text-xs text-red-700">
+                              <p className="text-xs font-semibold text-red-800 flex items-center gap-1.5">
+                                <AlertTriangle className="w-4 h-4 text-red-600" />
                                 {t("user_dashboard.review_rejected")}
                               </p>
                             )}
@@ -419,7 +572,7 @@ export default function UserDashboard() {
                             {claim.review_status !== "pending" && (claim.review_status !== "approved" || !claim.claimant_rating) && (
                               <Button
                                 size="sm"
-                                className="mt-3"
+                                className="bg-amber-500 hover:bg-amber-600 text-white font-medium gap-1.5 px-4 rounded-lg shadow-sm transition-all"
                                 disabled={
                                   submitReviewMutation.isPending ||
                                   ((reviewDrafts[claim.id]?.rating ?? claim.claimant_rating ?? 0) < 1)
@@ -443,9 +596,11 @@ export default function UserDashboard() {
                           </div>
                         )}
                       </div>
+
                       <Link to={`/ItemDetails?id=${claim.found_item_id}`} className="self-start">
-                        <Button variant="outline" size="sm" className="gap-1">
-                          <Eye className="w-3.5 h-3.5" /> {t("common.view_item")}
+                        <Button variant="outline" size="sm" className="gap-1.5 border-slate-200 text-slate-600 hover:text-slate-900 transition-colors">
+                          <Eye className="w-3.5 h-3.5" />
+                          {t("common.view_item")}
                         </Button>
                       </Link>
                     </div>
@@ -457,9 +612,13 @@ export default function UserDashboard() {
         </TabsContent>
 
         {/* Notifications Tab */}
-        <TabsContent value="notifications">
+        <TabsContent value="notifications" className="space-y-4">
           {notifLoading ? (
-            <div className="space-y-3">{Array(3).fill(0).map((_, i) => <Skeleton key={i} className="h-16 rounded-lg" />)}</div>
+            <div className="space-y-3">
+              {Array(3).fill(0).map((_, i) => (
+                <Skeleton key={i} className="h-16 w-full rounded-xl" />
+              ))}
+            </div>
           ) : notifications.length === 0 ? (
             <EmptyState icon={Bell} message={t("user_dashboard.no_notifications")} />
           ) : (
@@ -467,18 +626,22 @@ export default function UserDashboard() {
               {notifications.map(notif => (
                 <div
                   key={notif.id}
-                  className={`p-3 rounded-lg border transition-colors cursor-pointer ${
-                    notif.is_read ? "bg-white border-slate-100" : "bg-blue-50/50 border-blue-100"
+                  className={`p-4 rounded-xl border transition-all cursor-pointer ${
+                    notif.is_read
+                      ? "bg-white border-slate-100 hover:bg-slate-50/50"
+                      : "bg-blue-50/30 border-blue-100 hover:bg-blue-50/50 shadow-sm"
                   }`}
                   onClick={() => !notif.is_read && markReadMutation.mutate(notif.id)}
                 >
-                  <div className="flex items-start gap-3">
-                    <Bell className={`w-4 h-4 mt-0.5 flex-shrink-0 ${notif.is_read ? "text-slate-300" : "text-blue-500"}`} />
-                    <div className="flex-1">
-                      <p className={`text-sm ${notif.is_read ? "text-slate-600" : "text-slate-900 font-medium"}`}>{notif.title}</p>
-                      <p className="text-xs text-slate-400 mt-0.5">{notif.message}</p>
+                  <div className="flex items-start gap-3.5">
+                    <div className={`p-2 rounded-lg shrink-0 ${notif.is_read ? "bg-slate-100 text-slate-400" : "bg-blue-100 text-blue-600"}`}>
+                      <Bell className="w-4 h-4" />
                     </div>
-                    <span className="text-[10px] text-slate-400 flex-shrink-0">
+                    <div className="flex-1">
+                      <p className={`text-sm ${notif.is_read ? "text-slate-600" : "text-slate-900 font-bold"}`}>{notif.title}</p>
+                      <p className="text-xs text-slate-500 mt-1 leading-relaxed">{notif.message}</p>
+                    </div>
+                    <span className="text-[10px] text-slate-400 font-semibold shrink-0">
                       {notif.created_date ? formatLocalizedDate(notif.created_date, "MMM d") : ""}
                     </span>
                   </div>

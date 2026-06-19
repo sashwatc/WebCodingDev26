@@ -20,7 +20,7 @@ import { ConsentCheckboxField } from "@/components/shared/ConsentCheckboxField";
 import PhotoUploader from "@/components/shared/PhotoUploader";
 import StatusBadge from "@/components/ui/StatusBadge";
 import { useAuth } from "@/lib/AuthContext";
-import { formatLocalizedDate, translateLocation } from "@/lib/i18n-helpers";
+import { formatLocalizedDate, translateCategory, translateLocation } from "@/lib/i18n-helpers";
 import {
   Loader2,
   Shield,
@@ -170,7 +170,7 @@ export default function ClaimItem() {
   }
 
   return (
-    <div className="page-shell max-w-4xl py-10">
+    <div className="page-shell max-w-6xl py-10">
       <Button
         variant="ghost"
         size="sm"
@@ -181,180 +181,192 @@ export default function ClaimItem() {
         {t("common.back")}
       </Button>
 
-      <div className="page-header">
+      <div className="page-header mb-8">
         <span className="page-kicker">{t("claim_item.kicker")}</span>
         <h1 className="page-title">{t("claim_item.title")}</h1>
         <p className="page-subtitle">{t("claim_item.subtitle")}</p>
       </div>
 
-      <div className="mb-6 grid gap-4 lg:grid-cols-[minmax(0,1fr)_260px]">
-        <div className="surface-card p-5">
-          <div className="flex items-start gap-4">
-            {item.photo_urls?.[0] ? (
-              <img
-                src={item.photo_urls[0]}
-                alt={item.title}
-                className="h-20 w-20 rounded-[18px] object-cover"
-              />
-            ) : (
-              <div className="flex h-20 w-20 items-center justify-center rounded-[18px] bg-slate-100">
-                <Package className="h-7 w-7 text-slate-400" />
-              </div>
-            )}
-
-            <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-2">
-                <h2 className="text-lg font-semibold text-slate-950">{item.title}</h2>
+      <div className="grid gap-8 lg:grid-cols-[380px_1fr] items-start">
+        {/* Left Side: Sticky Details Card & Review Info */}
+        <div className="space-y-6 lg:sticky lg:top-24">
+          <div className="surface-card overflow-hidden">
+            <div className="aspect-[4/3] bg-slate-100 relative overflow-hidden">
+              {item.photo_urls?.[0] ? (
+                <img
+                  src={item.photo_urls[0]}
+                  alt={item.title}
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center bg-slate-50">
+                  <Package className="h-10 w-10 text-slate-300" />
+                </div>
+              )}
+              <div className="absolute left-3 top-3">
                 <StatusBadge status={item.status} />
               </div>
-              <p className="mt-1 text-sm text-slate-600">
-                {translateLocation(t, item.location_found) || t("common.unknown_location")} • {item.date_found ? formatLocalizedDate(item.date_found, "MMM d, yyyy") : t("common.date_unavailable")}
-              </p>
-              <p className="mt-3 line-clamp-2 text-sm leading-6 text-slate-600">
-                {item.ai_description || item.description}
-              </p>
+            </div>
+
+            <div className="p-5 space-y-4">
+              <div>
+                <Badge variant="outline" className="text-xs mb-1.5">{translateCategory(t, item.category)}</Badge>
+                <h2 className="text-xl font-bold text-slate-900 leading-tight">{item.title}</h2>
+                <p className="mt-1.5 text-xs text-slate-500">
+                  {translateLocation(t, item.location_found) || t("common.unknown_location")} • {item.date_found ? formatLocalizedDate(item.date_found, "MMM d, yyyy") : t("common.date_unavailable")}
+                </p>
+              </div>
+
+              <div className="border-t pt-4">
+                <h3 className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400 mb-1">
+                  {t("common.description")}
+                </h3>
+                <p className="text-sm leading-relaxed text-slate-600">
+                  {item.ai_description || item.description}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="soft-panel p-5">
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">{t("claim_item.review_flow")}</p>
+            <div className="mt-4 space-y-3.5 text-sm text-slate-600">
+              <div className="flex items-start gap-3">
+                <Search className="mt-0.5 h-4 w-4 text-primary shrink-0" />
+                <span>{t("claim_item.review_compare")}</span>
+              </div>
+              <div className="flex items-start gap-3">
+                <Clock3 className="mt-0.5 h-4 w-4 text-primary shrink-0" />
+                <span>{t("claim_item.review_pickup")}</span>
+              </div>
+              <div className="flex items-start gap-3">
+                <CheckCircle2 className="mt-0.5 h-4 w-4 text-primary shrink-0" />
+                <span>{t("claim_item.review_close")}</span>
+              </div>
             </div>
           </div>
         </div>
 
-        <div className="soft-panel p-5">
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">{t("claim_item.review_flow")}</p>
-          <div className="mt-4 space-y-3 text-sm text-slate-600">
-            <div className="flex items-start gap-3">
-              <Search className="mt-0.5 h-4 w-4 text-primary" />
-              <span>{t("claim_item.review_compare")}</span>
-            </div>
-            <div className="flex items-start gap-3">
-              <Clock3 className="mt-0.5 h-4 w-4 text-primary" />
-              <span>{t("claim_item.review_pickup")}</span>
-            </div>
-            <div className="flex items-start gap-3">
-              <CheckCircle2 className="mt-0.5 h-4 w-4 text-primary" />
-              <span>{t("claim_item.review_close")}</span>
-            </div>
+        {/* Right Side: The Form */}
+        <form onSubmit={handleSubmit} noValidate>
+          <div className="form-shell">
+            <section className="space-y-5">
+              <div className="space-y-2">
+                <h2 className="text-lg font-semibold text-slate-950">{t("claim_item.your_information")}</h2>
+                <p className="text-sm text-slate-600">
+                  {t("claim_item.your_information_description")}
+                </p>
+              </div>
+
+              {user && (
+                <div className="soft-panel flex flex-wrap items-center gap-2 px-4 py-3 text-sm text-slate-700">
+                  <Badge variant="secondary" className="bg-slate-200 text-slate-700">{t("claim_item.signed_in")}</Badge>
+                  {t("claim_item.submitting_as", { name: user.full_name, email: user.email })}
+                </div>
+              )}
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <Label htmlFor="c_name">{t("claim_item.full_name")}</Label>
+                  <Input
+                    id="c_name"
+                    value={form.claimant_name}
+                    onChange={(event) => updateField("claimant_name", event.target.value)}
+                    className={errors.claimant_name ? "border-red-400" : ""}
+                  />
+                  {errors.claimant_name && <p className="mt-1 text-xs text-red-500">{errors.claimant_name}</p>}
+                </div>
+                <div>
+                  <Label htmlFor="c_email">{t("common.email")} *</Label>
+                  <Input
+                    id="c_email"
+                    type="email"
+                    value={form.claimant_email}
+                    onChange={(event) => updateField("claimant_email", event.target.value)}
+                    className={errors.claimant_email ? "border-red-400" : ""}
+                  />
+                  {errors.claimant_email && <p className="mt-1 text-xs text-red-500">{errors.claimant_email}</p>}
+                </div>
+              </div>
+
+              <div>
+                <Label htmlFor="c_sid">{t("claim_item.student_id")}</Label>
+                <Input
+                  id="c_sid"
+                  placeholder={t("claim_item.student_id_placeholder")}
+                  value={form.student_id}
+                  onChange={(event) => updateField("student_id", event.target.value)}
+                />
+              </div>
+            </section>
+
+            <section className="space-y-5">
+              <div className="space-y-2">
+                <h2 className="text-lg font-semibold text-slate-950">{t("claim_item.ownership_verification")}</h2>
+                <p className="text-sm text-slate-600">
+                  {t("claim_item.ownership_description")}
+                </p>
+              </div>
+
+              <div>
+                <Label htmlFor="c_reason">{t("claim_item.reason")}</Label>
+                <Textarea
+                  id="c_reason"
+                  rows={4}
+                  placeholder={t("claim_item.reason_placeholder")}
+                  value={form.reason}
+                  onChange={(event) => updateField("reason", event.target.value)}
+                  className={errors.reason ? "border-red-400" : ""}
+                />
+                {errors.reason && <p className="mt-1 text-xs text-red-500">{errors.reason}</p>}
+              </div>
+
+              <div>
+                <Label htmlFor="c_details">{t("claim_item.identifying_details")}</Label>
+                <Textarea
+                  id="c_details"
+                  rows={4}
+                  placeholder={t("claim_item.identifying_placeholder")}
+                  value={form.identifying_details}
+                  onChange={(event) => updateField("identifying_details", event.target.value)}
+                />
+              </div>
+
+              <PhotoUploader
+                photos={form.proof_photo_url ? [form.proof_photo_url] : []}
+                onChange={(urls) => updateField("proof_photo_url", urls[0] || "")}
+                maxPhotos={1}
+                label={t("claim_item.supporting_photo")}
+              />
+
+              <div>
+                <Label htmlFor="c_pickup">{t("claim_item.pickup_availability")}</Label>
+                <Input
+                  id="c_pickup"
+                  placeholder={t("claim_item.pickup_placeholder")}
+                  value={form.pickup_availability}
+                  onChange={(event) => updateField("pickup_availability", event.target.value)}
+                />
+              </div>
+            </section>
+
+            <section className="space-y-5">
+              <ConsentCheckboxField
+                id="truthful"
+                checked={form.truthful}
+                onCheckedChange={(value) => updateField("truthful", value)}
+                error={errors.truthful}
+                tone="amber">
+                {t("claim_item.truthful_text")}
+              </ConsentCheckboxField>
+              <Button type="submit" size="lg" disabled={submitMutation.isPending} className="w-full gap-2 bg-primary text-white hover:bg-primary/90">
+                {submitMutation.isPending ? <Loader2 className="h-5 w-5 animate-spin" /> : <Shield className="h-5 w-5" />}
+                {submitMutation.isPending ? t("claim_item.verifying") : t("claim_item.submit_button")}
+              </Button>
+            </section>
           </div>
-        </div>
+        </form>
       </div>
-
-      <form onSubmit={handleSubmit} noValidate>
-        <div className="form-shell">
-          <section>
-            <div className="space-y-2">
-              <h2 className="text-lg font-semibold text-slate-950">{t("claim_item.your_information")}</h2>
-              <p className="text-sm text-slate-600">
-                {t("claim_item.your_information_description")}
-              </p>
-            </div>
-
-            {user && (
-              <div className="soft-panel flex flex-wrap items-center gap-2 px-4 py-3 text-sm text-slate-700">
-                <Badge variant="secondary" className="bg-slate-200 text-slate-700">{t("claim_item.signed_in")}</Badge>
-                {t("claim_item.submitting_as", { name: user.full_name, email: user.email })}
-              </div>
-            )}
-
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div>
-                <Label htmlFor="c_name">{t("claim_item.full_name")}</Label>
-                <Input
-                  id="c_name"
-                  value={form.claimant_name}
-                  onChange={(event) => updateField("claimant_name", event.target.value)}
-                  className={errors.claimant_name ? "border-red-400" : ""}
-                />
-                {errors.claimant_name && <p className="mt-1 text-xs text-red-500">{errors.claimant_name}</p>}
-              </div>
-              <div>
-                <Label htmlFor="c_email">{t("common.email")} *</Label>
-                <Input
-                  id="c_email"
-                  type="email"
-                  value={form.claimant_email}
-                  onChange={(event) => updateField("claimant_email", event.target.value)}
-                  className={errors.claimant_email ? "border-red-400" : ""}
-                />
-                {errors.claimant_email && <p className="mt-1 text-xs text-red-500">{errors.claimant_email}</p>}
-              </div>
-            </div>
-
-            <div>
-              <Label htmlFor="c_sid">{t("claim_item.student_id")}</Label>
-              <Input
-                id="c_sid"
-                placeholder={t("claim_item.student_id_placeholder")}
-                value={form.student_id}
-                onChange={(event) => updateField("student_id", event.target.value)}
-              />
-            </div>
-          </section>
-
-          <section>
-            <div className="space-y-2">
-              <h2 className="text-lg font-semibold text-slate-950">{t("claim_item.ownership_verification")}</h2>
-              <p className="text-sm text-slate-600">
-                {t("claim_item.ownership_description")}
-              </p>
-            </div>
-
-            <div>
-              <Label htmlFor="c_reason">{t("claim_item.reason")}</Label>
-              <Textarea
-                id="c_reason"
-                rows={4}
-                placeholder={t("claim_item.reason_placeholder")}
-                value={form.reason}
-                onChange={(event) => updateField("reason", event.target.value)}
-                className={errors.reason ? "border-red-400" : ""}
-              />
-              {errors.reason && <p className="mt-1 text-xs text-red-500">{errors.reason}</p>}
-            </div>
-
-            <div>
-              <Label htmlFor="c_details">{t("claim_item.identifying_details")}</Label>
-              <Textarea
-                id="c_details"
-                rows={4}
-                placeholder={t("claim_item.identifying_placeholder")}
-                value={form.identifying_details}
-                onChange={(event) => updateField("identifying_details", event.target.value)}
-              />
-            </div>
-
-            <PhotoUploader
-              photos={form.proof_photo_url ? [form.proof_photo_url] : []}
-              onChange={(urls) => updateField("proof_photo_url", urls[0] || "")}
-              maxPhotos={1}
-              label={t("claim_item.supporting_photo")}
-            />
-
-            <div>
-              <Label htmlFor="c_pickup">{t("claim_item.pickup_availability")}</Label>
-              <Input
-                id="c_pickup"
-                placeholder={t("claim_item.pickup_placeholder")}
-                value={form.pickup_availability}
-                onChange={(event) => updateField("pickup_availability", event.target.value)}
-              />
-            </div>
-          </section>
-
-          <section className="space-y-5">
-            <ConsentCheckboxField
-              id="truthful"
-              checked={form.truthful}
-              onCheckedChange={(value) => updateField("truthful", value)}
-              error={errors.truthful}
-              tone="amber">
-              {t("claim_item.truthful_text")}
-            </ConsentCheckboxField>
-
-            <Button type="submit" size="lg" disabled={submitMutation.isPending} className="w-full gap-2">
-              {submitMutation.isPending ? <Loader2 className="h-5 w-5 animate-spin" /> : <Shield className="h-5 w-5" />}
-              {submitMutation.isPending ? t("claim_item.verifying") : t("claim_item.submit_button")}
-            </Button>
-          </section>
-        </div>
-      </form>
     </div>
   );
 }
