@@ -1,5 +1,6 @@
 import React from "react"
 import { Button } from "@/components/ui/neon-button"
+import { BackgroundPaths } from "@/components/ui/background-paths"
 
 const Default = () => {
     return (
@@ -31,6 +32,10 @@ const Solid = () => {
             </div>
         </>
     )
+}
+
+export function DemoBackgroundPaths() {
+    return <BackgroundPaths title="Background Paths" />
 }
 
 export { Default, WithNoNeon, Solid }

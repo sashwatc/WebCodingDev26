@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/lib/AuthContext";
 import { useMode } from "@/lib/ModeContext";
+import { FloatingPaths } from "@/components/ui/background-paths";
 import {
   AlertTriangle,
   PlusCircle,
@@ -28,9 +29,15 @@ export default function Home() {
   };
 
   return (
-    <div className="bg-background">
-      <div className="page-shell pb-12 pt-8 flex flex-col items-center justify-center min-h-[75vh]">
-        <section className="surface-card p-6 sm:p-8 md:p-10 lg:p-12 overflow-hidden flex flex-col items-center text-center max-w-3xl w-full shadow-sm" aria-labelledby="home-title">
+    <div className="relative min-h-[75vh] w-full flex items-center justify-center overflow-hidden bg-background">
+      {/* Background Paths */}
+      <div className="absolute inset-0 z-0 pointer-events-none">
+        <FloatingPaths position={1} />
+        <FloatingPaths position={-1} />
+      </div>
+
+      <div className="relative z-10 page-shell pb-12 pt-8 flex flex-col items-center justify-center w-full">
+        <section className="surface-card p-6 sm:p-8 md:p-10 lg:p-12 overflow-hidden flex flex-col items-center text-center max-w-3xl w-full shadow-sm backdrop-blur-md bg-white/80 dark:bg-slate-900/80" aria-labelledby="home-title">
           <div className="space-y-3 max-w-2xl">
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-widest">{t("home.kicker")}</span>
             <h1 id="home-title" className="text-3xl font-extrabold tracking-tight text-slate-950 sm:text-4xl">
