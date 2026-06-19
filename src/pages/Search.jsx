@@ -158,7 +158,7 @@ export default function Search() {
     filters.category !== "all" ? translateCategory(t, filters.category) : null,
     filters.color !== "all" ? translateColor(t, filters.color) : null,
     filters.location !== "all" ? translateLocation(t, filters.location) : null,
-    filters.recordType !== "all" ? (filters.recordType === "lost" ? t("common.lost") : t("common.found")) : null,
+    hasAdminAccess && filters.recordType !== "all" ? (filters.recordType === "lost" ? t("common.lost") : t("common.found")) : null,
     searchQuery ? t("search.query_badge", { query: searchQuery }) : null,
   ].filter(Boolean);
 
