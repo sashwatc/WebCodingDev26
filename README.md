@@ -22,6 +22,36 @@ Lost Then Found is a React-based PVHS lost-and-found website built for the FBLA 
 
 ## Local Development
 
+For the normal full-stack setup, put backend secrets in `.env.local`:
+
+```env
+MONGO_URI=mongodb+srv://USERNAME:PASSWORD@your-cluster.mongodb.net/lostthenfound?retryWrites=true&w=majority&appName=LostThenFound
+MONGO_DATABASE=lostthenfound
+```
+
+Then run the full app:
+
+```bash
+npm install
+npm run ts
+```
+
+You can also run the same full-stack flow with:
+
+```bash
+npm run ts backend
+```
+
+The script starts the Spring Boot backend from `../WebCodingDev26-Backend`, waits for `http://localhost:8080/api/health`, then starts the Vite frontend at `http://localhost:5173`.
+
+Backend only:
+
+```bash
+npm run backend
+```
+
+Frontend only:
+
 ```bash
 npm install
 npm run dev
@@ -30,13 +60,6 @@ npm run dev
 Open `http://localhost:5173`.
 
 Notes:
-
-- Start the Spring Boot backend separately:
-
-  ```bash
-  cd path/to/spring-backend
-  ./mvnw spring-boot:run
-  ```
 
 - The backend runs on `http://localhost:8080`.
 - The frontend calls `/api/*`, and Vite proxies those requests to `http://127.0.0.1:8080` during local development.
