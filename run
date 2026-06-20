@@ -4,7 +4,26 @@ set -e
 
 FRONTEND_URL="http://localhost:5173"
 BACKEND_URL="http://localhost:8080"
-BACKEND_DIR="${SPRING_BACKEND_DIR:-../WebCodingDev26Backend}"
+BACKEND_DIR=""
+
+detect_backend_dir() {
+  if [ -n "$SPRING_BACKEND_DIR" ]; then
+    BACKEND_DIR="$SPRING_BACKEND_DIR"
+    return
+  fi
+
+  local candidates=(
+    "../WebCodingDev26-Backend"
+    "../WebCodingDev26Backend"
+  )
+
+  for candidate in "${candidates[@]}"; do
+    if [ -x "$candidate/mvnw" ]; then
+      BACKEND_DIR="$candidate"
+      return
+    fi
+  done
+}
 
 load_node() {
   if command -v npm >/dev/null 2>&1; then
@@ -13,6 +32,37 @@ load_node() {
 
   if [ -s "$HOME/.nvm/nvm.sh" ]; then
     . "$HOME/.nvm/nvm.sh"
+  fi
+}
+
+load_env_file() {
+  local file="$1"
+
+  if [ ! -f "$file" ]; then
+    return
+  fi
+
+  while IFS= read -r line || [ -n "$line" ]; do
+    if [[ -z "$line" || "$line" == \#* || "$line" != *=* ]]; then
+      continue
+    fi
+
+    local key="${line%%=*}"
+    local value="${line#*=}"
+
+    if [[ "$key" =~ '^[A-Za-z_][A-Za-z0-9_]*$' ]]; then
+      export "$key=$value"
+    fi
+  done < "$file"
+}
+
+load_env() {
+  load_env_file ".env"
+  load_env_file ".env.local"
+
+  if [ -n "$BACKEND_DIR" ]; then
+    load_env_file "$BACKEND_DIR/.env"
+    load_env_file "$BACKEND_DIR/.env.local"
   fi
 }
 
@@ -33,23 +83,48 @@ wait_for_url() {
   return 1
 }
 
+open_frontend() {
+  if wait_for_url "$FRONTEND_URL" "Frontend" 45; then
+    echo "Opening $FRONTEND_URL"
+    open "$FRONTEND_URL" >/dev/null 2>&1 || true
+  fi
+}
+
 start_backend() {
   if curl -fsS "$BACKEND_URL/api/health" >/dev/null 2>&1; then
     echo "Spring Boot backend is already running at $BACKEND_URL"
     return
   fi
 
+  detect_backend_dir
+  load_env
+
   if [ ! -d "$BACKEND_DIR" ] || [ ! -x "$BACKEND_DIR/mvnw" ]; then
     echo "Spring Boot backend was not auto-started."
-    echo "Expected an executable mvnw at: $BACKEND_DIR"
+    echo "Expected an executable mvnw at one of:"
+    echo "  ../WebCodingDev26-Backend"
+    echo "  ../WebCodingDev26Backend"
     echo "Set SPRING_BACKEND_DIR=/path/to/backend or start it manually:"
     echo "  cd path/to/spring-backend && ./mvnw spring-boot:run"
     return
   fi
 
   echo "Starting Spring Boot backend from $BACKEND_DIR"
+  if [ -z "$SPRING_PROFILES_ACTIVE" ] && [ -z "$MONGO_URI" ]; then
+    echo "No MONGO_URI detected; using Spring local profile."
+    export SPRING_PROFILES_ACTIVE=local
+  fi
   (cd "$BACKEND_DIR" && ./mvnw spring-boot:run) &
   BACKEND_PID=$!
+}
+
+require_backend() {
+  start_backend
+  if ! wait_for_url "$BACKEND_URL/api/health" "Backend" 45; then
+    echo "Spring Boot backend is unavailable."
+    echo "Check MongoDB credentials in .env.local or run npm run dev for frontend-only work."
+    exit 1
+  fi
 }
 
 cleanup() {
@@ -62,38 +137,88 @@ cleanup() {
   fi
 }
 
-run_ts() {
+ensure_node() {
   load_node
+  load_env
 
   if ! command -v npm >/dev/null 2>&1; then
     echo "npm was not found. Install Node/npm or load nvm before running this script."
     exit 1
   fi
+}
 
-  start_backend
-  wait_for_url "$BACKEND_URL/api/health" "Backend" 45 || true
+run_full_stack() {
+  ensure_node
+  require_backend
 
   echo "Starting Lost Then Found frontend"
   npm run dev &
   FRONTEND_PID=$!
 
-  if wait_for_url "$FRONTEND_URL" "Frontend" 45; then
-    echo "Opening $FRONTEND_URL"
-    open "$FRONTEND_URL" >/dev/null 2>&1 || true
-  fi
+  open_frontend
 
+  wait "$FRONTEND_PID"
+}
+
+run_backend_only() {
+  ensure_node
+  require_backend
+  echo "Spring Boot backend is running. Press Ctrl+C to stop it."
+
+  if [ -n "$BACKEND_PID" ]; then
+    wait "$BACKEND_PID"
+  fi
+}
+
+run_frontend_only() {
+  ensure_node
+  echo "Starting Lost Then Found frontend only"
+  npm run dev &
+  FRONTEND_PID=$!
+  open_frontend
   wait "$FRONTEND_PID"
 }
 
 case "$1" in
   ts)
     trap cleanup INT TERM EXIT
-    run_ts
+    case "${2:-all}" in
+      all|backend|"")
+        run_full_stack
+        ;;
+      backend-only)
+        run_backend_only
+        ;;
+      frontend|frontend-only)
+        run_frontend_only
+        ;;
+      *)
+        echo "Unknown mode: $2"
+        echo "Usage:"
+        echo "  npm run ts"
+        echo "  npm run ts backend"
+        echo "  npm run backend"
+        echo "  npm run dev"
+        exit 1
+        ;;
+    esac
+    ;;
+  backend)
+    trap cleanup INT TERM EXIT
+    run_backend_only
+    ;;
+  frontend)
+    trap cleanup INT TERM EXIT
+    run_frontend_only
     ;;
   *)
     echo "Unknown command: $1"
-    echo "Usage: ./run ts"
-    echo "Optional: SPRING_BACKEND_DIR=/path/to/backend ./run ts"
+    echo "Usage:"
+    echo "  npm run ts"
+    echo "  npm run ts backend"
+    echo "  npm run backend"
+    echo "  npm run dev"
+    echo "Optional: SPRING_BACKEND_DIR=/path/to/backend npm run ts"
     exit 1
     ;;
 esac
