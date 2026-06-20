@@ -121,9 +121,10 @@ export default function ClaimItem() {
   });
 
   const handleSubmit = (event) => {
-    event.preventDefault();
-    if (!validate()) return;
+    if (event && event.preventDefault) event.preventDefault();
+    if (!validate()) return false;
     submitMutation.mutate();
+    return true;
   };
 
   if (submitted) {
