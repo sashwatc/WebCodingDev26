@@ -86,9 +86,10 @@ export default function Search() {
           status: report.status || "open",
           record_type: "lost",
           tags: [report.color, report.brand].filter(Boolean),
-          created_date: report.created_date || "",
+           created_date: report.created_date || "",
           updated_date: report.updated_date || "",
           matching_count: report.matched_items?.length || 0,
+          matched_items: report.matched_items || [],
         })),
     [lostReports, t]
   );

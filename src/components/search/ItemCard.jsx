@@ -5,17 +5,18 @@
  */
 
 import React from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { MapPin, Calendar, Eye, Package } from "lucide-react";
+import { MapPin, Calendar, Eye, Package, CheckCircle2 } from "lucide-react";
 import StatusBadge from "@/components/ui/StatusBadge";
 import { formatLocalizedDate, translateCategory, translateColor, translateLocation } from "@/lib/i18n-helpers";
 
 export default function ItemCard({ item, viewMode = "grid" }) {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const imageUrl = item.photo_urls?.[0];
   const isLostReport = item.record_type === "lost";
   const detailHref = isLostReport ? `/ItemDetails?type=lost&id=${item.id}` : `/ItemDetails?id=${item.id}`;
@@ -59,6 +60,22 @@ export default function ItemCard({ item, viewMode = "grid" }) {
               <p className="mt-3 line-clamp-2 text-sm leading-6 text-slate-600">
                 {item.ai_description || item.description}
               </p>
+              {isLostReport && item.matched_items?.length > 0 && (
+                <div className="mt-3">
+                  <Button
+                    size="sm"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      navigate(`/ClaimItem?id=${item.matched_items[0].found_item_id}`);
+                    }}
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold flex items-center gap-1.5 rounded-xl shadow-sm"
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    Claim Match
+                  </Button>
+                </div>
+              )}
             </div>
 
             <Link to={detailHref} className="sm:self-center">
@@ -124,6 +141,22 @@ export default function ItemCard({ item, viewMode = "grid" }) {
           </div>
 
           <div className="space-y-3">
+            {isLostReport && item.matched_items?.length > 0 && (
+              <div className="pt-1">
+                <Button
+                  size="sm"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    navigate(`/ClaimItem?id=${item.matched_items[0].found_item_id}`);
+                  }}
+                  className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold flex items-center justify-center gap-1.5 rounded-xl shadow-sm"
+                >
+                  <CheckCircle2 className="w-4 h-4" />
+                  Claim Match
+                </Button>
+              </div>
+            )}
             <div className="flex items-center justify-between gap-3 border-t pt-3">
               <Badge variant="outline" className="text-xs bg-slate-50 border-slate-200/80 text-slate-600 px-2.5 py-0.5">{translateCategory(t, item.category)}</Badge>
               <span className="text-xs font-semibold text-primary inline-flex items-center gap-1 group-hover:underline">
