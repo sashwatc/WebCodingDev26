@@ -10,6 +10,7 @@ import { useTranslation } from "react-i18next";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
+import { SlideButton } from "@/components/ui/slide-button";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/use-toast";
@@ -23,7 +24,6 @@ import { useAuth } from "@/lib/AuthContext";
 import { formatLocalizedDate, translateCategory, translateLocation } from "@/lib/i18n-helpers";
 import {
   Loader2,
-  Shield,
   ArrowLeft,
   Package,
   FileCheck,
@@ -359,10 +359,21 @@ export default function ClaimItem() {
                 tone="amber">
                 {t("claim_item.truthful_text")}
               </ConsentCheckboxField>
-              <Button type="submit" size="lg" disabled={submitMutation.isPending} className="w-full gap-2 bg-primary text-white hover:bg-primary/90">
-                {submitMutation.isPending ? <Loader2 className="h-5 w-5 animate-spin" /> : <Shield className="h-5 w-5" />}
-                {submitMutation.isPending ? t("claim_item.verifying") : t("claim_item.submit_button")}
-              </Button>
+              <div className="flex justify-center pt-2">
+                <SlideButton
+                  status={
+                    submitMutation.isPending
+                      ? "loading"
+                      : submitMutation.isSuccess
+                        ? "success"
+                        : submitMutation.isError
+                          ? "error"
+                          : "idle"
+                  }
+                  onDragComplete={() => handleSubmit()}
+                  className="bg-primary text-white hover:bg-primary/90"
+                />
+              </div>
             </section>
           </div>
         </form>

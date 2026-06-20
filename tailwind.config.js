@@ -26,6 +26,11 @@ module.exports = {
   			md: 'calc(var(--radius) - 2px)',
   			sm: 'calc(var(--radius) - 4px)'
   		},
+  		boxShadow: {
+  			"button-inset": "inset 0 1px 3px rgba(0, 0, 0, 0.1)",
+  			"button-inset-dark": "inset 0 1px 3px rgba(0, 0, 0, 0.3)",
+  			"button": "0 2px 4px rgba(0, 0, 0, 0.1)"
+  		},
   		colors: {
   			background: 'hsl(var(--background))',
   			foreground: 'hsl(var(--foreground))',
