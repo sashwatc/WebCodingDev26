@@ -1,6 +1,6 @@
 import { BRAND_NAME } from "@/lib/constants";
 
-const STORAGE_KEY = "findback-app-db";
+const STORAGE_KEY = "findback-app-db-v2";
 const AUTH_STORAGE_KEY = "findback-auth-user";
 const API_BASE_URL = String(import.meta.env.VITE_API_URL || "").replace(/\/$/, "");
 const FOUND_ITEMS_API_URL = `${API_BASE_URL}/api/items`;
@@ -9,6 +9,12 @@ const AUTH_API_BASE_URL = `${API_BASE_URL}/api/auth`;
 const UPLOAD_API_URL = `${API_BASE_URL}/api/uploads`;
 const BLACK_HYDRO_FLASK_PHOTO = "/items/black-hydro-flask.jpg";
 const BLUE_BACKPACK_PHOTO = "/images/blue-backpack.png";
+const AIRPODS_PRO_PHOTO = "/items/airpods-pro-case.png";
+const TI_CALCULATOR_PHOTO = "/items/ti-calculator.png";
+const NIKE_HOODIE_PHOTO = "/items/nike-hoodie.png";
+const PVHS_LANYARD_PHOTO = "/items/pvhs-lanyard.png";
+const USBC_CHARGER_PHOTO = "/items/usbc-charger.png";
+const VOLLEYBALL_KNEEPADS_PHOTO = "/items/volleyball-kneepads.png";
 const authListeners = new Set();
 
 const CATEGORY_LABELS = {
@@ -96,7 +102,7 @@ function createSeedData() {
         location_found: "Library",
         storage_location: "Main Office drawer E1",
         condition: "good",
-        photo_urls: [createPlaceholderImage("AirPods Pro", "#e2e8f0", "#94a3b8")],
+        photo_urls: [AIRPODS_PRO_PHOTO],
         distinguishing_features: "Small scratch near hinge",
         finder_name: "Library Desk",
         finder_email: "library@pleasantvalley.edu",
@@ -152,7 +158,7 @@ function createSeedData() {
         location_found: "Science Hall",
         storage_location: "Science department office",
         condition: "good",
-        photo_urls: [createPlaceholderImage("TI Calculator", "#64748b", "#334155")],
+        photo_urls: [TI_CALCULATOR_PHOTO],
         distinguishing_features: "Initials M.R. in black marker",
         finder_name: "Mrs. Reynolds",
         finder_email: "reynolds@pleasantvalley.edu",
@@ -180,7 +186,7 @@ function createSeedData() {
         location_found: "Football Field",
         storage_location: "Athletics office rack 3",
         condition: "good",
-        photo_urls: [createPlaceholderImage("Nike Hoodie", "#111827", "#52525b")],
+        photo_urls: [NIKE_HOODIE_PHOTO],
         distinguishing_features: "Name tag stitched inside collar",
         finder_name: "Athletics Office",
         finder_email: "athletics@pleasantvalley.edu",
@@ -208,7 +214,7 @@ function createSeedData() {
         location_found: "Auditorium",
         storage_location: "Main Office drawer A4",
         condition: "excellent",
-        photo_urls: [createPlaceholderImage("PVHS ID", "#183459", "#2563eb")],
+        photo_urls: [PVHS_LANYARD_PHOTO],
         distinguishing_features: "Blue woven lanyard with silver key clip and clear sleeve",
         finder_name: "Mr. Sutton",
         finder_email: "sutton@pleasantvalley.edu",
@@ -236,7 +242,7 @@ function createSeedData() {
         location_found: "Computer Lab",
         storage_location: "Tech office cabinet 2",
         condition: "good",
-        photo_urls: [createPlaceholderImage("USB-C Charger", "#475569", "#1e293b")],
+        photo_urls: [USBC_CHARGER_PHOTO],
         distinguishing_features: "Small silver label on cable tie",
         finder_name: "Technology Office",
         finder_email: "tech.office@pleasantvalley.edu",
@@ -264,7 +270,7 @@ function createSeedData() {
         location_found: "Gymnasium",
         storage_location: "Athletics office bin 1",
         condition: "good",
-        photo_urls: [createPlaceholderImage("Knee Pads", "#f8fafc", "#1e3a8a")],
+        photo_urls: [VOLLEYBALL_KNEEPADS_PHOTO],
         distinguishing_features: "Number 8 handwritten on the inner tag",
         finder_name: "Volleyball Coach",
         finder_email: "volleyball@pleasantvalley.edu",
