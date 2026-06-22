@@ -19,6 +19,7 @@ const PVHS_LANYARD_PHOTO = "/items/pvhs-lanyard.png";
 const USBC_CHARGER_PHOTO = "/items/usbc-charger.png";
 const VOLLEYBALL_KNEEPADS_PHOTO = "/items/volleyball-kneepads.png";
 const authListeners = new Set();
+let recoveryMeshUsesLocalData = false;
 
 const CATEGORY_LABELS = {
   electronics: "electronics",
@@ -735,6 +736,26 @@ function clone(value) {
   return JSON.parse(JSON.stringify(value));
 }
 
+function mergeSeedCollection(existingRecords, seedRecords) {
+  const records = Array.isArray(existingRecords) ? existingRecords : [];
+  const seeds = Array.isArray(seedRecords) ? seedRecords : [];
+  const existingIds = new Set(
+    records
+      .map((record) => record?.id || record?._id)
+      .filter(Boolean)
+      .map(String)
+  );
+  const missingSeeds = seeds.filter((record) => {
+    const id = record?.id || record?._id;
+    return id && !existingIds.has(String(id));
+  });
+
+  return {
+    records: [...clone(records), ...clone(missingSeeds)],
+    changed: !Array.isArray(existingRecords) || missingSeeds.length > 0,
+  };
+}
+
 function readDb() {
   const storage = getStorage();
   if (!storage) {
@@ -751,8 +772,16 @@ function readDb() {
   try {
     const parsed = JSON.parse(raw);
     const seeded = createSeedData();
-    const merged = { ...seeded, ...parsed };
-    const changed = Object.keys(seeded).some((key) => !Array.isArray(parsed[key]));
+    const parsedDb = parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+    const merged = { ...parsedDb };
+    let changed = parsedDb !== parsed;
+
+    Object.entries(seeded).forEach(([key, seedRecords]) => {
+      const result = mergeSeedCollection(parsedDb[key], seedRecords);
+      merged[key] = result.records;
+      changed = changed || result.changed;
+    });
+
     if (changed) {
       storage.setItem(STORAGE_KEY, JSON.stringify(merged));
     }
@@ -770,7 +799,12 @@ function writeDb(db) {
     return;
   }
 
-  storage.setItem(STORAGE_KEY, JSON.stringify(db));
+  const nextValue = JSON.stringify(db);
+  if (storage.getItem(STORAGE_KEY) === nextValue) {
+    return;
+  }
+
+  storage.setItem(STORAGE_KEY, nextValue);
 }
 
 function readAuthUser() {
@@ -799,11 +833,18 @@ function writeAuthUser(user) {
   }
 
   if (!user) {
-    storage.removeItem(AUTH_STORAGE_KEY);
+    if (storage.getItem(AUTH_STORAGE_KEY) !== null) {
+      storage.removeItem(AUTH_STORAGE_KEY);
+    }
     return;
   }
 
-  storage.setItem(AUTH_STORAGE_KEY, JSON.stringify(user));
+  const nextValue = JSON.stringify(user);
+  if (storage.getItem(AUTH_STORAGE_KEY) === nextValue) {
+    return;
+  }
+
+  storage.setItem(AUTH_STORAGE_KEY, nextValue);
 }
 
 function sortRecords(records, sort) {
@@ -1453,6 +1494,53 @@ function localCollection(name) {
   return clone(readDb()[name] || []);
 }
 
+function shouldUseLocalRecoveryMesh() {
+  return recoveryMeshUsesLocalData;
+}
+
+function useLocalRecoveryMesh() {
+  recoveryMeshUsesLocalData = true;
+}
+
+function localCollectionWhenEmpty(records, name) {
+  if (Array.isArray(records) && records.length > 0) {
+    return clone(records);
+  }
+
+  const localRecords = localCollection(name);
+  if (localRecords.length > 0) {
+    useLocalRecoveryMesh();
+    return localRecords;
+  }
+
+  return Array.isArray(records) ? clone(records) : localRecords;
+}
+
+function localRecordWhenMissing(record, name, predicate) {
+  if (record) {
+    return record;
+  }
+
+  const localRecord = localCollection(name).find(predicate) || null;
+  if (localRecord) {
+    useLocalRecoveryMesh();
+  }
+
+  return localRecord;
+}
+
+function localValueWhenMissing(value, fallback) {
+  if (value === null || value === undefined) {
+    return fallback;
+  }
+
+  if (Array.isArray(value) && value.length === 0 && Array.isArray(fallback) && fallback.length > 0) {
+    return fallback;
+  }
+
+  return value;
+}
+
 function saveLocalRecord(name, record) {
   upsertCachedRecord(name, record);
   return clone(record);
@@ -1461,30 +1549,43 @@ function saveLocalRecord(name, record) {
 function createRecoveryMeshApi() {
   return {
     async campusZones() {
+      if (shouldUseLocalRecoveryMesh()) {
+        return localCollection("CampusZone");
+      }
+
       try {
-        return await requestRecoveryMeshApi("/campus-zones");
+        const records = await requestRecoveryMeshApi("/campus-zones");
+        return localCollectionWhenEmpty(records, "CampusZone");
       } catch {
         return localCollection("CampusZone");
       }
     },
     async eventHubs() {
+      if (shouldUseLocalRecoveryMesh()) {
+        return localCollection("EventRecoveryHub").filter((hub) => hub.public_enabled);
+      }
+
       try {
-        return await requestRecoveryMeshApi("/event-hubs");
+        const records = await requestRecoveryMeshApi("/event-hubs");
+        return localCollectionWhenEmpty(records, "EventRecoveryHub").filter((hub) => hub.public_enabled);
       } catch {
         return localCollection("EventRecoveryHub").filter((hub) => hub.public_enabled);
       }
     },
     async eventHub(id) {
+      if (shouldUseLocalRecoveryMesh()) {
+        return localCollection("EventRecoveryHub").find((hub) => hub.id === id) || null;
+      }
+
       try {
-        return await requestRecoveryMeshApi(`/event-hubs/${encodeURIComponent(id)}`);
+        const record = await requestRecoveryMeshApi(`/event-hubs/${encodeURIComponent(id)}`);
+        return localRecordWhenMissing(record, "EventRecoveryHub", (hub) => hub.id === id);
       } catch {
         return localCollection("EventRecoveryHub").find((hub) => hub.id === id) || null;
       }
     },
     async displayFeed(id) {
-      try {
-        return await requestRecoveryMeshApi(`/event-hubs/${encodeURIComponent(id)}/display-feed`);
-      } catch {
+      const createLocalDisplayFeed = () => {
         const db = readDb();
         const eventHub = (db.EventRecoveryHub || []).find((hub) => hub.id === id);
         const zones = (db.CampusZone || []).filter((zone) => eventHub?.campus_zone_ids?.includes(zone.id));
@@ -1492,18 +1593,46 @@ function createRecoveryMeshApi() {
           .map((record) => normalizeFoundItem(record))
           .filter((item) => item.event_hub_id === id && isPublicFoundItem(item));
         return { event_hub: eventHub, zones, found_items: foundItems, notice: "Demo integration-ready event workflow. This does not claim connection to a live PVHS calendar or school display system." };
+      };
+
+      if (shouldUseLocalRecoveryMesh()) {
+        return createLocalDisplayFeed();
+      }
+
+      try {
+        const feed = await requestRecoveryMeshApi(`/event-hubs/${encodeURIComponent(id)}/display-feed`);
+        const localFeed = createLocalDisplayFeed();
+        return {
+          ...localFeed,
+          ...feed,
+          event_hub: localValueWhenMissing(feed?.event_hub, localFeed.event_hub),
+          zones: localValueWhenMissing(feed?.zones, localFeed.zones),
+          found_items: localValueWhenMissing(feed?.found_items, localFeed.found_items),
+        };
+      } catch {
+        return createLocalDisplayFeed();
       }
     },
     async recoveryCases() {
+      if (shouldUseLocalRecoveryMesh()) {
+        return localCollection("RecoveryCase");
+      }
+
       try {
-        return await requestRecoveryMeshApi("/recovery-cases");
+        const records = await requestRecoveryMeshApi("/recovery-cases");
+        return localCollectionWhenEmpty(records, "RecoveryCase");
       } catch {
         return localCollection("RecoveryCase");
       }
     },
     async recoveryCaseByLostReport(lostReportId) {
+      if (shouldUseLocalRecoveryMesh()) {
+        return localCollection("RecoveryCase").find((entry) => entry.lost_report_id === lostReportId) || null;
+      }
+
       try {
-        return await requestRecoveryMeshApi(`/recovery-cases/lost-reports/${encodeURIComponent(lostReportId)}`);
+        const record = await requestRecoveryMeshApi(`/recovery-cases/lost-reports/${encodeURIComponent(lostReportId)}`);
+        return localRecordWhenMissing(record, "RecoveryCase", (entry) => entry.lost_report_id === lostReportId);
       } catch {
         return localCollection("RecoveryCase").find((entry) => entry.lost_report_id === lostReportId) || null;
       }
@@ -1516,8 +1645,14 @@ function createRecoveryMeshApi() {
       }
     },
     async missions(recoveryCaseId) {
+      if (shouldUseLocalRecoveryMesh()) {
+        return localCollection("RecoveryMission").filter((mission) => mission.recovery_case_id === recoveryCaseId);
+      }
+
       try {
-        return await requestRecoveryMeshApi(`/recovery-cases/${encodeURIComponent(recoveryCaseId)}/missions`);
+        const records = await requestRecoveryMeshApi(`/recovery-cases/${encodeURIComponent(recoveryCaseId)}/missions`);
+        const localMissions = localCollection("RecoveryMission").filter((mission) => mission.recovery_case_id === recoveryCaseId);
+        return Array.isArray(records) && records.length > 0 ? clone(records) : localMissions;
       } catch {
         return localCollection("RecoveryMission").filter((mission) => mission.recovery_case_id === recoveryCaseId);
       }
@@ -1531,56 +1666,193 @@ function createRecoveryMeshApi() {
       }
     },
     async proofVault(itemId) {
-      return requestRecoveryMeshApi(`/items/${encodeURIComponent(itemId)}/proof-vault`);
+      const createLocalProofVault = () => {
+        const item = localCollection("FoundItem")
+          .map((record) => normalizeFoundItem(record))
+          .find((record) => record.id === itemId);
+
+        return item
+          ? {
+              found_item_id: item.id,
+              private_verification_clues: item.private_verification_clues || [],
+              asset_tag: item.asset_tag || "",
+              department_destination: item.department_destination || "",
+            }
+          : null;
+      };
+
+      if (shouldUseLocalRecoveryMesh()) {
+        return createLocalProofVault();
+      }
+
+      try {
+        const record = await requestRecoveryMeshApi(`/items/${encodeURIComponent(itemId)}/proof-vault`);
+        if (record) {
+          return record;
+        }
+      } catch {
+        // Fall through to the seeded/local proof vault.
+      }
+
+      useLocalRecoveryMesh();
+      return createLocalProofVault();
     },
     async evidenceReview(claimId) {
-      return requestRecoveryMeshApi(`/claims/${encodeURIComponent(claimId)}/evidence-review`);
+      if (shouldUseLocalRecoveryMesh()) {
+        return { claim_id: claimId, risk_score: 0, risk_flags: [], summary: "Evidence review is not available in local demo mode." };
+      }
+
+      try {
+        return await requestRecoveryMeshApi(`/claims/${encodeURIComponent(claimId)}/evidence-review`);
+      } catch {
+        useLocalRecoveryMesh();
+        return { claim_id: claimId, risk_score: 0, risk_flags: [], summary: "Evidence review is not available in local demo mode." };
+      }
     },
     async submitEvidenceReview(claimId, review) {
-      return requestRecoveryMeshApi(`/claims/${encodeURIComponent(claimId)}/evidence-review`, { method: "POST", body: JSON.stringify(review) });
+      if (shouldUseLocalRecoveryMesh()) {
+        return { claim_id: claimId, ...review };
+      }
+
+      try {
+        return await requestRecoveryMeshApi(`/claims/${encodeURIComponent(claimId)}/evidence-review`, { method: "POST", body: JSON.stringify(review) });
+      } catch {
+        useLocalRecoveryMesh();
+        return { claim_id: claimId, ...review };
+      }
     },
     async custodyEvents(itemId) {
+      if (shouldUseLocalRecoveryMesh()) {
+        return localCollection("CustodyEvent").filter((event) => event.found_item_id === itemId);
+      }
+
       try {
         return await requestRecoveryMeshApi(`/custody/items/${encodeURIComponent(itemId)}`);
       } catch {
+        useLocalRecoveryMesh();
         return localCollection("CustodyEvent").filter((event) => event.found_item_id === itemId);
       }
     },
     async verifyCustody(itemId) {
+      if (shouldUseLocalRecoveryMesh()) {
+        const events = localCollection("CustodyEvent").filter((event) => event.found_item_id === itemId);
+        return { found_item_id: itemId, verified: true, event_count: events.length, issues: [] };
+      }
+
       try {
         return await requestRecoveryMeshApi(`/custody/items/${encodeURIComponent(itemId)}/verify`);
       } catch {
+        useLocalRecoveryMesh();
         const events = localCollection("CustodyEvent").filter((event) => event.found_item_id === itemId);
         return { found_item_id: itemId, verified: true, event_count: events.length, issues: [] };
       }
     },
     async moveItem(itemId, move) {
-      return requestRecoveryMeshApi(`/custody/items/${encodeURIComponent(itemId)}/move`, { method: "POST", body: JSON.stringify(move) });
+      if (shouldUseLocalRecoveryMesh()) {
+        return saveLocalRecord("CustodyEvent", {
+          id: createId("custody"),
+          found_item_id: itemId,
+          sequence_number: localCollection("CustodyEvent").filter((event) => event.found_item_id === itemId).length + 1,
+          event_type: move?.event_type || "moved",
+          location: move?.location || "",
+          notes: move?.notes || "",
+          created_date: new Date().toISOString(),
+          event_hash: "demo-local-move",
+        });
+      }
+
+      try {
+        return await requestRecoveryMeshApi(`/custody/items/${encodeURIComponent(itemId)}/move`, { method: "POST", body: JSON.stringify(move) });
+      } catch {
+        useLocalRecoveryMesh();
+        return saveLocalRecord("CustodyEvent", {
+          id: createId("custody"),
+          found_item_id: itemId,
+          sequence_number: localCollection("CustodyEvent").filter((event) => event.found_item_id === itemId).length + 1,
+          event_type: move?.event_type || "moved",
+          location: move?.location || "",
+          notes: move?.notes || "",
+          created_date: new Date().toISOString(),
+          event_hash: "demo-local-move",
+        });
+      }
     },
     async assetLookup(tag) {
-      try {
-        return await requestRecoveryMeshApi(`/assets/lookup?tag=${encodeURIComponent(tag)}`);
-      } catch {
+      if (shouldUseLocalRecoveryMesh()) {
         const record = localCollection("AssetRegistryRecord").find((asset) => asset.asset_tag?.toLowerCase() === String(tag).toLowerCase());
         return record
           ? { recognized: true, asset_tag: record.asset_tag, asset_type: record.asset_type, message: "Recognized school-owned property. It will be routed to the appropriate department." }
           : { recognized: false, asset_tag: tag, asset_type: "", message: "Asset tag was not found in the seeded demo adapter." };
       }
+
+      try {
+        const result = await requestRecoveryMeshApi(`/assets/lookup?tag=${encodeURIComponent(tag)}`);
+        if (result?.recognized) {
+          return result;
+        }
+      } catch {
+        useLocalRecoveryMesh();
+      }
+
+      const record = localCollection("AssetRegistryRecord").find((asset) => asset.asset_tag?.toLowerCase() === String(tag).toLowerCase());
+      return record
+        ? { recognized: true, asset_tag: record.asset_tag, asset_type: record.asset_type, message: "Recognized school-owned property. It will be routed to the appropriate department." }
+        : { recognized: false, asset_tag: tag, asset_type: "", message: "Asset tag was not found in the seeded demo adapter." };
     },
     async createReturnPass(claimId, data) {
-      return requestRecoveryMeshApi(`/claims/${encodeURIComponent(claimId)}/return-pass`, { method: "POST", body: JSON.stringify(data) });
+      if (shouldUseLocalRecoveryMesh()) {
+        return saveLocalRecord("ReturnPass", {
+          id: createId("pass"),
+          claim_id: claimId,
+          status: "active",
+          one_time_code: String(Math.floor(100000 + Math.random() * 900000)),
+          pickup_window: data?.pickup_window || "Next school day during office hours",
+          pickup_location: data?.pickup_location || "PVHS Main Office pickup station",
+          expires_at: data?.expires_at || "2026-12-31T23:59:00Z",
+          ...data,
+        });
+      }
+
+      try {
+        return await requestRecoveryMeshApi(`/claims/${encodeURIComponent(claimId)}/return-pass`, { method: "POST", body: JSON.stringify(data) });
+      } catch {
+        useLocalRecoveryMesh();
+        return saveLocalRecord("ReturnPass", {
+          id: createId("pass"),
+          claim_id: claimId,
+          status: "active",
+          one_time_code: String(Math.floor(100000 + Math.random() * 900000)),
+          pickup_window: data?.pickup_window || "Next school day during office hours",
+          pickup_location: data?.pickup_location || "PVHS Main Office pickup station",
+          expires_at: data?.expires_at || "2026-12-31T23:59:00Z",
+          ...data,
+        });
+      }
     },
     async returnPass(id) {
+      if (shouldUseLocalRecoveryMesh()) {
+        return localCollection("ReturnPass").find((pass) => pass.id === id) || null;
+      }
+
       try {
         return await requestRecoveryMeshApi(`/return-passes/${encodeURIComponent(id)}`);
       } catch {
+        useLocalRecoveryMesh();
         return localCollection("ReturnPass").find((pass) => pass.id === id) || null;
       }
     },
     async verifyReturnPass(oneTimeCode) {
+      if (shouldUseLocalRecoveryMesh()) {
+        const pass = localCollection("ReturnPass").find((entry) => entry.one_time_code === oneTimeCode);
+        return pass
+          ? { valid: pass.status === "active", return_pass_id: pass.id, status: pass.status, found_item_id: pass.found_item_id, claim_id: pass.claim_id, message: pass.status === "active" ? "Return Pass is valid." : "Return Pass is not active." }
+          : { valid: false, message: "Return Pass not found." };
+      }
+
       try {
         return await requestRecoveryMeshApi("/return-passes/verify", { method: "POST", body: JSON.stringify({ one_time_code: oneTimeCode }) });
       } catch {
+        useLocalRecoveryMesh();
         const pass = localCollection("ReturnPass").find((entry) => entry.one_time_code === oneTimeCode);
         return pass
           ? { valid: pass.status === "active", return_pass_id: pass.id, status: pass.status, found_item_id: pass.found_item_id, claim_id: pass.claim_id, message: pass.status === "active" ? "Return Pass is valid." : "Return Pass is not active." }
@@ -1588,23 +1860,39 @@ function createRecoveryMeshApi() {
       }
     },
     async redeemReturnPass(id, oneTimeCode) {
+      if (shouldUseLocalRecoveryMesh()) {
+        const current = localCollection("ReturnPass").find((pass) => pass.id === id) || {};
+        return saveLocalRecord("ReturnPass", { ...current, status: "redeemed", redeemed_at: new Date().toISOString() });
+      }
+
       try {
         return await requestRecoveryMeshApi(`/return-passes/${encodeURIComponent(id)}/redeem`, { method: "POST", body: JSON.stringify({ one_time_code: oneTimeCode }) });
       } catch {
+        useLocalRecoveryMesh();
         const current = localCollection("ReturnPass").find((pass) => pass.id === id) || {};
         return saveLocalRecord("ReturnPass", { ...current, status: "redeemed", redeemed_at: new Date().toISOString() });
       }
     },
     async sentinelAlerts() {
+      if (shouldUseLocalRecoveryMesh()) {
+        return localCollection("PreventionAlert");
+      }
+
       try {
-        return await requestRecoveryMeshApi("/sentinel/alerts");
+        const records = await requestRecoveryMeshApi("/sentinel/alerts");
+        return localCollectionWhenEmpty(records, "PreventionAlert");
       } catch {
         return localCollection("PreventionAlert");
       }
     },
     async recomputeSentinel() {
+      if (shouldUseLocalRecoveryMesh()) {
+        return localCollection("PreventionAlert");
+      }
+
       try {
-        return await requestRecoveryMeshApi("/sentinel/recompute", { method: "POST" });
+        const records = await requestRecoveryMeshApi("/sentinel/recompute", { method: "POST" });
+        return localCollectionWhenEmpty(records, "PreventionAlert");
       } catch {
         return localCollection("PreventionAlert");
       }
@@ -1618,15 +1906,25 @@ function createRecoveryMeshApi() {
       }
     },
     async recoveryNodes() {
+      if (shouldUseLocalRecoveryMesh()) {
+        return localCollection("RecoveryNode");
+      }
+
       try {
-        return await requestRecoveryMeshApi("/recovery-nodes");
+        const records = await requestRecoveryMeshApi("/recovery-nodes");
+        return localCollectionWhenEmpty(records, "RecoveryNode");
       } catch {
         return localCollection("RecoveryNode");
       }
     },
     async partnerRelays() {
+      if (shouldUseLocalRecoveryMesh()) {
+        return localCollection("PartnerRelay");
+      }
+
       try {
-        return await requestRecoveryMeshApi("/partner-relays");
+        const records = await requestRecoveryMeshApi("/partner-relays");
+        return localCollectionWhenEmpty(records, "PartnerRelay");
       } catch {
         return localCollection("PartnerRelay");
       }
