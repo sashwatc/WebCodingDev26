@@ -31,6 +31,7 @@ import {
   Tag,
   Shield,
   LockKeyhole,
+  Sparkles,
 } from "lucide-react";
 
 const createInitialForm = () => ({
@@ -66,6 +67,7 @@ export default function ReportFound() {
   const [form, setForm] = useState(() => createInitialForm());
   const [errors, setErrors] = useState({});
   const [generatedTags, setGeneratedTags] = useState([]);
+  const aiProcessing = helperProcessing;
 
   const [formStep, setFormStep] = useState(1);
 

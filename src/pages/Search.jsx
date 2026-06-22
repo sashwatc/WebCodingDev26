@@ -96,12 +96,9 @@ export default function Search() {
 
   const searchableRecords = useMemo(
     () => {
-      if (hasAdminAccess) {
-        return [...publicFoundItems, ...publicLostReports];
-      }
-      return publicLostReports;
+      return [...publicFoundItems, ...publicLostReports];
     },
-    [publicFoundItems, publicLostReports, hasAdminAccess]
+    [publicFoundItems, publicLostReports]
   );
 
   const filteredItems = useMemo(() => {
