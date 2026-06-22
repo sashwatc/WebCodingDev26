@@ -38,6 +38,9 @@ const createInitialForm = (user) => ({
   student_id: "",
   reason: "",
   identifying_details: "",
+  private_detail: "",
+  contents_detail: "",
+  evidence_checklist: [],
   proof_photo_url: "",
   pickup_availability: "",
   truthful: false,
@@ -103,6 +106,11 @@ export default function ClaimItem() {
         student_id: form.student_id,
         reason: form.reason,
         identifying_details: form.identifying_details,
+        private_evidence_responses: {
+          hidden_detail: form.private_detail,
+          contents_or_condition: form.contents_detail,
+        },
+        evidence_checklist: form.evidence_checklist,
         proof_photo_url: form.proof_photo_url,
         pickup_availability: form.pickup_availability,
         status: "submitted",
@@ -316,9 +324,9 @@ export default function ClaimItem() {
 
             <section className="space-y-5">
               <div className="space-y-2">
-                <h2 className="text-lg font-semibold text-slate-950">{t("claim_item.ownership_verification")}</h2>
+                <h2 className="text-lg font-semibold text-slate-950">Sealed Ownership Verification</h2>
                 <p className="text-sm text-slate-600">
-                  {t("claim_item.ownership_description")}
+                  Tell staff something about this item that is not shown publicly. Hidden clues stay private and do not automatically approve a claim.
                 </p>
               </div>
 
@@ -344,6 +352,51 @@ export default function ClaimItem() {
                   value={form.identifying_details}
                   onChange={(event) => updateField("identifying_details", event.target.value)}
                 />
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <Label htmlFor="c_private">Private detail</Label>
+                  <Textarea
+                    id="c_private"
+                    rows={3}
+                    placeholder="Engraving, scratch location, hidden sticker, serial fragment"
+                    value={form.private_detail}
+                    onChange={(event) => updateField("private_detail", event.target.value)}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="c_contents">Contents or condition</Label>
+                  <Textarea
+                    id="c_contents"
+                    rows={3}
+                    placeholder="Interior color, item contents, case condition, cable tie"
+                    value={form.contents_detail}
+                    onChange={(event) => updateField("contents_detail", event.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                <p className="text-sm font-semibold text-slate-900">Help staff verify ownership</p>
+                <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                  {["hidden mark", "item contents", "proof photo"].map((label) => (
+                    <label key={label} className="flex items-center gap-2 rounded-md bg-white px-3 py-2 text-sm text-slate-700 border border-slate-200">
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4 accent-primary"
+                        checked={form.evidence_checklist.includes(label)}
+                        onChange={(event) => {
+                          const next = event.target.checked
+                            ? [...form.evidence_checklist, label]
+                            : form.evidence_checklist.filter((entry) => entry !== label);
+                          updateField("evidence_checklist", next);
+                        }}
+                      />
+                      {label}
+                    </label>
+                  ))}
+                </div>
               </div>
 
               <PhotoUploader

@@ -54,6 +54,12 @@ export default function UserDashboard() {
     enabled: !!user?.email,
   });
 
+  const { data: recoveryCases = [] } = useQuery({
+    queryKey: ["userRecoveryCases", user?.email],
+    queryFn: () => appClient.recoveryMesh.recoveryCases(),
+    enabled: !!user?.email,
+  });
+
   // Fetch user's notifications
   const { data: notifications = [], isLoading: notifLoading } = useQuery({
     queryKey: ["userNotifications", user?.email],
@@ -143,6 +149,15 @@ export default function UserDashboard() {
         return itemsById;
       }, {}),
     [foundItems]
+  );
+
+  const recoveryCasesByReportId = useMemo(
+    () =>
+      recoveryCases.reduce((casesByReportId, recoveryCase) => {
+        casesByReportId[recoveryCase.lost_report_id] = recoveryCase;
+        return casesByReportId;
+      }, {}),
+    [recoveryCases]
   );
 
   const EmptyState = ({ icon: Icon, message }) => (
@@ -274,6 +289,12 @@ export default function UserDashboard() {
             {t("user_dashboard.tab_claims")}
           </TabsTrigger>
           <TabsTrigger
+            value="recovery"
+            className="px-5 py-2.5 rounded-lg text-sm font-semibold transition-all data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm"
+          >
+            Recovery Cases
+          </TabsTrigger>
+          <TabsTrigger
             value="notifications"
             className="px-5 py-2.5 rounded-lg text-sm font-semibold transition-all data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm"
           >
@@ -350,7 +371,7 @@ export default function UserDashboard() {
                         </p>
                         <div className="flex flex-wrap gap-2">
                           {report.matched_items.map(match => {
-                            const matchId = match?.found_item_id || match;
+                            const matchId = typeof match === "string" ? match : (match?.found_item_id || match?.foundItemId);
                             const matchedItem = foundItemsById[matchId];
                             if (!matchedItem) return null;
                             return (
@@ -375,6 +396,53 @@ export default function UserDashboard() {
                   </CardContent>
                 </Card>
               ))}
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="recovery" className="space-y-4">
+          {lostReports.length === 0 ? (
+            <EmptyState icon={ShieldAlert} message="No recovery cases yet." />
+          ) : (
+            <div className="space-y-4">
+              {lostReports.map((report) => {
+                const recoveryCase = recoveryCasesByReportId[report.id];
+                return (
+                  <Card key={report.id} className="border-slate-200">
+                    <CardContent className="p-5">
+                      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                        <div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <h3 className="text-lg font-bold text-slate-900">{report.item_type}</h3>
+                            {recoveryCase ? <StatusBadge status={recoveryCase.status} /> : <Badge variant="outline">open</Badge>}
+                          </div>
+                          <p className="mt-2 text-sm text-slate-600">
+                            {recoveryCase?.status === "match_identified" && "A possible item match is available."}
+                            {recoveryCase?.status === "claim_in_review" && "Your ownership claim is under review."}
+                            {recoveryCase?.status === "pickup_ready" && "Your item is ready for pickup."}
+                            {(!recoveryCase || recoveryCase?.status === "open") && "Staff are checking likely locations."}
+                            {recoveryCase?.status === "returned" && "Your item has been returned."}
+                          </p>
+                          {recoveryCase?.likely_zone_summaries?.length > 0 && (
+                            <div className="mt-3 flex flex-wrap gap-2">
+                              {recoveryCase.likely_zone_summaries.map((zone) => (
+                                <Badge key={zone} variant="outline" className="bg-slate-50">{zone}</Badge>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => appClient.recoveryMesh.refreshRecoveryCase(report.id)}
+                        >
+                          Refresh plan
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
             </div>
           )}
         </TabsContent>

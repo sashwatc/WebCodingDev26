@@ -34,7 +34,7 @@ import {
   Sparkles,
 } from "lucide-react";
 
-const createInitialForm = () => ({
+const createInitialForm = (params = new URLSearchParams()) => ({
   title: "",
   category: "",
   subcategory: "",
@@ -52,6 +52,11 @@ const createInitialForm = () => ({
   finder_email: "",
   finder_role: "student",
   linked_lost_report_id: "",
+  event_hub_id: params.get("event") || params.get("event_hub_id") || "",
+  campus_zone_id: params.get("zone") || params.get("campus_zone_id") || "",
+  asset_tag: "",
+  restricted_visibility: false,
+  private_verification_clues: [],
   privacy_consent: false,
   terms_acknowledged: false,
   ai_description: "",
@@ -67,7 +72,7 @@ export default function ReportFound() {
   const linkedLostReportId = new URLSearchParams(location.search).get("lost_report_id") || "";
   const [step, setStep] = useState(1);
   const [helperProcessing, setHelperProcessing] = useState(false);
-  const [form, setForm] = useState(() => createInitialForm());
+  const [form, setForm] = useState(() => createInitialForm(new URLSearchParams(location.search)));
   const [errors, setErrors] = useState({});
   const [generatedTags, setGeneratedTags] = useState([]);
   const aiProcessing = helperProcessing;
@@ -102,7 +107,7 @@ export default function ReportFound() {
   }, [linkedLostReport, prefilledReportId]);
 
   const resetForm = () => {
-    setForm(createInitialForm());
+    setForm(createInitialForm(new URLSearchParams(location.search)));
     setGeneratedTags([]);
     setErrors({});
     setFormStep(1);
@@ -233,6 +238,24 @@ export default function ReportFound() {
     },
   });
 
+  const assetLookupMutation = useMutation({
+    mutationFn: (tag) => appClient.recoveryMesh.assetLookup(tag),
+    onSuccess: (result) => {
+      if (result.recognized) {
+        updateField("restricted_visibility", true);
+        toast({
+          title: "School asset recognized",
+          description: result.message,
+        });
+      } else {
+        toast({
+          title: "Asset tag not recognized",
+          description: result.message,
+        });
+      }
+    },
+  });
+
   const handleSubmit = (event) => {
     event.preventDefault();
     if (!validate()) {
@@ -305,6 +328,12 @@ export default function ReportFound() {
           </div>
         </div>
       </div>
+
+      {(form.event_hub_id || form.campus_zone_id) && (
+        <div className="mb-6 rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
+          You are reporting from a demo event beacon. This does not use GPS; correct the location if needed.
+        </div>
+      )}
 
       {/* Progress Tracker */}
       <div className="mb-8 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl p-5 shadow-sm">
@@ -399,6 +428,31 @@ export default function ReportFound() {
               </div>
 
               <PhotoUploader photos={form.photo_urls} onChange={(urls) => updateField("photo_urls", urls)} />
+
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                <Label htmlFor="asset_tag">Optional school asset tag</Label>
+                <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+                  <Input
+                    id="asset_tag"
+                    placeholder="PVHS-CB-1042"
+                    value={form.asset_tag}
+                    onChange={(event) => updateField("asset_tag", event.target.value)}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={!form.asset_tag || assetLookupMutation.isPending}
+                    onClick={() => assetLookupMutation.mutate(form.asset_tag)}
+                  >
+                    {assetLookupMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Check tag"}
+                  </Button>
+                </div>
+                {form.restricted_visibility && (
+                  <p className="mt-2 text-xs font-medium text-emerald-800">
+                    Recognized school-owned property. It will be routed to the appropriate department.
+                  </p>
+                )}
+              </div>
 
               <div className="flex justify-end pt-4">
                 <Button type="button" size="lg" onClick={handleNextStep} className="px-8">

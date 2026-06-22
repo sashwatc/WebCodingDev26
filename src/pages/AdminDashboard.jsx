@@ -10,7 +10,7 @@ import { useTranslation } from "react-i18next";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { appClient } from "@/api/appClient";
 import AdminOverview from "@/components/admin/AdminOverview";
 import AdminItemsQueue from "@/components/admin/AdminItemsQueue";
@@ -24,10 +24,15 @@ import {
   Package,
   FileCheck,
   AlertTriangle,
+  Radar,
+  ShieldCheck,
+  Route,
 } from "lucide-react";
 
 export default function AdminDashboard() {
   const { t } = useTranslation();
+  const queryClient = useQueryClient();
+  const [activeTab, setActiveTab] = React.useState("overview");
   const { data: foundItems = [], isLoading: fiLoading } = useQuery({
     queryKey: ["adminFoundItems"],
     queryFn: () => appClient.entities.FoundItem.list("-created_date", 500),
@@ -46,6 +51,45 @@ export default function AdminDashboard() {
   const { data: auditLogs = [] } = useQuery({
     queryKey: ["adminAuditLogs"],
     queryFn: () => appClient.entities.AuditLog.list("-created_date", 100),
+  });
+
+  const { data: recoveryCases = [] } = useQuery({
+    queryKey: ["adminRecoveryCases"],
+    queryFn: () => appClient.recoveryMesh.recoveryCases(),
+  });
+
+  const { data: recoveryMissions = [] } = useQuery({
+    queryKey: ["adminRecoveryMissions", recoveryCases.map((entry) => entry.id).join(",")],
+    queryFn: async () => {
+      const groups = await Promise.all(recoveryCases.map((entry) => appClient.recoveryMesh.missions(entry.id)));
+      return groups.flat();
+    },
+    enabled: recoveryCases.length > 0,
+  });
+
+  const { data: sentinelAlerts = [] } = useQuery({
+    queryKey: ["adminSentinelAlerts"],
+    queryFn: () => appClient.recoveryMesh.sentinelAlerts(),
+  });
+
+  const { data: partnerRelays = [] } = useQuery({
+    queryKey: ["adminPartnerRelays"],
+    queryFn: () => appClient.recoveryMesh.partnerRelays(),
+  });
+
+  const { data: assetDemo } = useQuery({
+    queryKey: ["adminAssetDemoLookup"],
+    queryFn: () => appClient.recoveryMesh.assetLookup("PVHS-CB-1042"),
+  });
+
+  const updateMissionMutation = useMutation({
+    mutationFn: ({ id, updates }) => appClient.recoveryMesh.updateMission(id, updates),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["adminRecoveryMissions"] }),
+  });
+
+  const updateAlertMutation = useMutation({
+    mutationFn: ({ id, updates }) => appClient.recoveryMesh.updateSentinelAlert(id, updates),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["adminSentinelAlerts"] }),
   });
 
   const isLoading = fiLoading || lrLoading || clLoading;
@@ -88,7 +132,7 @@ export default function AdminDashboard() {
             <Skeleton className="h-80 rounded-xl bg-slate-100 dark:bg-slate-900" />
           </div>
         ) : (
-          <Tabs defaultValue="overview" className="w-full">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800/80 p-1 rounded-xl mb-6 flex w-fit gap-1 shadow-inner">
               <TabsTrigger
                 value="overview"
@@ -120,6 +164,20 @@ export default function AdminDashboard() {
                     {openReports}
                   </Badge>
                 )}
+              </TabsTrigger>
+              <TabsTrigger
+                value="recovery"
+                className="px-5 py-2.5 rounded-lg text-sm font-semibold transition-all text-slate-500 dark:text-slate-400 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-800 data-[state=active]:text-slate-900 dark:data-[state=active]:text-white data-[state=active]:shadow-sm gap-2"
+              >
+                <Radar className="h-4 w-4" />
+                Recovery Center
+              </TabsTrigger>
+              <TabsTrigger
+                value="sentinel"
+                className="px-5 py-2.5 rounded-lg text-sm font-semibold transition-all text-slate-500 dark:text-slate-400 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-800 data-[state=active]:text-slate-900 dark:data-[state=active]:text-white data-[state=active]:shadow-sm gap-2"
+              >
+                <ShieldCheck className="h-4 w-4" />
+                Loss Sentinel
               </TabsTrigger>
             </TabsList>
 
@@ -208,6 +266,143 @@ export default function AdminDashboard() {
                   </div>
                 )}
               </div>
+            </TabsContent>
+
+            <TabsContent value="recovery" className="space-y-6">
+              <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
+                <div className="space-y-3">
+                  <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">Recovery Cases</h2>
+                  {recoveryCases.map((recoveryCase) => (
+                    <div key={recoveryCase.id} className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900/40">
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                          <p className="font-semibold text-slate-900 dark:text-slate-100">{recoveryCase.summary || recoveryCase.case_code}</p>
+                          <p className="mt-1 text-xs text-slate-500">{recoveryCase.case_code} · {recoveryCase.priority}</p>
+                        </div>
+                        <StatusBadge status={recoveryCase.status} />
+                      </div>
+                      <p className="mt-3 whitespace-pre-line text-sm leading-6 text-slate-600 dark:text-slate-400">{recoveryCase.recovery_plan}</p>
+                    </div>
+                  ))}
+                </div>
+                <div className="space-y-3">
+                  <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">Recovery Missions</h2>
+                  {recoveryMissions.map((mission) => (
+                    <div key={mission.id} className="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900/40">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="font-semibold text-slate-900 dark:text-slate-100">{mission.title}</p>
+                          <p className="mt-1 text-xs text-slate-500">{mission.zone_label} · {mission.score}%</p>
+                        </div>
+                        <StatusBadge status={mission.status} />
+                      </div>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700 hover:border-primary hover:text-primary"
+                          onClick={() => updateMissionMutation.mutate({ id: mission.id, updates: { assigned_to: "avery.patel@pleasantvalley.edu" } })}
+                        >
+                          Assign
+                        </button>
+                        {["checked", "possible_item_found", "escalated", "completed", "dismissed"].map((status) => (
+                          <button
+                            key={status}
+                            type="button"
+                            className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-600 hover:border-primary hover:text-primary"
+                            onClick={() => updateMissionMutation.mutate({ id: mission.id, updates: { status } })}
+                          >
+                            {status.replaceAll("_", " ")}
+                          </button>
+                        ))}
+                      </div>
+                      {mission.assigned_to && <p className="mt-2 text-xs text-slate-500">Assigned to {mission.assigned_to}</p>}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900/40">
+                <h2 className="flex items-center gap-2 text-lg font-bold text-slate-900 dark:text-slate-100">
+                  <Route className="h-5 w-5 text-primary" />
+                  Partner Relay Simulation
+                </h2>
+                <div className="mt-3 grid gap-3 md:grid-cols-2">
+                  {partnerRelays.map((relay) => (
+                    <div key={relay.id} className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm dark:border-slate-800 dark:bg-slate-950">
+                      <p className="font-semibold text-slate-900 dark:text-slate-100">{relay.public_summary}</p>
+                      <p className="mt-2 text-xs text-slate-500">Demo/integration-ready simulation · {relay.status}</p>
+                      <div className="mt-2 flex flex-wrap gap-1">
+                        {(relay.redacted_match_reasons || []).map((reason) => <Badge key={reason} variant="outline">{reason}</Badge>)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900/40">
+                <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">Asset Rescue Bridge</h2>
+                <p className="mt-1 text-sm text-slate-500">Seeded adapter only. Recognized school assets are restricted from public search and routed internally.</p>
+                {assetDemo?.recognized && (
+                  <div className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
+                    {assetDemo.asset_tag} · {assetDemo.asset_type} recognized by seeded demo adapter.
+                  </div>
+                )}
+                <div className="mt-3 grid gap-3 md:grid-cols-2">
+                  {foundItems.filter((item) => item.asset_tag || item.restricted_visibility).map((item) => (
+                    <div key={item.id} className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm dark:border-slate-800 dark:bg-slate-950">
+                      <p className="font-semibold text-slate-900 dark:text-slate-100">{item.title}</p>
+                      <p className="mt-1 text-xs text-slate-500">{item.asset_tag || "restricted item"} · {item.status}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="sentinel" className="space-y-4">
+              {sentinelAlerts.map((alert) => (
+                <div key={alert.id} className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900/40">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p className="font-bold text-slate-900 dark:text-slate-100">{alert.title}</p>
+                      <p className="mt-1 text-sm text-slate-500">{alert.category} · observed {alert.observed_count} vs baseline {alert.baseline_count}</p>
+                    </div>
+                    <Badge variant="outline" className="capitalize">{alert.severity}</Badge>
+                  </div>
+                  <div className="mt-3 grid gap-4 md:grid-cols-2">
+                    <div>
+                      <p className="text-xs font-semibold uppercase text-slate-500">Reasons</p>
+                      <ul className="mt-2 space-y-1 text-sm text-slate-600">
+                        {(alert.reasons || []).map((reason) => <li key={reason}>{reason}</li>)}
+                      </ul>
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold uppercase text-slate-500">Suggested actions</p>
+                      <ul className="mt-2 space-y-1 text-sm text-slate-600">
+                        {(alert.suggested_actions || []).map((action) => <li key={action}>{action}</li>)}
+                      </ul>
+                    </div>
+                  </div>
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setActiveTab("recovery")}
+                    >
+                      Create recovery mission
+                    </Button>
+                    {["acknowledged", "resolved", "dismissed"].map((status) => (
+                      <Button
+                        key={status}
+                        size="sm"
+                        variant="outline"
+                        onClick={() => updateAlertMutation.mutate({ id: alert.id, updates: { status } })}
+                      >
+                        {status}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              ))}
             </TabsContent>
           </Tabs>
         )}

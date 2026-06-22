@@ -5,9 +5,11 @@ const STORAGE_KEY = "findback-app-db-v2";
 const AUTH_STORAGE_KEY = "findback-auth-user";
 const API_BASE_URL = String(import.meta.env.VITE_API_URL || "").replace(/\/$/, "");
 const FOUND_ITEMS_API_URL = `${API_BASE_URL}/api/items`;
+const ADMIN_FOUND_ITEMS_API_URL = `${API_BASE_URL}/api/admin/items`;
 const ENTITY_API_BASE_URL = `${API_BASE_URL}/api/entities`;
 const AUTH_API_BASE_URL = `${API_BASE_URL}/api/auth`;
 const UPLOAD_API_URL = `${API_BASE_URL}/api/uploads`;
+const API_ROOT_URL = `${API_BASE_URL}/api`;
 const BLACK_HYDRO_FLASK_PHOTO = "/items/black-hydro-flask.jpg";
 const BLUE_BACKPACK_PHOTO = "/images/blue-backpack.png";
 const AIRPODS_PRO_PHOTO = "/items/airpods-pro-case.png";
@@ -112,6 +114,9 @@ function createSeedData() {
         status: "approved",
         priority: "high",
         item_code: "FB-2026-AP91",
+        event_hub_id: "hub_basketball_game",
+        campus_zone_id: "zone_gym_bleachers",
+        private_verification_clues: ["small scratch near the hinge", "silver initials inside the lid"],
         is_flagged: false,
         assigned_to: "front-office",
         created_date: daysAgo(3),
@@ -252,6 +257,10 @@ function createSeedData() {
         status: "approved",
         priority: "medium",
         item_code: "FB-2026-MC63",
+        asset_tag: "PVHS-CB-1042",
+        asset_record_id: "asset_cb_1042",
+        department_destination: "Technology Office",
+        restricted_visibility: true,
         is_flagged: false,
         assigned_to: "tech-office",
         created_date: daysAgo(4),
@@ -578,6 +587,135 @@ function createSeedData() {
         updated_date: daysAgo(1, 13),
       },
     ],
+    CampusZone: [
+      { id: "zone_library", label: "Library Study Area", description: "Library tables and study shelves." },
+      { id: "zone_gym_entrance", label: "Gym Entrance", description: "Gym lobby and ticket area." },
+      { id: "zone_gym_bleachers", label: "Gym Bleachers", description: "Home and visitor bleacher rows." },
+      { id: "zone_cafeteria", label: "Cafeteria", description: "Dining tables and tray return area." },
+      { id: "zone_main_office", label: "Main Office", description: "Front desk intake and pickup." },
+      { id: "zone_bus_loop", label: "Bus Loop", description: "After-school pickup curb." },
+      { id: "zone_auditorium", label: "Auditorium", description: "Stage, seating, and rehearsal area." },
+      { id: "zone_athletics", label: "Athletics Office", description: "Athletics office and equipment desk." },
+    ],
+    EventRecoveryHub: [
+      {
+        id: "hub_basketball_game",
+        tenant_id: "pvhs",
+        name: "PVHS vs. Bettendorf Basketball Game",
+        description: "Demo integration-ready recovery hub for a high-traffic campus event.",
+        event_type: "athletics",
+        start_time: "2026-03-14T18:00:00Z",
+        end_time: "2026-03-14T21:00:00Z",
+        status: "active",
+        campus_zone_ids: ["zone_gym_entrance", "zone_gym_bleachers", "zone_athletics"],
+        public_enabled: true,
+        display_enabled: true,
+      },
+    ],
+    RecoveryCase: [
+      {
+        id: "case_airpods_game",
+        case_code: "PVHS-RM-20260314-AIRP",
+        tenant_id: "pvhs",
+        lost_report_id: "lost_001",
+        selected_found_item_id: "found_002",
+        linked_claim_id: "claim_004",
+        event_hub_id: "hub_basketball_game",
+        campus_zone_id: "zone_gym_bleachers",
+        status: "claim_in_review",
+        priority: "high",
+        assigned_to: "avery.patel@pleasantvalley.edu",
+        summary: "Lost AirPods-style case during the basketball game.",
+        recovery_plan: "Likely Recovery Zones\n1. Gym Bleachers - 86%\n2. Gym Entrance - 61%\n3. Main Office - 35%\n\nWhy:\n- Last seen near gym\n- Similar electronics were found nearby\n- Event workflow is active",
+        likely_zone_summaries: ["Gym Bleachers - 86%", "Gym Entrance - 61%", "Main Office - 35%"],
+        created_date: daysAgo(2),
+        updated_date: daysAgo(1),
+      },
+    ],
+    RecoveryMission: [
+      {
+        id: "mission_bleachers",
+        recovery_case_id: "case_airpods_game",
+        event_hub_id: "hub_basketball_game",
+        campus_zone_id: "zone_gym_bleachers",
+        zone_label: "Gym Bleachers",
+        title: "Check Gym Bleachers",
+        recommended_action: "Staff should check this zone and compare any found item with the lost report.",
+        reasons: ["Last seen near gym", "Event workflow is active"],
+        score: 86,
+        priority: "high",
+        status: "open",
+      },
+      {
+        id: "mission_entrance",
+        recovery_case_id: "case_airpods_game",
+        event_hub_id: "hub_basketball_game",
+        campus_zone_id: "zone_gym_entrance",
+        zone_label: "Gym Entrance",
+        title: "Check Gym Entrance",
+        recommended_action: "Review items turned in near the gym entrance.",
+        reasons: ["Similar electronics were found nearby"],
+        score: 61,
+        priority: "medium",
+        status: "checked",
+      },
+    ],
+    CustodyEvent: [
+      { id: "custody_001", found_item_id: "found_002", sequence_number: 1, event_type: "intake_created", location: "Main Office drawer E1", notes: "Event item intake created.", created_date: daysAgo(3), event_hash: "demo-verified-1" },
+      { id: "custody_002", found_item_id: "found_002", sequence_number: 2, event_type: "reviewed", location: "Main Office drawer E1", notes: "Proof Vault clues sealed.", created_date: daysAgo(3), event_hash: "demo-verified-2" },
+      { id: "custody_003", found_item_id: "found_002", sequence_number: 3, event_type: "matched", location: "", notes: "Advisory match linked to lost report.", created_date: daysAgo(2), event_hash: "demo-verified-3" },
+    ],
+    ReturnPass: [
+      {
+        id: "pass_lanyard_active",
+        claim_id: "claim_003",
+        found_item_id: "found_006",
+        claimant_email: "eli.thompson@pleasantvalley.edu",
+        pickup_window: "Next school day during office hours",
+        pickup_location: "PVHS Main Office pickup station",
+        status: "active",
+        one_time_code: "314159",
+        expires_at: "2026-12-31T23:59:00Z",
+      },
+    ],
+    PreventionAlert: [
+      {
+        id: "alert_gym_electronics",
+        title: "Unusual increase detected",
+        alert_type: "volume_spike",
+        severity: "high",
+        campus_zone_id: "zone_gym_bleachers",
+        category: "electronics",
+        baseline_count: 2,
+        observed_count: 6,
+        reasons: ["6 electronics reports near the gym within 90 minutes after Friday practice.", "Observed volume is at least 2x the recent baseline."],
+        suggested_actions: ["Check bleachers and benches", "Create recovery mission", "Post reminder at gym exit"],
+        status: "open",
+      },
+    ],
+    AssetRegistryRecord: [
+      { id: "asset_cb_1042", asset_tag: "PVHS-CB-1042", asset_type: "Chromebook", department_destination: "Technology Office", status: "active" },
+      { id: "asset_book_8821", asset_tag: "LIB-BOOK-8821", asset_type: "Library Book", department_destination: "Library Return Desk", status: "active" },
+      { id: "asset_cam_027", asset_tag: "ATH-CAM-027", asset_type: "Camera", department_destination: "Athletics Office", status: "active" },
+      { id: "asset_band_008", asset_tag: "BAND-INST-008", asset_type: "Instrument", department_destination: "Fine Arts Office", status: "active" },
+    ],
+    RecoveryNode: [
+      { id: "node_main_office", name: "PVHS Main Office", node_type: "demo_partner", status: "active" },
+      { id: "node_athletics", name: "PVHS Athletics", node_type: "demo_partner", status: "active" },
+      { id: "node_transportation", name: "PVHS Transportation", node_type: "demo_partner", status: "active" },
+      { id: "node_fine_arts", name: "PVHS Fine Arts", node_type: "demo_partner", status: "active" },
+    ],
+    PartnerRelay: [
+      {
+        id: "relay_airpods_athletics",
+        source_node_id: "node_main_office",
+        target_node_id: "node_athletics",
+        recovery_case_id: "case_airpods_game",
+        status: "awaiting_verification",
+        public_summary: "A possible match may be available at a partner location. Submit ownership evidence to continue.",
+        redacted_match_reasons: ["Category and color overlap", "Event zone context overlaps"],
+      },
+    ],
   };
 }
 
@@ -611,7 +749,14 @@ function readDb() {
   }
 
   try {
-    return JSON.parse(raw);
+    const parsed = JSON.parse(raw);
+    const seeded = createSeedData();
+    const merged = { ...seeded, ...parsed };
+    const changed = Object.keys(seeded).some((key) => !Array.isArray(parsed[key]));
+    if (changed) {
+      storage.setItem(STORAGE_KEY, JSON.stringify(merged));
+    }
+    return merged;
   } catch {
     const seeded = createSeedData();
     storage.setItem(STORAGE_KEY, JSON.stringify(seeded));
@@ -1267,12 +1412,226 @@ async function requestFoundItemsApi(path = "", options = {}) {
   return requestApi(`${FOUND_ITEMS_API_URL}${path}`, options);
 }
 
+async function requestAdminFoundItemsApi(path = "", options = {}) {
+  return requestApi(`${ADMIN_FOUND_ITEMS_API_URL}${path}`, {
+    ...options,
+    headers: {
+      ...adminHeaders(),
+      ...(options.headers || {}),
+    },
+  });
+}
+
 async function requestEntityApi(entityName, path = "", options = {}) {
   return requestApi(`${ENTITY_API_BASE_URL}/${encodeURIComponent(entityName)}${path}`, options);
 }
 
 async function requestAuthApi(path = "", options = {}) {
   return requestApi(`${AUTH_API_BASE_URL}${path}`, options);
+}
+
+function adminHeaders() {
+  const user = readAuthUser();
+  return user?.email ? { "X-Demo-User-Email": user.email } : {};
+}
+
+function isAdminUser(user = readAuthUser()) {
+  return String(user?.role || "").toLowerCase() === "admin";
+}
+
+async function requestRecoveryMeshApi(path = "", options = {}) {
+  return requestApi(`${API_ROOT_URL}${path}`, {
+    ...options,
+    headers: {
+      ...adminHeaders(),
+      ...(options.headers || {}),
+    },
+  });
+}
+
+function localCollection(name) {
+  return clone(readDb()[name] || []);
+}
+
+function saveLocalRecord(name, record) {
+  upsertCachedRecord(name, record);
+  return clone(record);
+}
+
+function createRecoveryMeshApi() {
+  return {
+    async campusZones() {
+      try {
+        return await requestRecoveryMeshApi("/campus-zones");
+      } catch {
+        return localCollection("CampusZone");
+      }
+    },
+    async eventHubs() {
+      try {
+        return await requestRecoveryMeshApi("/event-hubs");
+      } catch {
+        return localCollection("EventRecoveryHub").filter((hub) => hub.public_enabled);
+      }
+    },
+    async eventHub(id) {
+      try {
+        return await requestRecoveryMeshApi(`/event-hubs/${encodeURIComponent(id)}`);
+      } catch {
+        return localCollection("EventRecoveryHub").find((hub) => hub.id === id) || null;
+      }
+    },
+    async displayFeed(id) {
+      try {
+        return await requestRecoveryMeshApi(`/event-hubs/${encodeURIComponent(id)}/display-feed`);
+      } catch {
+        const db = readDb();
+        const eventHub = (db.EventRecoveryHub || []).find((hub) => hub.id === id);
+        const zones = (db.CampusZone || []).filter((zone) => eventHub?.campus_zone_ids?.includes(zone.id));
+        const foundItems = (db.FoundItem || [])
+          .map((record) => normalizeFoundItem(record))
+          .filter((item) => item.event_hub_id === id && isPublicFoundItem(item));
+        return { event_hub: eventHub, zones, found_items: foundItems, notice: "Demo integration-ready event workflow. This does not claim connection to a live PVHS calendar or school display system." };
+      }
+    },
+    async recoveryCases() {
+      try {
+        return await requestRecoveryMeshApi("/recovery-cases");
+      } catch {
+        return localCollection("RecoveryCase");
+      }
+    },
+    async recoveryCaseByLostReport(lostReportId) {
+      try {
+        return await requestRecoveryMeshApi(`/recovery-cases/lost-reports/${encodeURIComponent(lostReportId)}`);
+      } catch {
+        return localCollection("RecoveryCase").find((entry) => entry.lost_report_id === lostReportId) || null;
+      }
+    },
+    async refreshRecoveryCase(lostReportId) {
+      try {
+        return await requestRecoveryMeshApi(`/recovery-cases/lost-reports/${encodeURIComponent(lostReportId)}/refresh`, { method: "POST" });
+      } catch {
+        return this.recoveryCaseByLostReport(lostReportId);
+      }
+    },
+    async missions(recoveryCaseId) {
+      try {
+        return await requestRecoveryMeshApi(`/recovery-cases/${encodeURIComponent(recoveryCaseId)}/missions`);
+      } catch {
+        return localCollection("RecoveryMission").filter((mission) => mission.recovery_case_id === recoveryCaseId);
+      }
+    },
+    async updateMission(id, updates) {
+      try {
+        return await requestRecoveryMeshApi(`/recovery-missions/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify(updates) });
+      } catch {
+        const current = localCollection("RecoveryMission").find((mission) => mission.id === id) || {};
+        return saveLocalRecord("RecoveryMission", { ...current, ...updates, id });
+      }
+    },
+    async proofVault(itemId) {
+      return requestRecoveryMeshApi(`/items/${encodeURIComponent(itemId)}/proof-vault`);
+    },
+    async evidenceReview(claimId) {
+      return requestRecoveryMeshApi(`/claims/${encodeURIComponent(claimId)}/evidence-review`);
+    },
+    async submitEvidenceReview(claimId, review) {
+      return requestRecoveryMeshApi(`/claims/${encodeURIComponent(claimId)}/evidence-review`, { method: "POST", body: JSON.stringify(review) });
+    },
+    async custodyEvents(itemId) {
+      try {
+        return await requestRecoveryMeshApi(`/custody/items/${encodeURIComponent(itemId)}`);
+      } catch {
+        return localCollection("CustodyEvent").filter((event) => event.found_item_id === itemId);
+      }
+    },
+    async verifyCustody(itemId) {
+      try {
+        return await requestRecoveryMeshApi(`/custody/items/${encodeURIComponent(itemId)}/verify`);
+      } catch {
+        const events = localCollection("CustodyEvent").filter((event) => event.found_item_id === itemId);
+        return { found_item_id: itemId, verified: true, event_count: events.length, issues: [] };
+      }
+    },
+    async moveItem(itemId, move) {
+      return requestRecoveryMeshApi(`/custody/items/${encodeURIComponent(itemId)}/move`, { method: "POST", body: JSON.stringify(move) });
+    },
+    async assetLookup(tag) {
+      try {
+        return await requestRecoveryMeshApi(`/assets/lookup?tag=${encodeURIComponent(tag)}`);
+      } catch {
+        const record = localCollection("AssetRegistryRecord").find((asset) => asset.asset_tag?.toLowerCase() === String(tag).toLowerCase());
+        return record
+          ? { recognized: true, asset_tag: record.asset_tag, asset_type: record.asset_type, message: "Recognized school-owned property. It will be routed to the appropriate department." }
+          : { recognized: false, asset_tag: tag, asset_type: "", message: "Asset tag was not found in the seeded demo adapter." };
+      }
+    },
+    async createReturnPass(claimId, data) {
+      return requestRecoveryMeshApi(`/claims/${encodeURIComponent(claimId)}/return-pass`, { method: "POST", body: JSON.stringify(data) });
+    },
+    async returnPass(id) {
+      try {
+        return await requestRecoveryMeshApi(`/return-passes/${encodeURIComponent(id)}`);
+      } catch {
+        return localCollection("ReturnPass").find((pass) => pass.id === id) || null;
+      }
+    },
+    async verifyReturnPass(oneTimeCode) {
+      try {
+        return await requestRecoveryMeshApi("/return-passes/verify", { method: "POST", body: JSON.stringify({ one_time_code: oneTimeCode }) });
+      } catch {
+        const pass = localCollection("ReturnPass").find((entry) => entry.one_time_code === oneTimeCode);
+        return pass
+          ? { valid: pass.status === "active", return_pass_id: pass.id, status: pass.status, found_item_id: pass.found_item_id, claim_id: pass.claim_id, message: pass.status === "active" ? "Return Pass is valid." : "Return Pass is not active." }
+          : { valid: false, message: "Return Pass not found." };
+      }
+    },
+    async redeemReturnPass(id, oneTimeCode) {
+      try {
+        return await requestRecoveryMeshApi(`/return-passes/${encodeURIComponent(id)}/redeem`, { method: "POST", body: JSON.stringify({ one_time_code: oneTimeCode }) });
+      } catch {
+        const current = localCollection("ReturnPass").find((pass) => pass.id === id) || {};
+        return saveLocalRecord("ReturnPass", { ...current, status: "redeemed", redeemed_at: new Date().toISOString() });
+      }
+    },
+    async sentinelAlerts() {
+      try {
+        return await requestRecoveryMeshApi("/sentinel/alerts");
+      } catch {
+        return localCollection("PreventionAlert");
+      }
+    },
+    async recomputeSentinel() {
+      try {
+        return await requestRecoveryMeshApi("/sentinel/recompute", { method: "POST" });
+      } catch {
+        return localCollection("PreventionAlert");
+      }
+    },
+    async updateSentinelAlert(id, updates) {
+      try {
+        return await requestRecoveryMeshApi(`/sentinel/alerts/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify(updates) });
+      } catch {
+        const current = localCollection("PreventionAlert").find((alert) => alert.id === id) || {};
+        return saveLocalRecord("PreventionAlert", { ...current, ...updates, id });
+      }
+    },
+    async recoveryNodes() {
+      try {
+        return await requestRecoveryMeshApi("/recovery-nodes");
+      } catch {
+        return localCollection("RecoveryNode");
+      }
+    },
+    async partnerRelays() {
+      try {
+        return await requestRecoveryMeshApi("/partner-relays");
+      } catch {
+        return localCollection("PartnerRelay");
+      }
+    },
+  };
 }
 
 function normalizeRating(record = {}) {
@@ -1332,8 +1691,20 @@ function normalizeFoundItem(record = {}) {
     linked_lost_report_id: record.linked_lost_report_id || record.linkedLostReportId || "",
     claim_confirmed: Boolean(record.claim_confirmed ?? record.claimConfirmed),
     claim_confirmed_at: record.claim_confirmed_at || record.claimConfirmedAt || "",
+    private_verification_clues: Array.isArray(record.private_verification_clues) ? clone(record.private_verification_clues) : [],
+    restricted_visibility: Boolean(record.restricted_visibility ?? record.restrictedVisibility),
+    asset_tag: record.asset_tag || record.assetTag || "",
+    asset_record_id: record.asset_record_id || record.assetRecordId || "",
+    department_destination: record.department_destination || record.departmentDestination || "",
+    event_hub_id: record.event_hub_id || record.eventHubId || "",
+    campus_zone_id: record.campus_zone_id || record.campusZoneId || "",
     ratings: Array.isArray(record.ratings) ? record.ratings.map((rating) => normalizeRating(rating)) : [],
   };
+}
+
+function isPublicFoundItem(record = {}) {
+  const status = String(record.status || "").toLowerCase();
+  return !record.restricted_visibility && status === "approved";
 }
 
 function hasAnyKey(record, keys) {
@@ -1375,6 +1746,17 @@ function serializeFoundItem(record = {}, { partial = false } = {}) {
     linked_lost_report_id: record.linked_lost_report_id ?? record.linkedLostReportId,
     claim_confirmed: record.claim_confirmed ?? record.claimConfirmed,
     claim_confirmed_at: record.claim_confirmed_at ?? record.claimConfirmedAt,
+    private_verification_clues: Array.isArray(record.private_verification_clues)
+      ? clone(record.private_verification_clues)
+      : Array.isArray(record.privateVerificationClues)
+        ? clone(record.privateVerificationClues)
+        : undefined,
+    restricted_visibility: record.restricted_visibility ?? record.restrictedVisibility,
+    asset_tag: record.asset_tag ?? record.assetTag,
+    asset_record_id: record.asset_record_id ?? record.assetRecordId,
+    department_destination: record.department_destination ?? record.departmentDestination,
+    event_hub_id: record.event_hub_id ?? record.eventHubId,
+    campus_zone_id: record.campus_zone_id ?? record.campusZoneId,
     ratings: Array.isArray(record.ratings)
       ? record.ratings.map((rating) => ({
           claim_id: rating.claim_id || rating.claimId || "",
@@ -1418,6 +1800,13 @@ function serializeFoundItem(record = {}, { partial = false } = {}) {
       linked_lost_report_id: values.linked_lost_report_id || "",
       claim_confirmed: Boolean(values.claim_confirmed),
       claim_confirmed_at: values.claim_confirmed_at || "",
+      private_verification_clues: values.private_verification_clues || [],
+      restricted_visibility: Boolean(values.restricted_visibility),
+      asset_tag: values.asset_tag || "",
+      asset_record_id: values.asset_record_id || "",
+      department_destination: values.department_destination || "",
+      event_hub_id: values.event_hub_id || "",
+      campus_zone_id: values.campus_zone_id || "",
       ratings: values.ratings || [],
     };
   }
@@ -1451,6 +1840,13 @@ function serializeFoundItem(record = {}, { partial = false } = {}) {
       linked_lost_report_id: hasAnyKey(record, ["linked_lost_report_id", "linkedLostReportId"]) ? values.linked_lost_report_id : undefined,
       claim_confirmed: hasAnyKey(record, ["claim_confirmed", "claimConfirmed"]) ? Boolean(values.claim_confirmed) : undefined,
       claim_confirmed_at: hasAnyKey(record, ["claim_confirmed_at", "claimConfirmedAt"]) ? values.claim_confirmed_at : undefined,
+      private_verification_clues: hasAnyKey(record, ["private_verification_clues", "privateVerificationClues"]) ? values.private_verification_clues || [] : undefined,
+      restricted_visibility: hasAnyKey(record, ["restricted_visibility", "restrictedVisibility"]) ? Boolean(values.restricted_visibility) : undefined,
+      asset_tag: hasAnyKey(record, ["asset_tag", "assetTag"]) ? values.asset_tag : undefined,
+      asset_record_id: hasAnyKey(record, ["asset_record_id", "assetRecordId"]) ? values.asset_record_id : undefined,
+      department_destination: hasAnyKey(record, ["department_destination", "departmentDestination"]) ? values.department_destination : undefined,
+      event_hub_id: hasAnyKey(record, ["event_hub_id", "eventHubId"]) ? values.event_hub_id : undefined,
+      campus_zone_id: hasAnyKey(record, ["campus_zone_id", "campusZoneId"]) ? values.campus_zone_id : undefined,
       ratings: hasAnyKey(record, ["ratings"]) ? values.ratings || [] : undefined,
     }).filter(([, value]) => value !== undefined)
   );
@@ -1459,29 +1855,33 @@ function serializeFoundItem(record = {}, { partial = false } = {}) {
 function createFoundItemApi() {
   return {
     async list(sort, limit) {
+      const adminUser = isAdminUser();
       try {
-        const records = await requestFoundItemsApi();
+        const records = adminUser ? await requestAdminFoundItemsApi() : await requestFoundItemsApi();
         const normalizedRecords = records.map((record) => normalizeFoundItem(record));
         replaceCachedCollection("FoundItem", normalizedRecords);
-        return clone(limitRecords(sortRecords(normalizedRecords, sort), limit));
+        const visibleRecords = adminUser ? normalizedRecords : normalizedRecords.filter(isPublicFoundItem);
+        return clone(limitRecords(sortRecords(visibleRecords, sort), limit));
       } catch (error) {
         if (!shouldUseLocalFallback(error)) {
           throw error;
         }
 
-        const db = readDb();
-        const records = (db.FoundItem || []).map((record) => normalizeFoundItem(record));
-        const normalizedRecords = records.map((record) => normalizeFoundItem(record));
-        return clone(limitRecords(sortRecords(normalizedRecords, sort), limit));
+        const records = (readDb().FoundItem || [])
+          .map((record) => normalizeFoundItem(record))
+          .filter((record) => adminUser || isPublicFoundItem(record));
+        return clone(limitRecords(sortRecords(records, sort), limit));
       }
     },
 
     async filter(filters = {}, sort, limit) {
+      const adminUser = isAdminUser();
       try {
-        const records = await requestFoundItemsApi();
+        const records = adminUser ? await requestAdminFoundItemsApi() : await requestFoundItemsApi();
         const normalizedRecords = records.map((record) => normalizeFoundItem(record));
         replaceCachedCollection("FoundItem", normalizedRecords);
-        const filteredRecords = normalizedRecords.filter((record) => matchRecord(record, filters));
+        const visibleRecords = adminUser ? normalizedRecords : normalizedRecords.filter(isPublicFoundItem);
+        const filteredRecords = visibleRecords.filter((record) => matchRecord(record, filters));
         return clone(limitRecords(sortRecords(filteredRecords, sort), limit));
       } catch (error) {
         if (!shouldUseLocalFallback(error)) {
@@ -1491,6 +1891,7 @@ function createFoundItemApi() {
         const db = readDb();
         const filteredRecords = (db.FoundItem || [])
           .map((record) => normalizeFoundItem(record))
+          .filter((record) => adminUser || isPublicFoundItem(record))
           .filter((record) => matchRecord(record, filters));
         return clone(limitRecords(sortRecords(filteredRecords, sort), limit));
       }
@@ -1928,6 +2329,7 @@ function createAppClient() {
       Notification: createEntityApi("Notification"),
       AuditLog: createEntityApi("AuditLog"),
     },
+    recoveryMesh: createRecoveryMeshApi(),
     integrations: {
       Core: {
         UploadFile: uploadFile,

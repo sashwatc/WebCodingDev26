@@ -35,6 +35,8 @@ const checklist = [
   "Claim submission flow with verification details and admin-side risk review",
   "User dashboard for claims, reports, and notifications",
   "Admin dashboard with moderation queues, analytics, and audit activity",
+  "Recovery Center with cases, likely zones, staff missions, Loss Sentinel, Asset Rescue, and Partner Relay simulation",
+  "Return Pass and Pickup Station workflow with manual code fallback",
   "Simple API-backed sign-in for demos and judging portability",
 ];
 
@@ -46,7 +48,7 @@ export default function Documentation() {
         <h1 className="text-4xl font-bold text-slate-900 mb-4">Project Documentation</h1>
         <p className="text-slate-500 max-w-3xl mx-auto leading-relaxed">
           This page summarizes the project scope, technical implementation, compatibility targets, and judging-build notes.
-          It was updated on March 16, 2026.
+          It was updated on June 22, 2026.
         </p>
       </div>
 

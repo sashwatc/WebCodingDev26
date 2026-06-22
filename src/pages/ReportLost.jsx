@@ -4,7 +4,7 @@
  */
 
 import React, { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useLocation, useNavigate, Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
@@ -33,11 +33,13 @@ import {
 export default function ReportLost() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
   const [step, setStep] = useState(1);
   const [matches, setMatches] = useState([]);
+  const initialParams = new URLSearchParams(location.search);
   const [form, setForm] = useState({
     item_type: "",
     category: "",
@@ -52,6 +54,8 @@ export default function ReportLost() {
     student_id: "",
     urgency: "medium",
     extra_notes: "",
+    event_hub_id: initialParams.get("event") || initialParams.get("event_hub_id") || "",
+    campus_zone_id: initialParams.get("zone") || initialParams.get("campus_zone_id") || "",
     confirm_accuracy: false,
   });
   const [errors, setErrors] = useState({});
@@ -111,6 +115,7 @@ export default function ReportLost() {
         ...data,
         status: "open",
       });
+      await appClient.recoveryMesh.refreshRecoveryCase(report.id);
 
       setStep(2);
       const aiMatches = await findMatches(data, foundItems);
@@ -251,6 +256,12 @@ export default function ReportLost() {
         <h1 className="page-title">{t("report_lost.title")}</h1>
         <p className="page-subtitle">{t("report_lost.subtitle")}</p>
       </div>
+
+      {(form.event_hub_id || form.campus_zone_id) && (
+        <div className="mb-6 rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
+          You are reporting from a demo event beacon. This does not use GPS; correct the location if needed.
+        </div>
+      )}
 
       {/* Progress Tracker */}
       <div className="mb-8 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl p-5 shadow-sm">

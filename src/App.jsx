@@ -41,6 +41,11 @@ import Accessibility from '@/pages/Accessibility';
 import Sources from '@/pages/Sources';
 import Documentation from '@/pages/Documentation';
 import ShaderDemo from '@/pages/ShaderDemo';
+import EventHub from '@/pages/EventHub';
+import Beacon from '@/pages/Beacon';
+import Display from '@/pages/Display';
+import PickupPass from '@/pages/PickupPass';
+import PickupStation from '@/pages/PickupStation';
 
 const AuthenticatedApp = () => {
   const { t } = useTranslation();
@@ -99,6 +104,18 @@ const AuthenticatedApp = () => {
           <Route path="/Sources" element={<Sources />} />
           <Route path="/Documentation" element={<Documentation />} />
           <Route path="/ShaderDemo" element={<ShaderDemo />} />
+          <Route path="/EventHub" element={<EventHub />} />
+          <Route path="/Beacon" element={<Beacon />} />
+          <Route path="/Display" element={<Display />} />
+          <Route path="/PickupPass" element={<PickupPass />} />
+          <Route
+            path="/PickupStation"
+            element={(
+              <AdminRouteGuard>
+                <PickupStation />
+              </AdminRouteGuard>
+            )}
+          />
         </Route>
 
         {/* 404 fallback */}

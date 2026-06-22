@@ -106,6 +106,31 @@ export default function ItemDetails() {
     enabled: !!itemId && isAdmin && !isLostReport,
   });
 
+  const { data: custodyEvents = [] } = useQuery({
+    queryKey: ["custodyEvents", itemId, isAdmin],
+    queryFn: () => appClient.recoveryMesh.custodyEvents(itemId),
+    enabled: !!itemId && !isLostReport,
+  });
+
+  const { data: custodyVerification } = useQuery({
+    queryKey: ["custodyVerify", itemId],
+    queryFn: () => appClient.recoveryMesh.verifyCustody(itemId),
+    enabled: !!itemId && !isLostReport,
+  });
+
+  const { data: proofVault } = useQuery({
+    queryKey: ["proofVault", itemId],
+    queryFn: () => appClient.recoveryMesh.proofVault(itemId),
+    enabled: !!itemId && isAdmin && !isLostReport,
+    retry: false,
+  });
+
+  const { data: recoveryCase } = useQuery({
+    queryKey: ["lostReportRecoveryCase", itemId],
+    queryFn: () => appClient.recoveryMesh.recoveryCaseByLostReport(itemId),
+    enabled: !!itemId && isLostReport,
+  });
+
   if (isLoading) {
     return (
       <div className="max-w-4xl mx-auto px-4 py-10">
@@ -397,6 +422,48 @@ export default function ItemDetails() {
           {isLostReport && item.matching_count > 0 && (
             <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800">
               {t("item_details.possible_matches", { count: item.matching_count })}
+            </div>
+          )}
+
+          {isLostReport && recoveryCase && (
+            <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+              <p className="text-sm font-semibold text-slate-900">Likely Recovery Zones</p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {(recoveryCase.likely_zone_summaries || []).map((zone) => (
+                  <Badge key={zone} variant="outline" className="bg-white">{zone}</Badge>
+                ))}
+              </div>
+              <p className="mt-3 whitespace-pre-line text-xs leading-5 text-slate-600">{recoveryCase.recovery_plan}</p>
+            </div>
+          )}
+
+          {!isLostReport && custodyEvents.length > 0 && (
+            <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-sm font-semibold text-slate-900">Tamper-Evident Custody Ledger</p>
+                <Badge variant="outline" className={custodyVerification?.verified === false ? "border-amber-300 text-amber-800" : "border-emerald-300 text-emerald-800"}>
+                  {custodyVerification?.verified === false ? "Attention needed" : "Integrity verified"}
+                </Badge>
+              </div>
+              <ol className="mt-3 space-y-2">
+                {custodyEvents.map((event) => (
+                  <li key={event.id || `${event.sequence_number}-${event.event_type}`} className="flex items-start gap-2 text-xs text-slate-600">
+                    <span className="mt-0.5 h-5 min-w-5 rounded-full bg-white border border-slate-200 text-center leading-5 font-semibold">{event.sequence_number}</span>
+                    <span className="capitalize">{String(event.event_type || "").replaceAll("_", " ")}</span>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          )}
+
+          {proofVault && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
+              <p className="text-sm font-semibold text-amber-950">Proof Vault</p>
+              <div className="mt-2 space-y-2 text-xs text-amber-900">
+                <p>Private clues: {(proofVault.private_verification_clues || []).join(", ") || "None sealed"}</p>
+                {proofVault.asset_tag && <p>Asset tag: {proofVault.asset_tag}</p>}
+                {proofVault.department_destination && <p>Department route: {proofVault.department_destination}</p>}
+              </div>
             </div>
           )}
 

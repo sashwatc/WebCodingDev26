@@ -68,6 +68,18 @@ const sourceGroups = [
         href: "https://tanstack.com/query/latest/docs/framework/react/overview",
         summary: "Reference for query caching, invalidation, and async UI state coordination.",
       },
+      {
+        title: "Spring Boot Documentation",
+        organization: "Spring",
+        href: "https://docs.spring.io/spring-boot/index.html",
+        summary: "Reference for backend controller, service, validation, and application configuration patterns.",
+      },
+      {
+        title: "MongoDB Indexes",
+        organization: "MongoDB",
+        href: "https://www.mongodb.com/docs/manual/indexes/",
+        summary: "Reference for unique and compound index behavior used by recovery cases and custody events.",
+      },
     ],
   },
 ];
@@ -80,7 +92,7 @@ export default function Sources() {
         <h1 className="text-4xl font-bold text-slate-900 mb-4">Research and Citations</h1>
         <p className="text-slate-500 max-w-3xl mx-auto leading-relaxed">
           These official references informed the accessibility, privacy, and technical decisions in this project.
-          All links were reviewed on March 16, 2026.
+          All links were reviewed on June 22, 2026.
         </p>
       </div>
 
