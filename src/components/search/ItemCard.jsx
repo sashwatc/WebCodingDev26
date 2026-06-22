@@ -60,19 +60,19 @@ export default function ItemCard({ item, viewMode = "grid" }) {
               <p className="mt-3 line-clamp-2 text-sm leading-6 text-slate-600">
                 {item.ai_description || item.description}
               </p>
-              {isLostReport && item.matched_items?.length > 0 && (
+              {isLostReport && (
                 <div className="mt-3">
                   <Button
                     size="sm"
                     onClick={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
-                      navigate(`/ClaimItem?id=${item.matched_items[0].found_item_id}`);
+                      navigate(`/ReportFound?lost_report_id=${item.id}`);
                     }}
                     className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold flex items-center gap-1.5 rounded-xl shadow-sm"
                   >
                     <CheckCircle2 className="w-4 h-4" />
-                    Claim Match
+                    {t("lost_items.i_found_this", "I Found This")}
                   </Button>
                 </div>
               )}
@@ -141,19 +141,19 @@ export default function ItemCard({ item, viewMode = "grid" }) {
           </div>
 
           <div className="space-y-3">
-            {isLostReport && item.matched_items?.length > 0 && (
+            {isLostReport && (
               <div className="pt-1">
                 <Button
                   size="sm"
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    navigate(`/ClaimItem?id=${item.matched_items[0].found_item_id}`);
+                    navigate(`/ReportFound?lost_report_id=${item.id}`);
                   }}
                   className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold flex items-center justify-center gap-1.5 rounded-xl shadow-sm"
                 >
                   <CheckCircle2 className="w-4 h-4" />
-                  Claim Match
+                  {t("lost_items.i_found_this", "I Found This")}
                 </Button>
               </div>
             )}

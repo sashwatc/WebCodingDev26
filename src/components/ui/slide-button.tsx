@@ -93,6 +93,13 @@ const SlideButton = forwardRef<HTMLButtonElement, SlideButtonProps>(
     const [isDragging, setIsDragging] = useState(false)
     const [completed, setCompleted] = useState(false)
     const dragHandleRef = useRef<HTMLDivElement | null>(null)
+    const dragX = useMotionValue(0)
+    const springX = useSpring(dragX, ANIMATION_CONFIG.spring)
+    const dragProgress = useTransform(
+      springX,
+      [0, DRAG_CONSTRAINTS.right],
+      [0, 1]
+    )
     
     // Internal mock submission if uncontrolled
     const { status: internalStatus, handleSubmit } = useButtonStatus(resolveTo)
@@ -108,15 +115,18 @@ const SlideButton = forwardRef<HTMLButtonElement, SlideButtonProps>(
       } else if (controlledStatus === "loading" || controlledStatus === "success" || controlledStatus === "error") {
         setCompleted(true)
       }
-    }, [controlledStatus])
+    }, [controlledStatus, dragX])
 
-    const dragX = useMotionValue(0)
-    const springX = useSpring(dragX, ANIMATION_CONFIG.spring)
-    const dragProgress = useTransform(
-      springX,
-      [0, DRAG_CONSTRAINTS.right],
-      [0, 1]
-    )
+    useEffect(() => {
+      if (controlledStatus !== "error") return
+
+      const timeout = window.setTimeout(() => {
+        setCompleted(false)
+        dragX.set(0)
+      }, 1200)
+
+      return () => window.clearTimeout(timeout)
+    }, [controlledStatus, dragX])
 
     const handleDragStart = useCallback(() => {
       if (completed) return
@@ -204,6 +214,7 @@ const SlideButton = forwardRef<HTMLButtonElement, SlideButtonProps>(
                 ref={ref}
                 disabled={status === "loading"}
                 {...props}
+                type="button"
                 size="icon"
                 className={cn(
                   "shadow-button rounded-full drop-shadow-xl",
@@ -230,6 +241,7 @@ const SlideButton = forwardRef<HTMLButtonElement, SlideButtonProps>(
                 ref={ref}
                 disabled={status === "loading"}
                 {...props}
+                type="button"
                 className={cn(
                   "size-full rounded-full transition-all duration-300",
                   className

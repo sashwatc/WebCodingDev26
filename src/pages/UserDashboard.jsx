@@ -349,7 +349,8 @@ export default function UserDashboard() {
                           {t("user_dashboard.ai_suggested_matches_desc", "We found matching items reported around the same time or location. Select one to view or claim:")}
                         </p>
                         <div className="flex flex-wrap gap-2">
-                          {report.matched_items.map(matchId => {
+                          {report.matched_items.map(match => {
+                            const matchId = match?.found_item_id || match;
                             const matchedItem = foundItemsById[matchId];
                             if (!matchedItem) return null;
                             return (

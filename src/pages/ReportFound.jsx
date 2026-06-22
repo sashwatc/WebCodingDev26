@@ -4,8 +4,8 @@
  * and description cleanup. Items go into moderation queue by default.
  */
 
-import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useEffect, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -15,7 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/use-toast";
 import { appClient } from "@/api/appClient";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CATEGORIES, LOCATIONS, COLORS, CONDITIONS, generateItemCode } from "@/lib/constants";
 import { generateTags, cleanupDescription } from "@/lib/ai-services";
 import { translateCategory, translateColor, translateCondition, translateLocation } from "@/lib/i18n-helpers";
@@ -51,6 +51,7 @@ const createInitialForm = () => ({
   finder_name: "",
   finder_email: "",
   finder_role: "student",
+  linked_lost_report_id: "",
   privacy_consent: false,
   terms_acknowledged: false,
   ai_description: "",
@@ -59,9 +60,11 @@ const createInitialForm = () => ({
 export default function ReportFound() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { user } = useAuth();
+  const linkedLostReportId = new URLSearchParams(location.search).get("lost_report_id") || "";
   const [step, setStep] = useState(1);
   const [helperProcessing, setHelperProcessing] = useState(false);
   const [form, setForm] = useState(() => createInitialForm());
@@ -70,12 +73,40 @@ export default function ReportFound() {
   const aiProcessing = helperProcessing;
 
   const [formStep, setFormStep] = useState(1);
+  const [prefilledReportId, setPrefilledReportId] = useState("");
+
+  const { data: linkedLostReport } = useQuery({
+    queryKey: ["linkedLostReport", linkedLostReportId],
+    queryFn: async () => {
+      const reports = await appClient.entities.LostReport.filter({ id: linkedLostReportId });
+      return reports[0] || null;
+    },
+    enabled: !!linkedLostReportId,
+  });
+
+  useEffect(() => {
+    if (!linkedLostReport || prefilledReportId === linkedLostReport.id) {
+      return;
+    }
+
+    setForm((prev) => ({
+      ...prev,
+      title: prev.title || linkedLostReport.item_type || "",
+      category: prev.category || linkedLostReport.category || "",
+      description: prev.description || linkedLostReport.description || "",
+      color: prev.color || linkedLostReport.color || "",
+      brand: prev.brand || linkedLostReport.brand || "",
+      linked_lost_report_id: linkedLostReport.id,
+    }));
+    setPrefilledReportId(linkedLostReport.id);
+  }, [linkedLostReport, prefilledReportId]);
 
   const resetForm = () => {
     setForm(createInitialForm());
     setGeneratedTags([]);
     setErrors({});
     setFormStep(1);
+    setPrefilledReportId("");
   };
 
   const handleNextStep = () => {
@@ -156,13 +187,38 @@ export default function ReportFound() {
         aiDesc = await cleanupDescription(data.description);
       }
 
-      return appClient.entities.FoundItem.create({
+      const createdItem = await appClient.entities.FoundItem.create({
         ...data,
         tags,
         ai_description: aiDesc,
         item_code: generateItemCode(),
         status: "pending_review",
       });
+
+      if (data.linked_lost_report_id) {
+        const reports = await appClient.entities.LostReport.filter({ id: data.linked_lost_report_id });
+        const report = reports[0];
+
+        const alreadyLinked = report?.matched_items?.some((match) => match.found_item_id === createdItem.id);
+
+        if (report && !alreadyLinked) {
+          await appClient.entities.LostReport.update(report.id, {
+            status: "matched",
+            matched_items: [
+              ...(report.matched_items || []).filter((match) => match.found_item_id !== createdItem.id),
+              {
+                found_item_id: createdItem.id,
+                confidence: 100,
+                reasons: ["finder response"],
+                source: "finder_response",
+                created_date: new Date().toISOString(),
+              },
+            ],
+          });
+        }
+      }
+
+      return createdItem;
     },
     onSuccess: () => {
       queryClient.invalidateQueries();

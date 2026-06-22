@@ -100,7 +100,7 @@ export default function ItemDetails() {
     queryFn: async () => {
       const reports = await appClient.entities.LostReport.list();
       return reports.filter(r =>
-        r.matched_items?.some(m => m.found_item_id === itemId)
+        r.matched_items?.some(m => (typeof m === "string" ? m : m.found_item_id) === itemId)
       );
     },
     enabled: !!itemId && isAdmin && !isLostReport,
@@ -385,6 +385,15 @@ export default function ItemDetails() {
             </Link>
           )}
 
+          {isLostReport && !["resolved", "closed"].includes(item.status) && (
+            <Link to={`/ReportFound?lost_report_id=${item.id}`} className="block">
+              <Button size="lg" className="w-full gap-2">
+                <CheckCircle2 className="w-5 h-5" />
+                {t("lost_items.i_found_this", "I Found This")}
+              </Button>
+            </Link>
+          )}
+
           {isLostReport && item.matching_count > 0 && (
             <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800">
               {t("item_details.possible_matches", { count: item.matching_count })}
@@ -421,7 +430,7 @@ export default function ItemDetails() {
           <CardContent>
             <div className="space-y-3">
               {matchingReports.map(report => {
-                const match = report.matched_items?.find(m => m.found_item_id === itemId);
+                const match = report.matched_items?.find(m => (typeof m === "string" ? m : m.found_item_id) === itemId);
                 return (
                   <div key={report.id} className="flex items-center gap-4 rounded-xl border border-slate-200 bg-slate-50 p-3">
                     <div className="flex-1">

@@ -1,4 +1,5 @@
 import { BRAND_NAME } from "@/lib/constants";
+import { findMatches } from "@/lib/ai-services";
 
 const STORAGE_KEY = "findback-app-db-v2";
 const AUTH_STORAGE_KEY = "findback-auth-user";
@@ -705,6 +706,270 @@ function limitRecords(records, limit) {
   return records.slice(0, limit);
 }
 
+function createId(prefix) {
+  return `${prefix}_${Math.random().toString(36).slice(2, 10)}`;
+}
+
+const ENTITY_ID_PREFIXES = {
+  LostReport: "lost",
+  Claim: "claim",
+  Notification: "notif",
+  AuditLog: "audit",
+  User: "user",
+  FoundItem: "found",
+};
+
+function getRecordId(record = {}) {
+  return record.id || record._id || "";
+}
+
+function shouldUseLocalFallback(error) {
+  return !error?.status || error.status === 404 || error.status >= 500;
+}
+
+function saveCachedRecord(entityName, id, updates) {
+  const db = readDb();
+  const records = db[entityName] || [];
+  const index = records.findIndex((record) => getRecordId(record) === id);
+
+  if (index === -1) {
+    throw new Error(`${entityName} ${id} was not found.`);
+  }
+
+  const nextRecord = {
+    ...records[index],
+    ...clone(updates),
+    updated_date: new Date().toISOString(),
+  };
+
+  records[index] = nextRecord;
+  db[entityName] = records;
+  writeDb(db);
+  return clone(nextRecord);
+}
+
+function createCachedRecord(entityName, data) {
+  const db = readDb();
+  const now = new Date().toISOString();
+  const prefix = ENTITY_ID_PREFIXES[entityName] || entityName.toLowerCase();
+  const record = {
+    id: data.id || createId(prefix),
+    created_date: data.created_date || now,
+    updated_date: data.updated_date || now,
+    ...clone(data),
+  };
+
+  db[entityName] = [record, ...(db[entityName] || [])];
+  writeDb(db);
+  return clone(record);
+}
+
+function normalizeMatchSuggestion(match = {}) {
+  if (typeof match === "string") {
+    return {
+      found_item_id: match,
+      confidence: 0,
+      reasons: [],
+      source: "legacy_match",
+      created_date: new Date().toISOString(),
+    };
+  }
+
+  const foundItemId = match.found_item_id || match.foundItemId || "";
+  if (!foundItemId) {
+    return null;
+  }
+
+  return {
+    found_item_id: foundItemId,
+    confidence: Math.max(0, Math.min(100, Math.round(Number(match.confidence) || 0))),
+    reasons: Array.isArray(match.reasons) ? [...new Set(match.reasons.filter(Boolean))] : [],
+    source: match.source || "ai_suggestion",
+    created_date: match.created_date || new Date().toISOString(),
+  };
+}
+
+function mergeMatchSuggestions(currentMatches = [], nextMatches = []) {
+  const byFoundItemId = new Map();
+
+  for (const match of [...currentMatches, ...nextMatches]) {
+    const normalized = normalizeMatchSuggestion(match);
+    if (!normalized) {
+      continue;
+    }
+
+    const existing = byFoundItemId.get(normalized.found_item_id);
+    if (!existing || normalized.confidence >= existing.confidence) {
+      byFoundItemId.set(normalized.found_item_id, {
+        ...existing,
+        ...normalized,
+        reasons: [...new Set([...(existing?.reasons || []), ...(normalized.reasons || [])])],
+      });
+    }
+  }
+
+  return [...byFoundItemId.values()].sort((a, b) => b.confidence - a.confidence).slice(0, 8);
+}
+
+async function validateClaimRecord(claim, previousClaim = null) {
+  if (!claim?.found_item_id) {
+    throw new Error("Select a Found Item before submitting a claim.");
+  }
+  if (!String(claim.claimant_name || "").trim()) {
+    throw new Error("Claimant name is required.");
+  }
+  if (!String(claim.claimant_email || "").trim()) {
+    throw new Error("Claimant email is required.");
+  }
+  if (!String(claim.reason || "").trim()) {
+    throw new Error("Ownership reason is required.");
+  }
+
+  const foundItems = await appClient.entities.FoundItem.filter({ id: claim.found_item_id });
+  const foundItem = foundItems[0];
+  if (!foundItem) {
+    throw new Error("This claim must reference an existing Found Item.");
+  }
+  if (["returned", "archived"].includes(foundItem.status) && claim.status !== "completed") {
+    throw new Error("This Found Item is no longer available for claim activity.");
+  }
+
+  if (!previousClaim && ["approved", "completed"].includes(claim.status)) {
+    throw new Error("New claims must start in review.");
+  }
+
+  if (claim.status === "approved") {
+    const existingClaims = await appClient.entities.Claim.filter({ found_item_id: claim.found_item_id });
+    const alreadyApproved = existingClaims.find(
+      (existingClaim) =>
+        getRecordId(existingClaim) !== getRecordId(claim) &&
+        ["approved", "completed"].includes(existingClaim.status)
+    );
+
+    if (alreadyApproved) {
+      throw new Error("Another claim is already approved for this Found Item.");
+    }
+  }
+}
+
+async function applyClaimStatusSideEffects(claim, previousClaim = null) {
+  if (!claim?.status || claim.status === previousClaim?.status || !claim.found_item_id) {
+    return;
+  }
+
+  if (claim.status === "approved") {
+    await appClient.entities.FoundItem.update(claim.found_item_id, { status: "claimed" });
+    return;
+  }
+
+  if (claim.status === "completed") {
+    const confirmedAt = claim.received_confirmed_at || new Date().toISOString();
+    await appClient.entities.FoundItem.update(claim.found_item_id, {
+      status: "returned",
+      claim_confirmed: true,
+      claim_confirmed_at: confirmedAt,
+    });
+    return;
+  }
+
+  if (claim.status === "rejected" && previousClaim?.status === "approved") {
+    const siblingClaims = await appClient.entities.Claim.filter({ found_item_id: claim.found_item_id });
+    const stillApproved = siblingClaims.some(
+      (sibling) =>
+        getRecordId(sibling) !== getRecordId(claim) &&
+        ["approved", "completed"].includes(sibling.status)
+    );
+
+    if (!stillApproved) {
+      await appClient.entities.FoundItem.update(claim.found_item_id, { status: "approved" });
+    }
+  }
+}
+
+async function syncMatchesForLostReport(report) {
+  if (!report) {
+    return report;
+  }
+
+  const foundItems = await appClient.entities.FoundItem.list("-created_date", 500);
+  const aiMatches = await findMatches(report, foundItems);
+  const matched_items = mergeMatchSuggestions(report.matched_items || [], aiMatches);
+  const status = matched_items.length > 0 && !["resolved", "closed"].includes(report.status)
+    ? "matched"
+    : report.status || "open";
+
+  if (
+    JSON.stringify(matched_items) === JSON.stringify(report.matched_items || []) &&
+    status === report.status
+  ) {
+    return report;
+  }
+
+  return appClient.entities.LostReport.update(getRecordId(report), { matched_items, status });
+}
+
+async function syncMatchesForFoundItem(foundItem) {
+  if (!foundItem || ["returned", "archived"].includes(foundItem.status)) {
+    return [];
+  }
+
+  const foundItemId = getRecordId(foundItem);
+  const lostReports = await appClient.entities.LostReport.list("-created_date", 500);
+  const updatedReports = [];
+
+  for (const report of lostReports) {
+    if (["resolved", "closed"].includes(report.status)) {
+      continue;
+    }
+
+    const explicitMatch =
+      report.id && report.id === foundItem.linked_lost_report_id
+        ? {
+            found_item_id: foundItemId,
+            confidence: 100,
+            reasons: ["finder response"],
+            source: "finder_response",
+          }
+        : null;
+    const aiMatches = await findMatches(report, [foundItem]);
+    const matched_items = mergeMatchSuggestions(report.matched_items || [], [
+      explicitMatch,
+      ...aiMatches,
+    ].filter(Boolean));
+
+    if (JSON.stringify(matched_items) === JSON.stringify(report.matched_items || [])) {
+      continue;
+    }
+
+    updatedReports.push(
+      await appClient.entities.LostReport.update(report.id, {
+        matched_items,
+        status: "matched",
+      })
+    );
+  }
+
+  return updatedReports;
+}
+
+async function hasFoundItemReferences(foundItemId) {
+  const [claims, lostReports] = await Promise.all([
+    appClient.entities.Claim.filter({ found_item_id: foundItemId }),
+    appClient.entities.LostReport.list("-created_date", 500),
+  ]);
+
+  return (
+    claims.length > 0 ||
+    lostReports.some((report) =>
+      Array.isArray(report.matched_items) &&
+      report.matched_items.some((match) => {
+        const matchFoundItemId = typeof match === "string" ? match : (match?.found_item_id || match?.foundItemId);
+        return matchFoundItemId === foundItemId;
+      })
+    )
+  );
+}
+
 function replaceCachedCollection(entityName, records) {
   const db = readDb();
   db[entityName] = clone(records);
@@ -784,7 +1049,7 @@ async function applyEntitySideEffects(entityName, operation, record, previousRec
 
   if (
     entityName === "LostReport" &&
-    operation === "update" &&
+    (operation === "create" || operation === "update") &&
     record.matched_items?.length &&
     JSON.stringify(record.matched_items || []) !== JSON.stringify(previousRecord?.matched_items || [])
   ) {
@@ -816,7 +1081,11 @@ function createEntityApi(entityName) {
         const records = await requestEntityApi(entityName);
         replaceCachedCollection(entityName, records);
         return clone(limitRecords(sortRecords(records, sort), limit));
-      } catch {
+      } catch (error) {
+        if (!shouldUseLocalFallback(error)) {
+          throw error;
+        }
+
         const db = readDb();
         const records = db[entityName] || [];
         return clone(limitRecords(sortRecords(records, sort), limit));
@@ -837,13 +1106,55 @@ function createEntityApi(entityName) {
     },
 
     async create(data) {
-      const record = await requestEntityApi(entityName, "", {
-        method: "POST",
-        body: JSON.stringify(data),
-      });
+      let nextData = clone(data);
+
+      if (entityName === "Claim") {
+        nextData = {
+          status: "submitted",
+          ...nextData,
+        };
+        await validateClaimRecord(nextData, null);
+      }
+
+      if (entityName === "LostReport") {
+        nextData = {
+          matched_items: [],
+          status: "open",
+          ...nextData,
+        };
+      }
+
+      let record;
+      let usedLocalFallback = false;
+
+      try {
+        record = await requestEntityApi(entityName, "", {
+          method: "POST",
+          body: JSON.stringify(nextData),
+        });
+      } catch (error) {
+        if (!shouldUseLocalFallback(error)) {
+          throw error;
+        }
+
+        record = createCachedRecord(entityName, nextData);
+        usedLocalFallback = true;
+      }
 
       upsertCachedRecord(entityName, record);
-      await applyEntitySideEffects(entityName, "create", record, null);
+
+      if (entityName === "LostReport") {
+        record = await syncMatchesForLostReport(record);
+      }
+
+      if (entityName !== "LostReport") {
+        await applyEntitySideEffects(entityName, "create", record, null);
+      }
+
+      if (usedLocalFallback && entityName === "Claim") {
+        await applyClaimStatusSideEffects(record, null);
+      }
+
       return clone(record);
     },
 
@@ -854,13 +1165,44 @@ function createEntityApi(entityName) {
         (readDb()[entityName] || []).find((record) => (record?.id || record?._id) === id) ||
         null;
 
-      const nextRecord = await requestEntityApi(entityName, `/${id}`, {
-        method: "PATCH",
-        body: JSON.stringify(updates),
-      });
+      if (!previousRecord) {
+        throw new Error(`${entityName} ${id} was not found.`);
+      }
+
+      const candidateRecord = {
+        ...previousRecord,
+        ...clone(updates),
+        updated_date: new Date().toISOString(),
+      };
+
+      if (entityName === "Claim") {
+        await validateClaimRecord(candidateRecord, previousRecord);
+      }
+
+      let nextRecord;
+      let usedLocalFallback = false;
+
+      try {
+        nextRecord = await requestEntityApi(entityName, `/${id}`, {
+          method: "PATCH",
+          body: JSON.stringify(updates),
+        });
+      } catch (error) {
+        if (!shouldUseLocalFallback(error)) {
+          throw error;
+        }
+
+        nextRecord = saveCachedRecord(entityName, id, updates);
+        usedLocalFallback = true;
+      }
 
       upsertCachedRecord(entityName, nextRecord);
       await applyEntitySideEffects(entityName, "update", nextRecord, previousRecord);
+
+      if (usedLocalFallback && entityName === "Claim") {
+        await applyClaimStatusSideEffects(nextRecord, previousRecord);
+      }
+
       return clone(nextRecord);
     },
 
@@ -912,7 +1254,10 @@ async function requestApi(url, options = {}) {
   }
 
   if (!response.ok) {
-    throw new Error(payload?.error || payload?.message || "Failed to fetch items.");
+    const error = new Error(payload?.error || payload?.message || "Failed to fetch items.");
+    error.status = response.status;
+    error.payload = payload;
+    throw error;
   }
 
   return payload;
@@ -984,6 +1329,7 @@ function normalizeFoundItem(record = {}) {
     item_code: record.item_code || record.itemCode || "",
     assigned_to: record.assigned_to || record.assignedTo || "",
     is_flagged: Boolean(record.is_flagged ?? record.isFlagged),
+    linked_lost_report_id: record.linked_lost_report_id || record.linkedLostReportId || "",
     claim_confirmed: Boolean(record.claim_confirmed ?? record.claimConfirmed),
     claim_confirmed_at: record.claim_confirmed_at || record.claimConfirmedAt || "",
     ratings: Array.isArray(record.ratings) ? record.ratings.map((rating) => normalizeRating(rating)) : [],
@@ -1026,6 +1372,7 @@ function serializeFoundItem(record = {}, { partial = false } = {}) {
     item_code: record.item_code ?? record.itemCode,
     assigned_to: record.assigned_to ?? record.assignedTo,
     is_flagged: record.is_flagged ?? record.isFlagged,
+    linked_lost_report_id: record.linked_lost_report_id ?? record.linkedLostReportId,
     claim_confirmed: record.claim_confirmed ?? record.claimConfirmed,
     claim_confirmed_at: record.claim_confirmed_at ?? record.claimConfirmedAt,
     ratings: Array.isArray(record.ratings)
@@ -1068,6 +1415,7 @@ function serializeFoundItem(record = {}, { partial = false } = {}) {
       item_code: values.item_code || "",
       assigned_to: values.assigned_to || "",
       is_flagged: Boolean(values.is_flagged),
+      linked_lost_report_id: values.linked_lost_report_id || "",
       claim_confirmed: Boolean(values.claim_confirmed),
       claim_confirmed_at: values.claim_confirmed_at || "",
       ratings: values.ratings || [],
@@ -1100,6 +1448,7 @@ function serializeFoundItem(record = {}, { partial = false } = {}) {
       item_code: hasAnyKey(record, ["item_code", "itemCode"]) ? values.item_code : undefined,
       assigned_to: hasAnyKey(record, ["assigned_to", "assignedTo"]) ? values.assigned_to : undefined,
       is_flagged: hasAnyKey(record, ["is_flagged", "isFlagged"]) ? Boolean(values.is_flagged) : undefined,
+      linked_lost_report_id: hasAnyKey(record, ["linked_lost_report_id", "linkedLostReportId"]) ? values.linked_lost_report_id : undefined,
       claim_confirmed: hasAnyKey(record, ["claim_confirmed", "claimConfirmed"]) ? Boolean(values.claim_confirmed) : undefined,
       claim_confirmed_at: hasAnyKey(record, ["claim_confirmed_at", "claimConfirmedAt"]) ? values.claim_confirmed_at : undefined,
       ratings: hasAnyKey(record, ["ratings"]) ? values.ratings || [] : undefined,
@@ -1110,75 +1459,195 @@ function serializeFoundItem(record = {}, { partial = false } = {}) {
 function createFoundItemApi() {
   return {
     async list(sort, limit) {
-      const records = await requestFoundItemsApi();
-      const normalizedRecords = records.map((record) => normalizeFoundItem(record));
-      return clone(limitRecords(sortRecords(normalizedRecords, sort), limit));
+      try {
+        const records = await requestFoundItemsApi();
+        const normalizedRecords = records.map((record) => normalizeFoundItem(record));
+        replaceCachedCollection("FoundItem", normalizedRecords);
+        return clone(limitRecords(sortRecords(normalizedRecords, sort), limit));
+      } catch (error) {
+        if (!shouldUseLocalFallback(error)) {
+          throw error;
+        }
+
+        const db = readDb();
+        const records = (db.FoundItem || []).map((record) => normalizeFoundItem(record));
+        const normalizedRecords = records.map((record) => normalizeFoundItem(record));
+        return clone(limitRecords(sortRecords(normalizedRecords, sort), limit));
+      }
     },
 
     async filter(filters = {}, sort, limit) {
-      const records = await requestFoundItemsApi();
-      const filteredRecords = records
-        .map((record) => normalizeFoundItem(record))
-        .filter((record) => matchRecord(record, filters));
+      try {
+        const records = await requestFoundItemsApi();
+        const normalizedRecords = records.map((record) => normalizeFoundItem(record));
+        replaceCachedCollection("FoundItem", normalizedRecords);
+        const filteredRecords = normalizedRecords.filter((record) => matchRecord(record, filters));
+        return clone(limitRecords(sortRecords(filteredRecords, sort), limit));
+      } catch (error) {
+        if (!shouldUseLocalFallback(error)) {
+          throw error;
+        }
 
-      return clone(limitRecords(sortRecords(filteredRecords, sort), limit));
+        const db = readDb();
+        const filteredRecords = (db.FoundItem || [])
+          .map((record) => normalizeFoundItem(record))
+          .filter((record) => matchRecord(record, filters));
+        return clone(limitRecords(sortRecords(filteredRecords, sort), limit));
+      }
     },
 
     async create(data) {
-      const createdRecord = await requestFoundItemsApi("", {
-        method: "POST",
-        body: JSON.stringify(serializeFoundItem(data)),
-      });
+      const payload = {
+        ...data,
+        record_type: "found",
+      };
+      let createdRecord;
 
-      return clone(normalizeFoundItem({ ...data, ...createdRecord }));
+      try {
+        createdRecord = await requestFoundItemsApi("", {
+          method: "POST",
+          body: JSON.stringify(serializeFoundItem(payload)),
+        });
+      } catch (error) {
+        if (!shouldUseLocalFallback(error)) {
+          throw error;
+        }
+
+        createdRecord = createCachedRecord("FoundItem", serializeFoundItem(payload));
+      }
+
+      const normalizedRecord = normalizeFoundItem({ ...payload, ...createdRecord });
+      upsertCachedRecord("FoundItem", normalizedRecord);
+      await syncMatchesForFoundItem(normalizedRecord);
+      return clone(normalizedRecord);
     },
 
     async update(id, updates) {
-      const updatedRecord = await requestFoundItemsApi(`/${id}`, {
-        method: "PATCH",
-        body: JSON.stringify(serializeFoundItem(updates, { partial: true })),
-      });
+      let updatedRecord;
 
-      return clone(normalizeFoundItem(updatedRecord));
+      try {
+        updatedRecord = await requestFoundItemsApi(`/${id}`, {
+          method: "PATCH",
+          body: JSON.stringify(serializeFoundItem(updates, { partial: true })),
+        });
+      } catch (error) {
+        if (!shouldUseLocalFallback(error)) {
+          throw error;
+        }
+
+        updatedRecord = saveCachedRecord("FoundItem", id, serializeFoundItem(updates, { partial: true }));
+      }
+
+      const normalizedRecord = normalizeFoundItem(updatedRecord);
+      upsertCachedRecord("FoundItem", normalizedRecord);
+      await syncMatchesForFoundItem(normalizedRecord);
+      return clone(normalizedRecord);
     },
 
     async delete(id) {
-      const response = await requestFoundItemsApi(`/${id}`, {
-        method: "DELETE",
-      });
+      if (await hasFoundItemReferences(id)) {
+        const archivedRecord = await this.update(id, { status: "archived" });
+        return { success: Boolean(archivedRecord), archived: true };
+      }
 
-      return Boolean(response?.success);
+      try {
+        const response = await requestFoundItemsApi(`/${id}`, {
+          method: "DELETE",
+        });
+
+        if (response?.archived && response.item) {
+          upsertCachedRecord("FoundItem", normalizeFoundItem(response.item));
+          return { success: true, archived: true };
+        }
+
+        removeCachedRecord("FoundItem", id);
+        return { success: Boolean(response?.success), archived: false };
+      } catch (error) {
+        if (!shouldUseLocalFallback(error)) {
+          throw error;
+        }
+
+        removeCachedRecord("FoundItem", id);
+        return { success: true, archived: false };
+      }
     },
 
     async upsertRating(id, rating) {
-      const updatedRecord = await requestFoundItemsApi(`/${id}`, {
-        method: "PATCH",
-        body: JSON.stringify({
-          upsert_rating: {
-            claim_id: rating.claim_id || rating.claimId || "",
-            rating: rating.rating,
-            review: rating.review || "",
-            claimant_name: rating.claimant_name || rating.claimantName || "",
-            reviewer_email: rating.reviewer_email || rating.reviewerEmail || "",
-            review_status: rating.review_status || rating.status || "pending",
-            review_submitted_at: rating.review_submitted_at || rating.submittedAt || "",
-            review_reviewed_at: rating.review_reviewed_at || rating.reviewedAt || "",
-          },
-        }),
-      });
+      const normalizedRating = {
+        claim_id: rating.claim_id || rating.claimId || "",
+        rating: rating.rating,
+        review: rating.review || "",
+        claimant_name: rating.claimant_name || rating.claimantName || "",
+        reviewer_email: rating.reviewer_email || rating.reviewerEmail || "",
+        review_status: rating.review_status || rating.status || "pending",
+        review_submitted_at: rating.review_submitted_at || rating.submittedAt || "",
+        review_reviewed_at: rating.review_reviewed_at || rating.reviewedAt || "",
+      };
+      let updatedRecord;
 
-      return clone(normalizeFoundItem(updatedRecord));
+      try {
+        updatedRecord = await requestFoundItemsApi(`/${id}`, {
+          method: "PATCH",
+          body: JSON.stringify({
+            upsert_rating: normalizedRating,
+          }),
+        });
+      } catch (error) {
+        if (!shouldUseLocalFallback(error)) {
+          throw error;
+        }
+
+        const existingRecords = await this.filter({ id });
+        const existingRecord = existingRecords[0];
+        if (!existingRecord) {
+          throw new Error(`FoundItem ${id} was not found.`);
+        }
+
+        const ratings = [...(existingRecord.ratings || [])];
+        const ratingIndex = ratings.findIndex((entry) => entry.claim_id === normalizedRating.claim_id);
+        if (ratingIndex >= 0) {
+          ratings[ratingIndex] = normalizedRating;
+        } else {
+          ratings.push(normalizedRating);
+        }
+
+        updatedRecord = saveCachedRecord("FoundItem", id, { ratings });
+      }
+
+      const normalizedRecord = normalizeFoundItem(updatedRecord);
+      upsertCachedRecord("FoundItem", normalizedRecord);
+      return clone(normalizedRecord);
     },
 
     async removeRating(id, claimId) {
-      const updatedRecord = await requestFoundItemsApi(`/${id}`, {
-        method: "PATCH",
-        body: JSON.stringify({
-          remove_rating_by_claim_id: claimId,
-        }),
-      });
+      let updatedRecord;
 
-      return clone(normalizeFoundItem(updatedRecord));
+      try {
+        updatedRecord = await requestFoundItemsApi(`/${id}`, {
+          method: "PATCH",
+          body: JSON.stringify({
+            remove_rating_by_claim_id: claimId,
+          }),
+        });
+      } catch (error) {
+        if (!shouldUseLocalFallback(error)) {
+          throw error;
+        }
+
+        const existingRecords = await this.filter({ id });
+        const existingRecord = existingRecords[0];
+        if (!existingRecord) {
+          throw new Error(`FoundItem ${id} was not found.`);
+        }
+
+        updatedRecord = saveCachedRecord("FoundItem", id, {
+          ratings: (existingRecord.ratings || []).filter((rating) => rating.claim_id !== claimId),
+        });
+      }
+
+      const normalizedRecord = normalizeFoundItem(updatedRecord);
+      upsertCachedRecord("FoundItem", normalizedRecord);
+      return clone(normalizedRecord);
     },
   };
 }

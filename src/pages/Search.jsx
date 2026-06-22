@@ -8,7 +8,6 @@ import { useSearchParams, Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
 import { appClient } from "@/api/appClient";
-import { useAuth } from "@/lib/AuthContext";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,12 +19,12 @@ import { CATEGORIES, COLORS, LOCATIONS } from "@/lib/constants";
 import { translateCategory, translateColor, translateLocation } from "@/lib/i18n-helpers";
 import { Grid3X3, List, Package, Search as SearchIcon, SlidersHorizontal, X } from "lucide-react";
 
-export default function Search() {
+export default function Search({ recordTypeOverride = "found" }) {
   const { t } = useTranslation();
-  const { hasAdminAccess } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const queryFromUrl = searchParams.get("q") || "";
-  const typeFromUrl = searchParams.get("type") || "all";
+  const recordType = recordTypeOverride || "found";
+  const isLostItemsPage = recordType === "lost";
   const [searchQuery, setSearchQuery] = useState(queryFromUrl);
   const [viewMode, setViewMode] = useState("list");
   const [filters, setFilters] = useState({
@@ -33,7 +32,7 @@ export default function Search() {
     color: "all",
     location: "all",
     sort: "newest",
-    recordType: hasAdminAccess ? typeFromUrl : "lost", // "all" | "lost" | "found"
+    recordType,
   });
 
   useEffect(() => {
@@ -41,9 +40,8 @@ export default function Search() {
   }, [queryFromUrl]);
 
   useEffect(() => {
-    const nextType = hasAdminAccess ? typeFromUrl : "lost";
-    setFilters((curr) => ({ ...curr, recordType: nextType }));
-  }, [typeFromUrl, hasAdminAccess]);
+    setFilters((curr) => ({ ...curr, recordType }));
+  }, [recordType]);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["searchRecords"],
@@ -96,9 +94,9 @@ export default function Search() {
 
   const searchableRecords = useMemo(
     () => {
-      return [...publicFoundItems, ...publicLostReports];
+      return isLostItemsPage ? publicLostReports : publicFoundItems;
     },
-    [publicFoundItems, publicLostReports]
+    [isLostItemsPage, publicFoundItems, publicLostReports]
   );
 
   const filteredItems = useMemo(() => {
@@ -156,7 +154,6 @@ export default function Search() {
     filters.category !== "all" ? translateCategory(t, filters.category) : null,
     filters.color !== "all" ? translateColor(t, filters.color) : null,
     filters.location !== "all" ? translateLocation(t, filters.location) : null,
-    hasAdminAccess && filters.recordType !== "all" ? (filters.recordType === "lost" ? t("common.lost") : t("common.found")) : null,
     searchQuery ? t("search.query_badge", { query: searchQuery }) : null,
   ].filter(Boolean);
 
@@ -164,14 +161,13 @@ export default function Search() {
     setSearchQuery("");
     const nextParams = new URLSearchParams(searchParams);
     nextParams.delete("q");
-    nextParams.delete("type");
     setSearchParams(nextParams);
     setFilters({
       category: "all",
       color: "all",
       location: "all",
       sort: "newest",
-      recordType: hasAdminAccess ? "all" : "lost",
+      recordType,
     });
   };
 
@@ -192,9 +188,22 @@ export default function Search() {
   return (
     <div className="page-shell py-10">
       <div className="page-header">
-        <span className="page-kicker">{t("search.kicker")}</span>
-        <h1 className="page-title">{t("search.title")}</h1>
-        <p className="page-subtitle">{t("search.subtitle")}</p>
+        <span className="page-kicker">{isLostItemsPage ? t("lost_items.kicker", "Lost reports") : t("search.kicker")}</span>
+        <h1 className="page-title">{isLostItemsPage ? t("lost_items.title", "Lost Items") : t("search.found_title", "Found Items")}</h1>
+        <p className="page-subtitle">
+          {isLostItemsPage
+            ? t("lost_items.subtitle", "Browse items students and staff are looking for. If you physically found one, submit it as a found item so the normal verification workflow can begin.")
+            : t("search.found_subtitle", "Search the verified found-item inventory. Claimed, returned, and archived records stay out of public results.")}
+        </p>
+      </div>
+
+      <div className="mb-6 flex flex-wrap gap-2">
+        <Button asChild variant={!isLostItemsPage ? "secondary" : "outline"} size="sm">
+          <Link to="/Search">{t("search.found_items_tag", "Found Items")}</Link>
+        </Button>
+        <Button asChild variant={isLostItemsPage ? "secondary" : "outline"} size="sm">
+          <Link to="/LostItems">{t("search.lost_reports_tag", "Lost Reports")}</Link>
+        </Button>
       </div>
 
       <section className="mb-6 space-y-4">
@@ -247,44 +256,6 @@ export default function Search() {
                 </SheetHeader>
 
                 <div className="space-y-6">
-                  {/* Record Type filter */}
-                  {hasAdminAccess && (
-                    <div className="space-y-2">
-                      <label className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
-                        {t("search.record_type", "Type")}
-                      </label>
-                      <div className="grid grid-cols-3 gap-2 p-1 rounded-lg border bg-slate-50">
-                        {[
-                          { val: "all", label: t("search.all_records", "All") },
-                          { val: "lost", label: t("common.lost") },
-                          { val: "found", label: t("common.found") }
-                        ].map(typeOpt => (
-                          <button
-                            key={typeOpt.val}
-                            type="button"
-                            onClick={() => {
-                              setFilters(curr => ({ ...curr, recordType: typeOpt.val }));
-                              const nextParams = new URLSearchParams(searchParams);
-                              if (typeOpt.val !== "all") {
-                                nextParams.set("type", typeOpt.val);
-                              } else {
-                                nextParams.delete("type");
-                              }
-                              setSearchParams(nextParams);
-                            }}
-                            className={`py-1.5 text-xs font-semibold rounded ${
-                              filters.recordType === typeOpt.val
-                                ? "bg-white text-slate-900 shadow-sm border"
-                                : "text-slate-500 hover:text-slate-900"
-                            }`}
-                          >
-                            {typeOpt.label}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
                   {/* Category filter */}
                   <div className="space-y-2">
                     <label className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
@@ -396,43 +367,6 @@ export default function Search() {
         {/* Quick Filter Tags & Badges */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-2">
           <div className="flex flex-wrap items-center gap-1.5 overflow-x-auto pb-1 max-w-full">
-            {/* Record Type Quick Tags */}
-            {hasAdminAccess && (
-              <>
-                {[
-                  { val: "all", label: t("search.all_records", "All Items") },
-                  { val: "lost", label: t("search.lost_reports_tag", "Lost Reports") },
-                  { val: "found", label: t("search.found_items_tag", "Found Items") }
-                ].map(tag => {
-                  const active = filters.recordType === tag.val;
-                  return (
-                    <button
-                      key={tag.val}
-                      type="button"
-                      onClick={() => {
-                        setFilters(curr => ({ ...curr, recordType: tag.val }));
-                        const nextParams = new URLSearchParams(searchParams);
-                        if (tag.val !== "all") {
-                          nextParams.set("type", tag.val);
-                        } else {
-                          nextParams.delete("type");
-                        }
-                        setSearchParams(nextParams);
-                      }}
-                      className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all border ${
-                        active
-                          ? "bg-primary text-primary-foreground border-primary"
-                          : "bg-white text-slate-600 hover:text-slate-950 border-slate-200"
-                      }`}
-                    >
-                      {tag.label}
-                    </button>
-                  );
-                })}
-                <span className="w-px h-4 bg-slate-300 mx-1 hidden sm:inline" />
-              </>
-            )}
-
             {/* Category Quick Tags */}
             {[
               { val: "electronics", label: t("categories.electronics") },
@@ -459,9 +393,7 @@ export default function Search() {
           </div>
 
           <div className="flex items-center gap-2 text-xs text-slate-500">
-            {hasAdminAccess && (
-              <Badge variant="outline" className="border-slate-200">{t("search.available_found_items", { count: publicFoundItems.length })}</Badge>
-            )}
+            <Badge variant="outline" className="border-slate-200">{t("search.available_found_items", { count: publicFoundItems.length })}</Badge>
             <Badge variant="outline" className="border-slate-200">{t("search.active_lost_reports", { count: publicLostReports.length })}</Badge>
           </div>
         </div>
@@ -522,7 +454,7 @@ export default function Search() {
         </div>
       )}
 
-      {filters.recordType === "lost" && (
+      {isLostItemsPage && (
         <div className="mt-12 p-6 rounded-xl border border-amber-250 bg-amber-500/5 dark:border-amber-900/40 dark:bg-amber-950/10 text-center max-w-2xl mx-auto space-y-3 shadow-sm">
           <h3 className="text-base font-bold text-amber-950 dark:text-amber-200">
             {t("search.lost_item_cta_title", "Don't see your missing item listed?")}

@@ -75,18 +75,28 @@ export default function AdminItemsQueue({ items, filterStatus = "all" }) {
 
   const deleteMutation = useMutation({
     mutationFn: async (id) => {
-      await appClient.entities.FoundItem.delete(id);
+      const result = await appClient.entities.FoundItem.delete(id);
       await appClient.entities.AuditLog.create({
-        action: "Item deleted",
+        action: result?.archived ? "Item archived" : "Item deleted",
         entity_type: "found_item",
         entity_id: id,
         performed_by: "admin",
-        details: "Item removed from system",
+        details: result?.archived
+          ? "Item archived because it has existing claims or lost-report references"
+          : "Item removed from system",
       });
+      return result;
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ["adminFoundItems"] });
-      toast({ title: t("admin_items_queue.deleted"), description: t("admin_items_queue.deleted_description") });
+      toast({
+        title: result?.archived
+          ? t("admin_items_queue.archived", "Item archived")
+          : t("admin_items_queue.deleted"),
+        description: result?.archived
+          ? t("admin_items_queue.archived_description", "This item has related records, so it was archived instead of deleted.")
+          : t("admin_items_queue.deleted_description"),
+      });
     },
     onError: (error) => {
       toast({

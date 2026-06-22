@@ -82,6 +82,9 @@ export default function ClaimItem() {
     const errs = {};
     if (!form.claimant_name.trim()) errs.claimant_name = t("claim_item.name_required");
     if (!form.claimant_email.trim()) errs.claimant_email = t("claim_item.email_required");
+    if (form.claimant_email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.claimant_email.trim())) {
+      errs.claimant_email = t("claim_item.email_invalid", "Enter a valid email address.");
+    }
     if (!form.reason.trim()) errs.reason = t("claim_item.reason_required");
     if (!form.truthful) errs.truthful = t("claim_item.truthful_required");
     setErrors(errs);
@@ -107,24 +110,34 @@ export default function ClaimItem() {
         risk_flags: riskResult.risk_flags || [],
       });
 
-      await appClient.entities.FoundItem.update(item.id, { status: "claimed" });
-
       return claim;
     },
     onSuccess: () => {
       queryClient.invalidateQueries();
       setSubmitted(true);
+      toast({
+        title: t("claim_item.submitted_title"),
+        description: t("claim_item.submitted_description"),
+      });
     },
-    onError: () => {
-      toast({ title: t("claim_item.error"), description: t("claim_item.submit_failed"), variant: "destructive" });
+    onError: (error) => {
+      toast({
+        title: t("claim_item.error"),
+        description: error.message || t("claim_item.submit_failed"),
+        variant: "destructive",
+      });
     },
   });
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     if (event && event.preventDefault) event.preventDefault();
     if (!validate()) return false;
-    submitMutation.mutate();
-    return true;
+    try {
+      await submitMutation.mutateAsync();
+      return true;
+    } catch {
+      return false;
+    }
   };
 
   if (submitted) {

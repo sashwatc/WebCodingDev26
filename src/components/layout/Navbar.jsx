@@ -93,6 +93,7 @@ export default function Navbar() {
   const navLinks = [
     { to: "/Home", label: t("common.home"), icon: Home },
     { to: "/Search", label: t("common.search_items"), icon: Search },
+    { to: "/LostItems", label: t("common.lost_items", "Lost Items"), icon: AlertTriangle },
     { to: "/ReportLost", label: t("common.report_lost_item"), icon: AlertTriangle },
   ];
 

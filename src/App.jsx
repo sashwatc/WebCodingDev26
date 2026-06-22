@@ -26,6 +26,7 @@ import PublicLayout from '@/components/layout/PublicLayout';
 // Page imports
 import Home from '@/pages/Home';
 import Search from '@/pages/Search';
+import LostItems from '@/pages/LostItems';
 import ReportFound from '@/pages/ReportFound';
 import ReportLost from '@/pages/ReportLost';
 import ItemDetails from '@/pages/ItemDetails';
@@ -76,6 +77,7 @@ const AuthenticatedApp = () => {
         <Route element={<PublicLayout />}>
           <Route path="/Home" element={<Home />} />
           <Route path="/Search" element={<Search />} />
+          <Route path="/LostItems" element={<LostItems />} />
           <Route path="/ReportFound" element={<ReportFound />} />
           <Route path="/ReportLost" element={<ReportLost />} />
           <Route path="/ItemDetails" element={<ItemDetails />} />

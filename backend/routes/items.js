@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const itemStore = require("../lib/itemStore");
 const { enrichFoundItemMedia, enrichFoundItemsMedia } = require("../lib/itemMedia");
+const { hasFoundItemReferences, syncMatchesForFoundItem } = require("../lib/workflows");
 
 function parseDate(value) {
   if (!value) {
@@ -73,6 +74,7 @@ function normalizeItemPayload(payload = {}) {
     itemCode: payload.itemCode ?? payload.item_code,
     assignedTo: payload.assignedTo ?? payload.assigned_to,
     isFlagged: payload.isFlagged ?? payload.is_flagged,
+    linkedLostReportId: payload.linkedLostReportId ?? payload.linked_lost_report_id,
     claimConfirmed: payload.claimConfirmed ?? payload.claim_confirmed,
     claimConfirmedAt: parseDate(payload.claimConfirmedAt ?? payload.claim_confirmed_at),
     ratings,
@@ -128,6 +130,7 @@ router.post("/", async (req, res) => {
 
   try {
     const savedItem = await itemStore.create(normalizeItemPayload(req.body));
+    await syncMatchesForFoundItem(savedItem);
     res.status(201).json(await enrichFoundItemMedia(savedItem));
   } catch (error) {
     const statusCode = error.name === "ValidationError" ? 400 : 500;
@@ -155,6 +158,7 @@ router.patch("/:id", async (req, res) => {
     await applyPatchOperations(item, req.body);
 
     const updatedItem = await itemStore.save(item);
+    await syncMatchesForFoundItem(updatedItem);
     res.json(await enrichFoundItemMedia(updatedItem));
   } catch (error) {
     const statusCode = error.statusCode || (error.name === "ValidationError" ? 400 : 500);
@@ -170,6 +174,27 @@ router.delete("/:id", async (req, res) => {
   console.log(`DELETE /api/items/${req.params.id} hit`);
 
   try {
+    if (await hasFoundItemReferences(req.params.id)) {
+      const item = await itemStore.findById(req.params.id);
+
+      if (!item) {
+        return res.status(404).json({
+          message: "Item not found",
+        });
+      }
+
+      const archivedItem = await itemStore.save({
+        ...item,
+        status: "archived",
+      });
+
+      return res.json({
+        success: true,
+        archived: true,
+        item: await enrichFoundItemMedia(archivedItem),
+      });
+    }
+
     const deletedItem = await itemStore.remove(req.params.id);
 
     if (!deletedItem) {

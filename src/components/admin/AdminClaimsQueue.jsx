@@ -43,7 +43,7 @@ export default function AdminClaimsQueue({ claims, foundItems = [] }) {
   const [adminNotes, setAdminNotes] = useState("");
 
   const getRelatedItemStatus = (claimStatus) => {
-    if (["submitted", "under_review", "need_more_info", "approved"].includes(claimStatus)) {
+    if (claimStatus === "approved") {
       return "claimed";
     }
 
@@ -66,7 +66,15 @@ export default function AdminClaimsQueue({ claims, foundItems = [] }) {
       if (data.status) {
         const relatedItemStatus = getRelatedItemStatus(data.status);
         if (relatedItemStatus) {
-          await appClient.entities.FoundItem.update(claim.found_item_id, { status: relatedItemStatus });
+          await appClient.entities.FoundItem.update(claim.found_item_id, {
+            status: relatedItemStatus,
+            ...(data.status === "completed"
+              ? {
+                  claim_confirmed: true,
+                  claim_confirmed_at: data.received_confirmed_at || new Date().toISOString(),
+                }
+              : {}),
+          });
         }
       }
 
@@ -360,7 +368,14 @@ export default function AdminClaimsQueue({ claims, foundItems = [] }) {
                     <Button
                       size="sm"
                       className="bg-indigo-650 hover:bg-indigo-600 text-white font-semibold animate-pulse"
-                      onClick={() => updateMutation.mutate({ claim: detailDialog, data: { status: "completed" }, action: "Status → Completed" })}
+                      onClick={() => updateMutation.mutate({
+                        claim: detailDialog,
+                        data: {
+                          status: "completed",
+                          received_confirmed_at: new Date().toISOString(),
+                        },
+                        action: "Status → Completed",
+                      })}
                     >
                       {t("admin_claims_queue.mark_completed", "Complete Hand-off")}
                     </Button>

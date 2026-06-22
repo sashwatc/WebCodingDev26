@@ -8,31 +8,58 @@ import React, { useState, useRef } from "react";
 import { Upload, X, Loader2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { appClient } from "@/api/appClient";
+import { useToast } from "@/components/ui/use-toast";
 
 export default function PhotoUploader({ photos = [], onChange, maxPhotos = 3, label }) {
   const { t } = useTranslation();
+  const { toast } = useToast();
   const [isDragging, setIsDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef(null);
+  const dragDepthRef = useRef(0);
   const displayLabel = label || t("photo_uploader.upload_photos");
 
   const handleFiles = async (files) => {
-    const validFiles = Array.from(files).filter(f => 
+    if (uploading || photos.length >= maxPhotos) return;
+
+    const incomingFiles = Array.from(files || []);
+    if (incomingFiles.length === 0) return;
+
+    const validFiles = incomingFiles.filter(f => 
       f.type.startsWith("image/") && f.size < 10 * 1024 * 1024 // Max 10MB
     );
-    if (validFiles.length === 0) return;
+    if (validFiles.length === 0) {
+      toast({
+        title: t("photo_uploader.invalid_files_title", "No supported photos"),
+        description: t("photo_uploader.invalid_files_description", "Upload image files under 10 MB."),
+        variant: "destructive",
+      });
+      return;
+    }
 
     setUploading(true);
     const newPhotos = [...photos];
 
-    for (const file of validFiles) {
-      if (newPhotos.length >= maxPhotos) break;
-      const { file_url } = await appClient.integrations.Core.UploadFile({ file });
-      newPhotos.push(file_url);
-    }
+    try {
+      for (const file of validFiles) {
+        if (newPhotos.length >= maxPhotos) break;
+        const { file_url } = await appClient.integrations.Core.UploadFile({ file });
+        if (file_url) newPhotos.push(file_url);
+      }
 
-    onChange(newPhotos);
-    setUploading(false);
+      onChange(newPhotos);
+    } catch (error) {
+      toast({
+        title: t("photo_uploader.upload_failed_title", "Upload failed"),
+        description: error.message || t("photo_uploader.upload_failed_description", "Try the upload again."),
+        variant: "destructive",
+      });
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
   };
 
   const removePhoto = (index) => {
@@ -41,8 +68,33 @@ export default function PhotoUploader({ photos = [], onChange, maxPhotos = 3, la
 
   const handleDrop = (e) => {
     e.preventDefault();
+    e.stopPropagation();
+    dragDepthRef.current = 0;
     setIsDragging(false);
     handleFiles(e.dataTransfer.files);
+  };
+
+  const handleDragEnter = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragDepthRef.current += 1;
+    setIsDragging(true);
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = "copy";
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragDepthRef.current = Math.max(0, dragDepthRef.current - 1);
+    if (dragDepthRef.current === 0) {
+      setIsDragging(false);
+    }
   };
 
   return (
@@ -51,8 +103,9 @@ export default function PhotoUploader({ photos = [], onChange, maxPhotos = 3, la
       
       {/* Drag & Drop Zone */}
       <div
-        onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
-        onDragLeave={() => setIsDragging(false)}
+        onDragEnter={handleDragEnter}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
         onDrop={handleDrop}
         onClick={() => fileInputRef.current?.click()}
         className={`relative rounded-xl border-2 border-dashed p-6 text-center transition-colors ${
@@ -71,6 +124,7 @@ export default function PhotoUploader({ photos = [], onChange, maxPhotos = 3, la
           accept="image/*"
           multiple
           onChange={(e) => handleFiles(e.target.files)}
+          disabled={uploading || photos.length >= maxPhotos}
           className="hidden"
           aria-hidden="true"
         />
@@ -102,7 +156,7 @@ export default function PhotoUploader({ photos = [], onChange, maxPhotos = 3, la
               <img src={url} alt={t("photo_uploader.uploaded_photo", { count: i + 1 })} className="w-full h-full object-cover" />
               <button
                 onClick={(e) => { e.stopPropagation(); removePhoto(i); }}
-                className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-slate-900 text-white opacity-0 transition-opacity group-hover:opacity-100"
+                className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-slate-900 text-white opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 sm:focus-visible:opacity-100"
                 aria-label={t("photo_uploader.remove_photo", { count: i + 1 })}
               >
                 <X className="w-3 h-3" />

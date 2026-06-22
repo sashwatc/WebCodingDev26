@@ -181,6 +181,11 @@ const itemSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    linkedLostReportId: {
+      type: String,
+      default: "",
+      trim: true,
+    },
     claimConfirmed: {
       type: Boolean,
       default: false,

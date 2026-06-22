@@ -1,6 +1,11 @@
 const express = require("express");
 const router = express.Router();
 const { stores } = require("../lib/stores");
+const {
+  applyClaimStatusSideEffects,
+  syncMatchesForLostReport,
+  validateClaimSave,
+} = require("../lib/workflows");
 
 function getStore(entityName) {
   return stores[entityName] || null;
@@ -36,7 +41,16 @@ router.post("/:entityName", async (req, res) => {
   }
 
   try {
-    const record = await store.create(req.body || {});
+    if (req.params.entityName === "Claim") {
+      await validateClaimSave(req.body || {}, null);
+    }
+
+    let record = await store.create(req.body || {});
+
+    if (req.params.entityName === "LostReport") {
+      record = await syncMatchesForLostReport(record);
+    }
+
     res.status(201).json(record);
   } catch (error) {
     const statusCode = error.statusCode || (error.name === "ValidationError" ? 400 : 500);
@@ -65,10 +79,20 @@ router.patch("/:entityName/:id", async (req, res) => {
       });
     }
 
-    const nextRecord = await store.save({
+    const candidateRecord = {
       ...previousRecord,
       ...(req.body || {}),
-    });
+    };
+
+    if (req.params.entityName === "Claim") {
+      await validateClaimSave(candidateRecord, previousRecord);
+    }
+
+    const nextRecord = await store.save(candidateRecord);
+
+    if (req.params.entityName === "Claim") {
+      await applyClaimStatusSideEffects(nextRecord, previousRecord);
+    }
 
     res.json(nextRecord);
   } catch (error) {
