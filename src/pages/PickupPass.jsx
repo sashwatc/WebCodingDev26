@@ -7,7 +7,7 @@ import RecoveryLinkCode from "@/components/recovery/RecoveryLinkCode";
 
 export default function PickupPass() {
   const passId = new URLSearchParams(useLocation().search).get("id") || "";
-  const { data: pass, isLoading } = useQuery({ queryKey: ["pickupPass", passId], queryFn: () => appClient.recoveryMesh.returnPass(passId), enabled: !!passId });
+  const { data: pass, isLoading } = useQuery({ queryKey: ["pickupPass", passId], queryFn: () => appClient.returnPasses.get(passId), enabled: !!passId });
 
   if (isLoading) return <div className="page-shell py-16 text-sm text-slate-500">Loading pickup pass...</div>;
   if (!pass) return <div className="page-shell py-16 text-sm text-slate-500">Pickup pass not found.</div>;

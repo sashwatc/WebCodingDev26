@@ -26,7 +26,7 @@ function useReducedMotion() {
 export default function Display() {
   const location = useLocation();
   const eventId = new URLSearchParams(location.search).get("event") || "hub_basketball_game";
-  const { data: feed } = useQuery({ queryKey: ["displayFeed", eventId], queryFn: () => appClient.recoveryMesh.displayFeed(eventId), refetchInterval: 30000 });
+  const { data: feed } = useQuery({ queryKey: ["displayFeed", eventId], queryFn: () => appClient.eventHubs.displayFeed(eventId), refetchInterval: 30000 });
   const [activeIndex, setActiveIndex] = useState(0);
   const [paused, setPaused] = useState(false);
   const reducedMotion = useReducedMotion();

@@ -108,26 +108,26 @@ export default function ItemDetails() {
 
   const { data: custodyEvents = [] } = useQuery({
     queryKey: ["custodyEvents", itemId, isAdmin],
-    queryFn: () => appClient.recoveryMesh.custodyEvents(itemId),
+    queryFn: () => appClient.custody.events(itemId),
     enabled: !!itemId && !isLostReport,
   });
 
   const { data: custodyVerification } = useQuery({
     queryKey: ["custodyVerify", itemId],
-    queryFn: () => appClient.recoveryMesh.verifyCustody(itemId),
+    queryFn: () => appClient.custody.verify(itemId),
     enabled: !!itemId && !isLostReport,
   });
 
   const { data: proofVault } = useQuery({
     queryKey: ["proofVault", itemId],
-    queryFn: () => appClient.recoveryMesh.proofVault(itemId),
+    queryFn: () => appClient.proofVault.item(itemId),
     enabled: !!itemId && isAdmin && !isLostReport,
     retry: false,
   });
 
   const { data: recoveryCase } = useQuery({
     queryKey: ["lostReportRecoveryCase", itemId],
-    queryFn: () => appClient.recoveryMesh.recoveryCaseByLostReport(itemId),
+    queryFn: () => appClient.recoveryCases.byLostReport(itemId),
     enabled: !!itemId && isLostReport,
   });
 

@@ -239,7 +239,7 @@ export default function ReportFound() {
   });
 
   const assetLookupMutation = useMutation({
-    mutationFn: (tag) => appClient.recoveryMesh.assetLookup(tag),
+    mutationFn: (tag) => appClient.assets.lookup(tag),
     onSuccess: (result) => {
       if (result.recognized) {
         updateField("restricted_visibility", true);

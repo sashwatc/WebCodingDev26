@@ -42,41 +42,29 @@ export default function AdminClaimsQueue({ claims, foundItems = [] }) {
   const [detailDialog, setDetailDialog] = useState(null);
   const [adminNotes, setAdminNotes] = useState("");
 
-  const getRelatedItemStatus = (claimStatus) => {
-    if (claimStatus === "approved") {
-      return "claimed";
-    }
-
-    if (claimStatus === "rejected") {
-      return "approved";
-    }
-
-    if (claimStatus === "completed") {
-      return "returned";
-    }
-
-    return undefined;
-  };
-
   const updateMutation = useMutation({
-    mutationFn: async ({ claim, data, action, notifyUser = null }) => {
-      await appClient.entities.Claim.update(claim.id, data);
-      const nextClaim = { ...claim, ...data };
+    mutationFn: async ({ claim, data, action }) => {
+      let updatedClaim;
 
-      if (data.status) {
-        const relatedItemStatus = getRelatedItemStatus(data.status);
-        if (relatedItemStatus) {
-          await appClient.entities.FoundItem.update(claim.found_item_id, {
-            status: relatedItemStatus,
-            ...(data.status === "completed"
-              ? {
-                  claim_confirmed: true,
-                  claim_confirmed_at: data.received_confirmed_at || new Date().toISOString(),
-                }
-              : {}),
-          });
-        }
+      if (data.status === "approved") {
+        updatedClaim = await appClient.claims.approve(claim, data);
+      } else if (data.status === "rejected") {
+        updatedClaim = await appClient.claims.reject(claim, data);
+      } else if (data.status === "need_more_info") {
+        updatedClaim = await appClient.claims.requestMoreInfo(claim, data);
+      } else if (data.status === "under_review") {
+        updatedClaim = await appClient.claims.markUnderReview(claim, data);
+      } else if (data.status === "completed") {
+        updatedClaim = await appClient.claims.complete(claim, data);
+      } else if (data.review_status === "approved") {
+        updatedClaim = await appClient.claims.approveRating(claim, data);
+      } else if (data.review_status === "rejected") {
+        updatedClaim = await appClient.claims.rejectRating(claim, data);
+      } else {
+        updatedClaim = await appClient.claims.updateWorkflow(claim, data);
       }
+
+      const nextClaim = { ...claim, ...(updatedClaim || {}), ...data };
 
       if (
         nextClaim.claimant_rating &&
@@ -94,21 +82,10 @@ export default function AdminClaimsQueue({ claims, foundItems = [] }) {
         });
       }
 
-      if (notifyUser) {
-        await appClient.entities.Notification.create({
-          user_email: claim.claimant_email,
-          title: notifyUser.title,
-          message: notifyUser.message,
-          type: "admin_action",
-          link: notifyUser.link || "/UserDashboard",
-          related_item_id: claim.found_item_id,
-        });
-      }
-
       await appClient.entities.AuditLog.create({
         action,
         entity_type: "claim",
-        entity_id: claim.id,
+        entity_id: updatedClaim?.id || updatedClaim?._id || claim.id,
         performed_by: "admin",
         details: data.status
           ? `Claim status: ${data.status}`
@@ -433,11 +410,6 @@ export default function AdminClaimsQueue({ claims, foundItems = [] }) {
                           review_reviewed_at: new Date().toISOString(),
                         },
                         action: "Review approved",
-                        notifyUser: {
-                          title: "Rating approved",
-                          message: `Your rating for ${detailDialog.found_item_title} is now visible.`,
-                          link: `/ItemDetails?id=${detailDialog.found_item_id}`,
-                        },
                       })
                     }
                   >
@@ -455,10 +427,6 @@ export default function AdminClaimsQueue({ claims, foundItems = [] }) {
                           review_reviewed_at: new Date().toISOString(),
                         },
                         action: "Review rejected",
-                        notifyUser: {
-                          title: t("admin_claims_queue.rating_rejected_title"),
-                          message: t("admin_claims_queue.rating_rejected_message", { title: detailDialog.found_item_title }),
-                        },
                       })
                     }
                   >
@@ -481,7 +449,7 @@ export default function AdminClaimsQueue({ claims, foundItems = [] }) {
               className="bg-indigo-650 hover:bg-indigo-600 text-white"
               onClick={async () => {
                 if (detailDialog) {
-                  await appClient.entities.Claim.update(detailDialog.id, { admin_notes: adminNotes });
+                  await appClient.claims.updateWorkflow(detailDialog, { admin_notes: adminNotes });
                   setDetailDialog(null);
                   queryClient.invalidateQueries();
                   toast({ title: t("admin_claims_queue.notes_saved") });

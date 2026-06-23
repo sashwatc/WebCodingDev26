@@ -83,7 +83,10 @@ export default function Navbar() {
 
   const { data: notifications = [] } = useQuery({
     queryKey: ["navNotifications", user?.email],
-    queryFn: () => appClient.entities.Notification.filter({ user_email: user.email, is_read: false }),
+    queryFn: async () => {
+      const records = await appClient.recoveryPulse.notifications();
+      return records.filter((notification) => !notification.is_read);
+    },
     enabled: !!user?.email,
   });
 

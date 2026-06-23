@@ -56,13 +56,13 @@ export default function AdminDashboard() {
 
   const { data: recoveryCases = [] } = useQuery({
     queryKey: ["adminRecoveryCases"],
-    queryFn: () => appClient.recoveryMesh.recoveryCases(),
+    queryFn: () => appClient.recoveryCases.list(),
   });
 
   const { data: recoveryMissions = [] } = useQuery({
     queryKey: ["adminRecoveryMissions", recoveryCases.map((entry) => entry.id).join(",")],
     queryFn: async () => {
-      const groups = await Promise.all(recoveryCases.map((entry) => appClient.recoveryMesh.missions(entry.id)));
+      const groups = await Promise.all(recoveryCases.map((entry) => appClient.recoveryCases.missions(entry.id)));
       return groups.flat();
     },
     enabled: recoveryCases.length > 0,
@@ -70,26 +70,37 @@ export default function AdminDashboard() {
 
   const { data: sentinelAlerts = [] } = useQuery({
     queryKey: ["adminSentinelAlerts"],
-    queryFn: () => appClient.recoveryMesh.sentinelAlerts(),
+    queryFn: () => appClient.sentinel.alerts(),
   });
 
   const { data: partnerRelays = [] } = useQuery({
     queryKey: ["adminPartnerRelays"],
-    queryFn: () => appClient.recoveryMesh.partnerRelays(),
+    queryFn: () => appClient.partnerRelay.relays(),
   });
 
   const { data: assetDemo } = useQuery({
     queryKey: ["adminAssetDemoLookup"],
-    queryFn: () => appClient.recoveryMesh.assetLookup("PVHS-CB-1042"),
+    queryFn: () => appClient.assets.lookup("PVHS-CB-1042"),
   });
 
   const updateMissionMutation = useMutation({
-    mutationFn: ({ id, updates }) => appClient.recoveryMesh.updateMission(id, updates),
+    mutationFn: ({ id, updates }) => appClient.recoveryMissions.update(id, updates),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["adminRecoveryMissions"] }),
   });
 
   const updateAlertMutation = useMutation({
-    mutationFn: ({ id, updates }) => appClient.recoveryMesh.updateSentinelAlert(id, updates),
+    mutationFn: ({ id, updates }) => {
+      if (updates.status === "acknowledged") {
+        return appClient.sentinel.acknowledge(id, updates);
+      }
+      if (updates.status === "dismissed") {
+        return appClient.sentinel.dismiss(id, updates);
+      }
+      if (updates.status === "resolved") {
+        return appClient.sentinel.resolve(id, updates);
+      }
+      return appClient.sentinel.update(id, updates);
+    },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["adminSentinelAlerts"] }),
   });
 
@@ -373,10 +384,10 @@ export default function AdminDashboard() {
 
               <div className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900/40">
                 <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">Asset Rescue Bridge</h2>
-                <p className="mt-1 text-sm text-slate-500">Seeded adapter only. Recognized school assets are restricted from public search and routed internally.</p>
+                <p className="mt-1 text-sm text-slate-500">Recognized school assets are restricted from public search and routed internally by the backend.</p>
                 {assetDemo?.recognized && (
                   <div className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
-                    {assetDemo.asset_tag} · {assetDemo.asset_type} recognized by seeded demo adapter.
+                    {assetDemo.asset_tag} · {assetDemo.asset_type} recognized by asset lookup.
                   </div>
                 )}
                 <div className="mt-3 grid gap-3 md:grid-cols-2">

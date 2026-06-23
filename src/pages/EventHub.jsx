@@ -15,11 +15,11 @@ export default function EventHub() {
 
   const { data: hub } = useQuery({
     queryKey: ["eventHub", eventId],
-    queryFn: () => appClient.recoveryMesh.eventHub(eventId),
+    queryFn: () => appClient.eventHubs.get(eventId),
   });
   const { data: feed } = useQuery({
     queryKey: ["eventHubFeed", eventId],
-    queryFn: () => appClient.recoveryMesh.displayFeed(eventId),
+    queryFn: () => appClient.eventHubs.displayFeed(eventId),
   });
 
   const hubLink = `${window.location.origin}${window.location.pathname}#/EventHub?id=${eventId}`;

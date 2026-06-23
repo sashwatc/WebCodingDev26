@@ -1333,7 +1333,7 @@ function createEntityApi(entityName) {
         record = await syncMatchesForLostReport(record);
       }
 
-      if (entityName !== "LostReport") {
+      if (usedLocalFallback && entityName !== "LostReport") {
         await applyEntitySideEffects(entityName, "create", record, null);
       }
 
@@ -1383,7 +1383,10 @@ function createEntityApi(entityName) {
       }
 
       upsertCachedRecord(entityName, nextRecord);
-      await applyEntitySideEffects(entityName, "update", nextRecord, previousRecord);
+
+      if (usedLocalFallback) {
+        await applyEntitySideEffects(entityName, "update", nextRecord, previousRecord);
+      }
 
       if (usedLocalFallback && entityName === "Claim") {
         await applyClaimStatusSideEffects(nextRecord, previousRecord);
@@ -1420,12 +1423,20 @@ function createEntityApi(entityName) {
 }
 
 async function requestApi(url, options = {}) {
+  const { headers = {}, body, ...fetchOptions } = options;
+  const requestHeaders = {
+    Accept: "application/json",
+    ...headers,
+  };
+
+  if (body !== undefined && !(body instanceof FormData) && !requestHeaders["Content-Type"]) {
+    requestHeaders["Content-Type"] = "application/json";
+  }
+
   const response = await fetch(url, {
-    headers: {
-      "Content-Type": "application/json",
-      ...(options.headers || {}),
-    },
-    ...options,
+    ...fetchOptions,
+    body,
+    headers: requestHeaders,
   });
 
   const responseText = await response.text();
@@ -1464,7 +1475,13 @@ async function requestAdminFoundItemsApi(path = "", options = {}) {
 }
 
 async function requestEntityApi(entityName, path = "", options = {}) {
-  return requestApi(`${ENTITY_API_BASE_URL}/${encodeURIComponent(entityName)}${path}`, options);
+  return requestApi(`${ENTITY_API_BASE_URL}/${encodeURIComponent(entityName)}${path}`, {
+    ...options,
+    headers: {
+      ...adminHeaders(),
+      ...(options.headers || {}),
+    },
+  });
 }
 
 async function requestAuthApi(path = "", options = {}) {
@@ -1488,6 +1505,40 @@ async function requestRecoveryMeshApi(path = "", options = {}) {
       ...(options.headers || {}),
     },
   });
+}
+
+async function requestFeatureApi(path = "", options = {}) {
+  return requestApi(`${API_ROOT_URL}${path}`, {
+    ...options,
+    headers: {
+      ...adminHeaders(),
+      ...(options.headers || {}),
+    },
+  });
+}
+
+function backendOwnedArrayFallback(error) {
+  if (!shouldUseLocalFallback(error)) {
+    throw error;
+  }
+
+  return [];
+}
+
+function backendOwnedNullFallback(error) {
+  if (!shouldUseLocalFallback(error)) {
+    throw error;
+  }
+
+  return null;
+}
+
+function backendOwnedObjectFallback(error, fallback = {}) {
+  if (!shouldUseLocalFallback(error)) {
+    throw error;
+  }
+
+  return fallback;
 }
 
 function localCollection(name) {
@@ -1546,7 +1597,38 @@ function saveLocalRecord(name, record) {
   return clone(record);
 }
 
-function createRecoveryMeshApi() {
+function createRecoveryMeshApi(featureClients = {}) {
+  if (featureClients.recoveryCases) {
+    return {
+      campusZones: () => featureClients.campusZones.list(),
+      eventHubs: () => featureClients.eventHubs.list(),
+      eventHub: (id) => featureClients.eventHubs.get(id),
+      displayFeed: (id) => featureClients.eventHubs.displayFeed(id),
+      recoveryCases: () => featureClients.recoveryCases.list(),
+      recoveryCaseByLostReport: (lostReportId) => featureClients.recoveryCases.byLostReport(lostReportId),
+      refreshRecoveryCase: (lostReportId) => featureClients.recoveryCases.refreshByLostReport(lostReportId),
+      missions: (recoveryCaseId) => featureClients.recoveryCases.missions(recoveryCaseId),
+      updateMission: (id, updates) => featureClients.recoveryMissions.update(id, updates),
+      proofVault: (itemId) => featureClients.proofVault.item(itemId),
+      evidenceReview: (claimId) => featureClients.proofVault.evidenceReview(claimId),
+      submitEvidenceReview: (claimId, review) => featureClients.proofVault.submitEvidenceReview(claimId, review),
+      custodyEvents: (itemId) => featureClients.custody.events(itemId),
+      verifyCustody: (itemId) => featureClients.custody.verify(itemId),
+      moveItem: (itemId, move) => featureClients.custody.move(itemId, move),
+      assetLookup: (tag) => featureClients.assets.lookup(tag),
+      createReturnPass: (claimId, data) => featureClients.returnPasses.create(claimId, data),
+      returnPass: (id) => featureClients.returnPasses.get(id),
+      verifyReturnPass: (oneTimeCode) => featureClients.returnPasses.verify(oneTimeCode),
+      redeemReturnPass: (id, oneTimeCode) => featureClients.returnPasses.redeem(id, oneTimeCode),
+      sendReturnPassReminder: (id) => featureClients.returnPasses.reminder(id),
+      sentinelAlerts: () => featureClients.sentinel.alerts(),
+      recomputeSentinel: () => featureClients.sentinel.recompute(),
+      updateSentinelAlert: (id, updates) => featureClients.sentinel.update(id, updates),
+      recoveryNodes: () => featureClients.partnerRelay.nodes(),
+      partnerRelays: () => featureClients.partnerRelay.relays(),
+    };
+  }
+
   return {
     async campusZones() {
       if (shouldUseLocalRecoveryMesh()) {
@@ -1929,6 +2011,546 @@ function createRecoveryMeshApi() {
         return localCollection("PartnerRelay");
       }
     },
+  };
+}
+
+function createHealthApi() {
+  return {
+    async check() {
+      try {
+        return await requestFeatureApi("/health");
+      } catch (error) {
+        return backendOwnedObjectFallback(error, {
+          status: "unavailable",
+          backend_required: true,
+        });
+      }
+    },
+  };
+}
+
+function createClaimApi(baseApi) {
+  const updateClaim = async (claimOrId, updates) => {
+    const id = typeof claimOrId === "string" ? claimOrId : getRecordId(claimOrId);
+    if (!id) {
+      throw new Error("Claim ID is required.");
+    }
+
+    return baseApi.update(id, updates);
+  };
+
+  return {
+    ...baseApi,
+    approve(claimOrId, data = {}) {
+      return updateClaim(claimOrId, { ...data, status: "approved" });
+    },
+    reject(claimOrId, data = {}) {
+      return updateClaim(claimOrId, { ...data, status: "rejected" });
+    },
+    requestMoreInfo(claimOrId, data = {}) {
+      return updateClaim(claimOrId, { ...data, status: "need_more_info" });
+    },
+    markUnderReview(claimOrId, data = {}) {
+      return updateClaim(claimOrId, { ...data, status: "under_review" });
+    },
+    complete(claimOrId, data = {}) {
+      return updateClaim(claimOrId, {
+        received_confirmed_at: data.received_confirmed_at || new Date().toISOString(),
+        ...data,
+        status: "completed",
+      });
+    },
+    approveRating(claimOrId, data = {}) {
+      return updateClaim(claimOrId, {
+        review_reviewed_at: data.review_reviewed_at || new Date().toISOString(),
+        ...data,
+        review_status: "approved",
+      });
+    },
+    rejectRating(claimOrId, data = {}) {
+      return updateClaim(claimOrId, {
+        review_reviewed_at: data.review_reviewed_at || new Date().toISOString(),
+        ...data,
+        review_status: "rejected",
+      });
+    },
+    updateWorkflow(claimOrId, data = {}) {
+      return updateClaim(claimOrId, data);
+    },
+  };
+}
+
+function createMatchApi() {
+  return {
+    async forLostReport(id) {
+      try {
+        return await requestFeatureApi(`/matches/lost-reports/${encodeURIComponent(id)}`);
+      } catch (error) {
+        return backendOwnedArrayFallback(error);
+      }
+    },
+    async refreshLostReport(id) {
+      try {
+        return await requestFeatureApi(`/matches/lost-reports/${encodeURIComponent(id)}/refresh`, { method: "POST" });
+      } catch (error) {
+        return backendOwnedArrayFallback(error);
+      }
+    },
+    async refreshFoundItem(id) {
+      try {
+        return await requestFeatureApi(`/matches/found-items/${encodeURIComponent(id)}/refresh`, { method: "POST" });
+      } catch (error) {
+        return backendOwnedArrayFallback(error);
+      }
+    },
+  };
+}
+
+function createRecoveryCenterApi() {
+  return {
+    async summary() {
+      try {
+        return await requestFeatureApi("/admin/recovery-center");
+      } catch (error) {
+        return backendOwnedObjectFallback(error, {
+          backend_required: true,
+          recovery_cases: [],
+          missions: [],
+          alerts: [],
+          metrics: null,
+        });
+      }
+    },
+  };
+}
+
+function createRecoveryCaseApi() {
+  return {
+    async list() {
+      try {
+        return await requestFeatureApi("/recovery-cases");
+      } catch (error) {
+        return backendOwnedArrayFallback(error);
+      }
+    },
+    async get(id) {
+      try {
+        return await requestFeatureApi(`/recovery-cases/${encodeURIComponent(id)}`);
+      } catch (error) {
+        return backendOwnedNullFallback(error);
+      }
+    },
+    async byLostReport(lostReportId) {
+      try {
+        return await requestFeatureApi(`/recovery-cases/lost-reports/${encodeURIComponent(lostReportId)}`);
+      } catch (error) {
+        return backendOwnedNullFallback(error);
+      }
+    },
+    async create(data = {}) {
+      return requestFeatureApi("/admin/recovery-cases", {
+        method: "POST",
+        body: JSON.stringify(data),
+      });
+    },
+    async createFromLostReport(lostReportId, data = {}) {
+      return requestFeatureApi(`/admin/recovery-cases/lost-reports/${encodeURIComponent(lostReportId)}`, {
+        method: "POST",
+        body: JSON.stringify(data),
+      });
+    },
+    async refreshByLostReport(lostReportId) {
+      try {
+        return await requestFeatureApi(`/recovery-cases/lost-reports/${encodeURIComponent(lostReportId)}/refresh`, {
+          method: "POST",
+        });
+      } catch (error) {
+        return backendOwnedNullFallback(error);
+      }
+    },
+    update(id, updates = {}) {
+      return requestFeatureApi(`/recovery-cases/${encodeURIComponent(id)}`, {
+        method: "PATCH",
+        body: JSON.stringify(updates),
+      });
+    },
+    assign(id, assignment = {}) {
+      return requestFeatureApi(`/recovery-cases/${encodeURIComponent(id)}/assign`, {
+        method: "POST",
+        body: JSON.stringify(assignment),
+      });
+    },
+    async missions(id) {
+      try {
+        return await requestFeatureApi(`/recovery-cases/${encodeURIComponent(id)}/missions`);
+      } catch (error) {
+        return backendOwnedArrayFallback(error);
+      }
+    },
+    createMission(id, mission = {}) {
+      return requestFeatureApi(`/recovery-cases/${encodeURIComponent(id)}/missions`, {
+        method: "POST",
+        body: JSON.stringify(mission),
+      });
+    },
+  };
+}
+
+function createRecoveryMissionApi() {
+  return {
+    update(id, updates = {}) {
+      return requestFeatureApi(`/recovery-missions/${encodeURIComponent(id)}`, {
+        method: "PATCH",
+        body: JSON.stringify(updates),
+      });
+    },
+  };
+}
+
+function createProofVaultApi() {
+  return {
+    async item(itemId) {
+      try {
+        return await requestFeatureApi(`/items/${encodeURIComponent(itemId)}/proof-vault`);
+      } catch (error) {
+        return backendOwnedNullFallback(error);
+      }
+    },
+    async evidenceReview(claimId) {
+      try {
+        return await requestFeatureApi(`/claims/${encodeURIComponent(claimId)}/evidence-review`);
+      } catch (error) {
+        return backendOwnedNullFallback(error);
+      }
+    },
+    submitEvidenceReview(claimId, review = {}) {
+      return requestFeatureApi(`/claims/${encodeURIComponent(claimId)}/evidence-review`, {
+        method: "POST",
+        body: JSON.stringify(review),
+      });
+    },
+  };
+}
+
+function createReturnPassApi() {
+  return {
+    create(claimId, data = {}) {
+      return requestFeatureApi(`/claims/${encodeURIComponent(claimId)}/return-pass`, {
+        method: "POST",
+        body: JSON.stringify(data),
+      });
+    },
+    async get(id) {
+      try {
+        return await requestFeatureApi(`/return-passes/${encodeURIComponent(id)}`);
+      } catch (error) {
+        return backendOwnedNullFallback(error);
+      }
+    },
+    async verify(oneTimeCode) {
+      try {
+        return await requestFeatureApi("/return-passes/verify", {
+          method: "POST",
+          body: JSON.stringify({ one_time_code: oneTimeCode }),
+        });
+      } catch (error) {
+        return backendOwnedObjectFallback(error, {
+          valid: false,
+          message: "Return Pass verification is unavailable.",
+          backend_required: true,
+        });
+      }
+    },
+    redeem(id, oneTimeCode) {
+      return requestFeatureApi(`/return-passes/${encodeURIComponent(id)}/redeem`, {
+        method: "POST",
+        body: JSON.stringify({ one_time_code: oneTimeCode }),
+      });
+    },
+    reminder(id) {
+      return requestFeatureApi(`/return-passes/${encodeURIComponent(id)}/reminder`, {
+        method: "POST",
+      });
+    },
+  };
+}
+
+const DEFAULT_NOTIFICATION_PREFERENCES = {
+  email_enabled: false,
+  sms_enabled: false,
+  sms_opted_in: false,
+  categories: {},
+};
+
+function normalizeNotificationRecord(record = {}) {
+  return {
+    ...record,
+    id: record.id || record._id || record.notification_id || "",
+    title: record.title || record.event_title || record.event_type || "Notification",
+    message: record.message || record.body || record.safe_message_preview || record.preview || "",
+    is_read: Boolean(record.is_read ?? record.read),
+    created_date: record.created_date || record.created_at || record.createdAt || "",
+  };
+}
+
+function createRecoveryPulseApi() {
+  return {
+    async preferences() {
+      try {
+        return await requestFeatureApi("/recovery-pulse/preferences");
+      } catch (error) {
+        return backendOwnedObjectFallback(error, {
+          ...DEFAULT_NOTIFICATION_PREFERENCES,
+          backend_required: true,
+        });
+      }
+    },
+    updatePreferences(preferences = {}) {
+      return requestFeatureApi("/recovery-pulse/preferences", {
+        method: "PATCH",
+        body: JSON.stringify(preferences),
+      });
+    },
+    async notifications() {
+      try {
+        const records = await requestFeatureApi("/recovery-pulse/notifications");
+        return Array.isArray(records) ? records.map((record) => normalizeNotificationRecord(record)) : [];
+      } catch (error) {
+        return backendOwnedArrayFallback(error);
+      }
+    },
+    async deliveries() {
+      try {
+        return await requestFeatureApi("/recovery-pulse/deliveries");
+      } catch (error) {
+        return backendOwnedArrayFallback(error);
+      }
+    },
+    async adminDeliveries(channel = "") {
+      try {
+        const suffix = channel ? `?channel=${encodeURIComponent(channel)}` : "";
+        return await requestFeatureApi(`/recovery-pulse/admin/deliveries${suffix}`);
+      } catch (error) {
+        return backendOwnedArrayFallback(error);
+      }
+    },
+    testNotification(payload = {}) {
+      return requestFeatureApi("/recovery-pulse/admin/test", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+    },
+    async markNotificationRead(id) {
+      try {
+        const record = await requestEntityApi("Notification", `/${encodeURIComponent(id)}`, {
+          method: "PATCH",
+          body: JSON.stringify({ is_read: true }),
+        });
+        upsertCachedRecord("Notification", record);
+        return clone(record);
+      } catch (error) {
+        if (!shouldUseLocalFallback(error)) {
+          throw error;
+        }
+
+        try {
+          return saveCachedRecord("Notification", id, { is_read: true });
+        } catch {
+          return { id, is_read: true, backend_required: true };
+        }
+      }
+    },
+  };
+}
+
+function createSentinelApi() {
+  return {
+    async alerts() {
+      try {
+        return await requestFeatureApi("/sentinel/alerts");
+      } catch (error) {
+        return backendOwnedArrayFallback(error);
+      }
+    },
+    async recompute() {
+      try {
+        return await requestFeatureApi("/sentinel/recompute", { method: "POST" });
+      } catch (error) {
+        return backendOwnedArrayFallback(error);
+      }
+    },
+    update(id, updates = {}) {
+      return requestFeatureApi(`/sentinel/alerts/${encodeURIComponent(id)}`, {
+        method: "PATCH",
+        body: JSON.stringify(updates),
+      });
+    },
+    acknowledge(id, payload = {}) {
+      return requestFeatureApi(`/sentinel/alerts/${encodeURIComponent(id)}/acknowledge`, {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+    },
+    dismiss(id, payload = {}) {
+      return requestFeatureApi(`/sentinel/alerts/${encodeURIComponent(id)}/dismiss`, {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+    },
+    resolve(id, payload = {}) {
+      return requestFeatureApi(`/sentinel/alerts/${encodeURIComponent(id)}/resolve`, {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+    },
+    async sourceReports(id) {
+      try {
+        return await requestFeatureApi(`/sentinel/alerts/${encodeURIComponent(id)}/source-reports`);
+      } catch (error) {
+        return backendOwnedArrayFallback(error);
+      }
+    },
+    mission(id, payload = {}) {
+      return requestFeatureApi(`/sentinel/alerts/${encodeURIComponent(id)}/mission`, {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+    },
+  };
+}
+
+function createCustodyApi() {
+  return {
+    async events(foundItemId) {
+      try {
+        return await requestFeatureApi(`/custody/items/${encodeURIComponent(foundItemId)}`);
+      } catch (error) {
+        return backendOwnedArrayFallback(error);
+      }
+    },
+    async verify(foundItemId) {
+      try {
+        return await requestFeatureApi(`/custody/items/${encodeURIComponent(foundItemId)}/verify`);
+      } catch (error) {
+        return backendOwnedObjectFallback(error, {
+          found_item_id: foundItemId,
+          verified: false,
+          issues: ["Custody verification is unavailable."],
+          backend_required: true,
+        });
+      }
+    },
+    move(foundItemId, move = {}) {
+      return requestFeatureApi(`/custody/items/${encodeURIComponent(foundItemId)}/move`, {
+        method: "POST",
+        body: JSON.stringify(move),
+      });
+    },
+  };
+}
+
+function createCampusZoneApi() {
+  return {
+    async list() {
+      try {
+        return await requestFeatureApi("/campus-zones");
+      } catch (error) {
+        return backendOwnedArrayFallback(error);
+      }
+    },
+  };
+}
+
+function createEventHubApi() {
+  return {
+    async list() {
+      try {
+        return await requestFeatureApi("/event-hubs");
+      } catch (error) {
+        return backendOwnedArrayFallback(error);
+      }
+    },
+    async get(id) {
+      try {
+        return await requestFeatureApi(`/event-hubs/${encodeURIComponent(id)}`);
+      } catch (error) {
+        return backendOwnedNullFallback(error);
+      }
+    },
+    async displayFeed(id) {
+      try {
+        return await requestFeatureApi(`/event-hubs/${encodeURIComponent(id)}/display-feed`);
+      } catch (error) {
+        return backendOwnedObjectFallback(error, {
+          event_hub: null,
+          zones: [],
+          found_items: [],
+          backend_required: true,
+        });
+      }
+    },
+    create(data = {}) {
+      return requestFeatureApi("/admin/event-hubs", {
+        method: "POST",
+        body: JSON.stringify(data),
+      });
+    },
+    update(id, updates = {}) {
+      return requestFeatureApi(`/admin/event-hubs/${encodeURIComponent(id)}`, {
+        method: "PATCH",
+        body: JSON.stringify(updates),
+      });
+    },
+    activate(id) {
+      return requestFeatureApi(`/admin/event-hubs/${encodeURIComponent(id)}/activate`, { method: "POST" });
+    },
+    close(id) {
+      return requestFeatureApi(`/admin/event-hubs/${encodeURIComponent(id)}/close`, { method: "POST" });
+    },
+  };
+}
+
+function createAssetApi() {
+  return {
+    async lookup(tag) {
+      try {
+        return await requestFeatureApi(`/assets/lookup?tag=${encodeURIComponent(tag)}`);
+      } catch (error) {
+        return backendOwnedObjectFallback(error, {
+          recognized: false,
+          asset_tag: tag,
+          asset_type: "",
+          message: "Asset lookup is unavailable.",
+          backend_required: true,
+        });
+      }
+    },
+  };
+}
+
+function createPartnerRelayApi() {
+  return {
+    async nodes() {
+      try {
+        return await requestFeatureApi("/recovery-nodes");
+      } catch (error) {
+        return backendOwnedArrayFallback(error);
+      }
+    },
+    async relays() {
+      try {
+        return await requestFeatureApi("/partner-relays");
+      } catch (error) {
+        return backendOwnedArrayFallback(error);
+      }
+    },
+  };
+}
+
+function createUploadApi() {
+  return {
+    file: uploadFile,
+    UploadFile: uploadFile,
   };
 }
 
@@ -2584,6 +3206,29 @@ export function resetAppData() {
 }
 
 function createAppClient() {
+  const foundItemApi = createFoundItemApi();
+  const lostReportApi = createEntityApi("LostReport");
+  const claimApi = createClaimApi(createEntityApi("Claim"));
+  const notificationEntityApi = createEntityApi("Notification");
+  const auditLogApi = createEntityApi("AuditLog");
+  const featureClients = {
+    health: createHealthApi(),
+    matches: createMatchApi(),
+    uploads: createUploadApi(),
+    recoveryCenter: createRecoveryCenterApi(),
+    recoveryCases: createRecoveryCaseApi(),
+    recoveryMissions: createRecoveryMissionApi(),
+    proofVault: createProofVaultApi(),
+    returnPasses: createReturnPassApi(),
+    recoveryPulse: createRecoveryPulseApi(),
+    sentinel: createSentinelApi(),
+    custody: createCustodyApi(),
+    campusZones: createCampusZoneApi(),
+    eventHubs: createEventHubApi(),
+    assets: createAssetApi(),
+    partnerRelay: createPartnerRelayApi(),
+  };
+
   return {
     auth: {
       async me() {
@@ -2620,14 +3265,32 @@ function createAppClient() {
         };
       },
     },
+    health: featureClients.health,
+    items: foundItemApi,
+    lostReports: lostReportApi,
+    claims: claimApi,
+    matches: featureClients.matches,
+    uploads: featureClients.uploads,
+    recoveryCenter: featureClients.recoveryCenter,
+    recoveryCases: featureClients.recoveryCases,
+    recoveryMissions: featureClients.recoveryMissions,
+    proofVault: featureClients.proofVault,
+    returnPasses: featureClients.returnPasses,
+    recoveryPulse: featureClients.recoveryPulse,
+    sentinel: featureClients.sentinel,
+    custody: featureClients.custody,
+    campusZones: featureClients.campusZones,
+    eventHubs: featureClients.eventHubs,
+    assets: featureClients.assets,
+    partnerRelay: featureClients.partnerRelay,
     entities: {
-      FoundItem: createFoundItemApi(),
-      LostReport: createEntityApi("LostReport"),
-      Claim: createEntityApi("Claim"),
-      Notification: createEntityApi("Notification"),
-      AuditLog: createEntityApi("AuditLog"),
+      FoundItem: foundItemApi,
+      LostReport: lostReportApi,
+      Claim: claimApi,
+      Notification: notificationEntityApi,
+      AuditLog: auditLogApi,
     },
-    recoveryMesh: createRecoveryMeshApi(),
+    recoveryMesh: createRecoveryMeshApi(featureClients),
     integrations: {
       Core: {
         UploadFile: uploadFile,

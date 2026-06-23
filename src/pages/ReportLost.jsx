@@ -115,7 +115,7 @@ export default function ReportLost() {
         ...data,
         status: "open",
       });
-      await appClient.recoveryMesh.refreshRecoveryCase(report.id);
+      await appClient.recoveryCases.refreshByLostReport(report.id);
 
       setStep(2);
       const aiMatches = await findMatches(data, foundItems);

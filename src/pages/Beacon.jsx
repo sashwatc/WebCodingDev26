@@ -10,7 +10,7 @@ export default function Beacon() {
   const params = new URLSearchParams(location.search);
   const zoneId = params.get("zone") || "";
   const eventId = params.get("event") || "";
-  const { data: zones = [] } = useQuery({ queryKey: ["beaconZones"], queryFn: () => appClient.recoveryMesh.campusZones() });
+  const { data: zones = [] } = useQuery({ queryKey: ["beaconZones"], queryFn: () => appClient.campusZones.list() });
   const zone = zones.find((entry) => entry.id === zoneId);
   const searchTarget = zone?.label ? `/Search?q=${encodeURIComponent(zone.label)}` : "/Search";
 

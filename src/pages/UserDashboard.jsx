@@ -55,37 +55,32 @@ export default function UserDashboard() {
   });
 
   const { data: recoveryCases = [] } = useQuery({
-    queryKey: ["userRecoveryCases", user?.email],
-    queryFn: () => appClient.recoveryMesh.recoveryCases(),
-    enabled: !!user?.email,
+    queryKey: ["userRecoveryCases", user?.email, lostReports.map((report) => report.id).join(",")],
+    queryFn: async () => {
+      const cases = await Promise.all(
+        lostReports.map((report) => appClient.recoveryCases.byLostReport(report.id))
+      );
+      return cases.filter(Boolean);
+    },
+    enabled: !!user?.email && lostReports.length > 0,
   });
 
   // Fetch user's notifications
   const { data: notifications = [], isLoading: notifLoading } = useQuery({
     queryKey: ["userNotifications", user?.email],
-    queryFn: () => appClient.entities.Notification.filter({ user_email: user.email }, "-created_date", 20),
+    queryFn: () => appClient.recoveryPulse.notifications(),
     enabled: !!user?.email,
   });
 
   // Mark notification as read
   const markReadMutation = useMutation({
-    mutationFn: (id) => appClient.entities.Notification.update(id, { is_read: true }),
+    mutationFn: (id) => appClient.recoveryPulse.markNotificationRead(id),
     onSuccess: () => queryClient.invalidateQueries(),
   });
 
   const confirmReceivedMutation = useMutation({
     mutationFn: async (claim) => {
-      const confirmedAt = new Date().toISOString();
-
-      await appClient.entities.Claim.update(claim.id, {
-        status: "completed",
-        received_confirmed_at: confirmedAt,
-      });
-      await appClient.entities.FoundItem.update(claim.found_item_id, {
-        status: "returned",
-        claim_confirmed: true,
-        claim_confirmed_at: confirmedAt,
-      });
+      await appClient.claims.complete(claim);
     },
     onSuccess: () => {
       queryClient.invalidateQueries();
@@ -107,7 +102,7 @@ export default function UserDashboard() {
     mutationFn: async ({ claim, rating, review }) => {
       const submittedAt = new Date().toISOString();
 
-      await appClient.entities.Claim.update(claim.id, {
+      await appClient.claims.updateWorkflow(claim, {
         claimant_rating: rating,
         claimant_review: review.trim(),
         review_status: "pending",
@@ -434,7 +429,10 @@ export default function UserDashboard() {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => appClient.recoveryMesh.refreshRecoveryCase(report.id)}
+                          onClick={async () => {
+                            await appClient.recoveryCases.refreshByLostReport(report.id);
+                            queryClient.invalidateQueries({ queryKey: ["userRecoveryCases"] });
+                          }}
                         >
                           Refresh plan
                         </Button>

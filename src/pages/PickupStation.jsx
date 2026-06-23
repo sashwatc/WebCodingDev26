@@ -12,12 +12,12 @@ export default function PickupStation() {
   const [verified, setVerified] = useState(null);
 
   const verifyMutation = useMutation({
-    mutationFn: () => appClient.recoveryMesh.verifyReturnPass(code),
+    mutationFn: () => appClient.returnPasses.verify(code),
     onSuccess: setVerified,
   });
 
   const redeemMutation = useMutation({
-    mutationFn: () => appClient.recoveryMesh.redeemReturnPass(verified.return_pass_id, code),
+    mutationFn: () => appClient.returnPasses.redeem(verified.return_pass_id, code),
     onSuccess: async () => {
       await queryClient.invalidateQueries();
       setVerified(null);
