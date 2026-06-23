@@ -45,6 +45,7 @@ export default function SignInDialog() {
 
   const handleSubmit = async (event) => {
     event.preventDefault();
+    if (submitting) return;
     setSubmitting(true);
 
     try {

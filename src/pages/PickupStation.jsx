@@ -33,13 +33,13 @@ export default function PickupStation() {
         <p className="mt-2 text-sm text-slate-600">Manual code entry is required. Verify before redeeming.</p>
         <div className="mt-6 flex gap-2">
           <Input value={code} onChange={(event) => setCode(event.target.value)} placeholder="One-time code" />
-          <Button onClick={() => verifyMutation.mutate()} disabled={!code || verifyMutation.isPending}>Verify</Button>
+          <Button onClick={() => { if (!verifyMutation.isPending) verifyMutation.mutate(); }} disabled={!code || verifyMutation.isPending}>Verify</Button>
         </div>
         {verified && (
           <div className="mt-5 rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm">
             <p className={verified.valid ? "font-semibold text-emerald-800" : "font-semibold text-amber-800"}>{verified.message}</p>
             {verified.valid && (
-              <Button className="mt-4" onClick={() => redeemMutation.mutate()} disabled={redeemMutation.isPending}>
+              <Button className="mt-4" onClick={() => { if (!redeemMutation.isPending) redeemMutation.mutate(); }} disabled={redeemMutation.isPending}>
                 Redeem and complete handoff
               </Button>
             )}

@@ -142,6 +142,7 @@ export default function ReportLost() {
 
   const handleSubmit = (event) => {
     event.preventDefault();
+    if (submitMutation.isPending || submitMutation.isSuccess) return;
     if (!validate()) {
       toast({ title: t("report_lost.missing_fields"), description: t("report_lost.missing_fields_message"), variant: "destructive" });
       return;

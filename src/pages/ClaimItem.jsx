@@ -10,7 +10,6 @@ import { useTranslation } from "react-i18next";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { SlideButton } from "@/components/ui/slide-button";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/use-toast";
@@ -139,6 +138,7 @@ export default function ClaimItem() {
 
   const handleSubmit = async (event) => {
     if (event && event.preventDefault) event.preventDefault();
+    if (submitMutation.isPending || submitMutation.isSuccess) return false;
     if (!validate()) return false;
     try {
       await submitMutation.mutateAsync();
@@ -427,19 +427,17 @@ export default function ClaimItem() {
                 {t("claim_item.truthful_text")}
               </ConsentCheckboxField>
               <div className="flex justify-center pt-2">
-                <SlideButton
-                  status={
-                    submitMutation.isPending
-                      ? "loading"
-                      : submitMutation.isSuccess
-                        ? "success"
-                        : submitMutation.isError
-                          ? "error"
-                          : "idle"
-                  }
-                  onDragComplete={() => handleSubmit()}
-                  className="bg-primary text-white hover:bg-primary/90"
-                />
+                <Button
+                  type="button"
+                  onClick={() => handleSubmit()}
+                  disabled={submitMutation.isPending || submitMutation.isSuccess}
+                  className="w-full sm:w-auto min-w-[200px]"
+                >
+                  {submitMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {submitMutation.isPending 
+                    ? t("common.loading", "Submitting...") 
+                    : t("claim_item.submit", "Submit Claim")}
+                </Button>
               </div>
             </section>
           </div>
