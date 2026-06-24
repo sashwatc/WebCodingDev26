@@ -154,25 +154,6 @@
     border-color: rgba(71, 85, 105, 0.72) !important;
   }
 
-  html[data-reading-mode="dyslexic"] body,
-  html[data-reading-mode="dyslexic"] button,
-  html[data-reading-mode="dyslexic"] input,
-  html[data-reading-mode="dyslexic"] textarea,
-  html[data-reading-mode="dyslexic"] select,
-  html[data-reading-mode="dyslexic"] label {
-    font-family: "OpenDyslexic", "Atkinson Hyperlegible", "Trebuchet MS", Verdana, sans-serif !important;
-    letter-spacing: 0.02em;
-  }
-
-  html[data-reading-mode="dyslexic"] p,
-  html[data-reading-mode="dyslexic"] li,
-  html[data-reading-mode="dyslexic"] label,
-  html[data-reading-mode="dyslexic"] input,
-  html[data-reading-mode="dyslexic"] textarea {
-    line-height: 1.75;
-    word-spacing: 0.08em;
-  }
-
   ::selection {
     background: hsl(213 56% 24% / 0.2);
   }
@@ -190,50 +171,6 @@
   [tabindex]:focus-visible {
     outline: 3px solid rgba(245, 158, 11, 0.9);
     outline-offset: 3px;
-  }
-
-  html[data-contrast-mode="high"] body {
-    background-image: none;
-    background-color: #ffffff;
-  }
-
-  html.dark[data-contrast-mode="high"] body {
-    background-image: none;
-    background-color: #020617;
-  }
-
-  html[data-contrast-mode="high"] .surface-card,
-  html[data-contrast-mode="high"] .soft-panel,
-  html[data-contrast-mode="high"] .stat-panel,
-  html[data-contrast-mode="high"] .form-shell {
-    box-shadow: none;
-    border-width: 2px;
-  }
-
-  html[data-contrast-mode="high"] .page-title,
-  html[data-contrast-mode="high"] .section-heading,
-  html[data-contrast-mode="high"] #main-content [class*="text-slate-900"],
-  html[data-contrast-mode="high"] #main-content [class*="text-slate-800"] {
-    color: #020617 !important;
-  }
-
-  html.dark[data-contrast-mode="high"] .page-title,
-  html.dark[data-contrast-mode="high"] .section-heading,
-  html.dark[data-contrast-mode="high"] #main-content [class*="text-slate-900"],
-  html.dark[data-contrast-mode="high"] #main-content [class*="text-slate-800"],
-  html.dark[data-contrast-mode="high"] #main-content [class*="text-slate-700"] {
-    color: #ffffff !important;
-  }
-
-  html[data-contrast-mode="high"] #main-content [class*="text-slate-600"],
-  html[data-contrast-mode="high"] #main-content [class*="text-slate-500"] {
-    color: #0f172a !important;
-  }
-
-  html.dark[data-contrast-mode="high"] #main-content [class*="text-slate-600"],
-  html.dark[data-contrast-mode="high"] #main-content [class*="text-slate-500"],
-  html.dark[data-contrast-mode="high"] #main-content [class*="text-slate-400"] {
-    color: #e2e8f0 !important;
   }
 }
 

@@ -39,7 +39,10 @@
     "not_available": "N/D",
     "date_unavailable": "Date indisponible",
     "unknown_location": "Emplacement inconnu",
-    "loading": "Chargement..."
+    "loading": "Chargement...",
+    "lost_items": "Articles perdus",
+    "next": "Suivant",
+    "ai_description": "Améliorations IA"
   },
   "language_switcher": {
     "label": "Choisir la langue",
@@ -55,13 +58,7 @@
     "appearance": "Apparence",
     "light_mode": "Mode clair",
     "dark_mode": "Mode sombre",
-    "reading": "Lecture",
-    "standard_reading": "Lecture standard",
-    "dyslexic_reading": "Lecture dyslexique",
-    "contrast": "Contraste",
     "language": "Langue",
-    "standard_contrast": "Contraste standard",
-    "high_contrast": "Contraste élevé",
     "notifications": "Notifications",
     "admin_access_unlocked": "Accès administrateur déverrouillé",
     "signed_in": "Connecté",
@@ -72,10 +69,6 @@
     "display_settings": "Paramètres d'affichage",
     "light": "Clair",
     "dark": "Sombre",
-    "dyslexic_reading_on": "Lecture dyslexique activée",
-    "dyslexic_reading_off": "Lecture dyslexique désactivée",
-    "high_contrast_on": "Contraste élevé activé",
-    "high_contrast_off": "Contraste élevé désactivé",
     "open_menu": "Ouvrir le menu",
     "close_menu": "Fermer le menu",
     "admin_access_locked": "Accès administrateur verrouillé",
@@ -132,6 +125,7 @@
     "no_approved_items": "Aucun article approuvé n'est encore disponible.",
     "quick_actions": "État de l'inventaire",
     "quick_actions_subtitle": "Inventaire public et retours récents.",
+    "quick_search_placeholder": "Ou recherchez directement dans l'inventaire des objets trouvés...",
     "my_dashboard_title": "Mon tableau de bord",
     "my_dashboard_description": "Suivez les notifications, l'activité des réclamations et les mises à jour liées à votre compte.",
     "project_documentation_title": "Documentation du projet",
@@ -147,7 +141,10 @@
     "recent_admin_activity": "Activité administrateur récente",
     "recent_admin_activity_subtitle": "Dernières modifications de modération et de flux de travail enregistrées dans cet espace.",
     "no_activity_logged": "Aucune activité enregistrée pour le moment.",
-    "no_date": "Aucune date"
+    "no_date": "Aucune date",
+    "moderator_active_title": "Espace de modération actif",
+    "moderator_active_desc": "Examinez les articles, réclamations et signalements en attente.",
+    "go_to_admin_panel": "Ouvrir le tableau de bord administrateur"
   },
   "search": {
     "kicker": "Rechercher",
@@ -171,7 +168,18 @@
     "results_count_other": "{{count}} résultats",
     "unable_to_load": "Impossible de charger les résultats de recherche.",
     "no_matching_items": "Aucun article correspondant trouvé",
-    "broaden_search": "Essayez une description plus large ou supprimez un des filtres."
+    "broaden_search": "Essayez une description plus large ou supprimez un des filtres.",
+    "found_title": "Articles trouvés",
+    "found_subtitle": "Recherchez dans l'inventaire vérifié des articles trouvés et demandez une réclamation lorsqu'une correspondance apparaît.",
+    "found_items_tag": "Articles trouvés",
+    "lost_reports_tag": "Signalements de perte",
+    "filters": "Filtres",
+    "filter_settings": "Options de filtre",
+    "filter_description": "Affinez les résultats par catégorie, couleur, lieu et plage de dates pour faire remonter les articles les plus pertinents.",
+    "applied_filters": "Filtres :",
+    "clear_all": "Tout effacer",
+    "lost_item_cta_title": "Vous ne voyez pas votre article manquant dans la liste ?",
+    "lost_item_cta_desc": "Envoyez un signalement d'objet perdu. Le personnel de PVHS vérifiera l'inventaire et assurera le suivi."
   },
   "report_found": {
     "submitted_title": "Article envoyé pour révision.",
@@ -239,7 +247,10 @@
     "error": "Erreur",
     "submit_failed": "Échec de l'envoi. Veuillez réessayer.",
     "submitting": "Envoi et traitement en cours...",
-    "submit_button": "Envoyer l'article trouvé"
+    "submit_button": "Envoyer l'article trouvé",
+    "step_identity": "Identité de l'article",
+    "step_location": "Heure et lieu",
+    "step_details": "Vérification et contact"
   },
   "report_lost": {
     "item_type_required": "Le type d'article est obligatoire",
@@ -326,7 +337,9 @@
     "pickup_placeholder": "Exemple : pause déjeuner, après les cours du lundi au mercredi",
     "truthful_text": "Je confirme que les informations fournies sont vraies et exactes. Je comprends que les fausses réclamations peuvent entraîner des mesures disciplinaires. *",
     "verifying": "Vérification et envoi...",
-    "submit_button": "Envoyer la réclamation"
+    "submit_button": "Envoyer la réclamation",
+    "email_invalid": "Saisissez une adresse e-mail valide.",
+    "submit": "Envoyer la réclamation"
   },
   "item_details": {
     "lost_item_report": "Signalement d'article perdu",
@@ -395,7 +408,13 @@
     "review_pending": "Votre évaluation attend l'approbation d'un administrateur.",
     "review_rejected": "Votre dernière évaluation n'a pas été approuvée. Modifiez-la ci-dessous et renvoyez-la.",
     "submit_rating": "Envoyer l'évaluation",
-    "no_notifications": "Aucune notification pour le moment."
+    "no_notifications": "Aucune notification pour le moment.",
+    "kicker": "Centre de commande personnel",
+    "browse_items": "Parcourir les objets perdus et trouvés",
+    "reported_on_label": "Signalé",
+    "ai_suggested_matches": "Correspondances trouvées suggérées par IA",
+    "ai_suggested_matches_desc": "Nous avons trouvé des articles correspondants signalés à la date où vous avez perdu le vôtre. Appuyez sur une carte pour le réclamer.",
+    "admin_note_label": "Mise à jour de l'administrateur :"
   },
   "admin_dashboard": {
     "kicker": "Espace administrateur",
@@ -415,7 +434,13 @@
     "unknown_location": "Emplacement inconnu",
     "matches_one": "{{count}} correspondance",
     "matches_other": "{{count}} correspondances",
-    "no_audit_logs": "Aucun journal d'audit pour le moment."
+    "no_audit_logs": "Aucun journal d'audit pour le moment.",
+    "review": "Examiner",
+    "moderation": "File de modération",
+    "found_items_queue": "Examen des articles trouvés",
+    "found_items_queue_desc": "Approuvez ou rejetez les articles trouvés nouvellement soumis avant leur publication.",
+    "claims_queue": "Vérification des réclamations",
+    "claims_queue_desc": "Vérifiez la preuve de propriété et les détails pour approuver ou refuser les réclamations sur les articles trouvés."
   },
   "admin_overview": {
     "total_items": "Total des articles",
@@ -466,7 +491,13 @@
     "for_item": "Pour : {{title}}",
     "note_placeholder": "Saisissez une note...",
     "save_note": "Enregistrer la note",
-    "note_saved": "Note enregistrée"
+    "note_saved": "Note enregistrée",
+    "archived": "Article archivé",
+    "archived_description": "Cet article a des enregistrements associés, il a donc été archivé au lieu d'être supprimé.",
+    "review_submission": "Examiner l'envoi",
+    "finder": "Déclarant",
+    "update_status": "Mettre à jour le statut",
+    "confirm_delete": "Êtes-vous sûr de vouloir supprimer cet article ?"
   },
   "admin_claims_queue": {
     "claim_updated": "Réclamation mise à jour",
@@ -504,7 +535,8 @@
     "review_status": "Statut de l'avis : {{status}}",
     "not_submitted": "non soumis",
     "save_notes": "Enregistrer les notes",
-    "notes_saved": "Notes enregistrées"
+    "notes_saved": "Notes enregistrées",
+    "actions": "Actions de statut de réclamation"
   },
   "sign_in_dialog": {
     "signed_in": "Connecté",
@@ -593,7 +625,11 @@
     "drag_drop": "Glissez-déposez des photos ou cliquez pour parcourir",
     "max_photos": "Maximum {{count}} photos, 10 Mo chacune. JPG, PNG, WEBP",
     "uploaded_photo": "Photo téléversée {{count}}",
-    "remove_photo": "Supprimer la photo {{count}}"
+    "remove_photo": "Supprimer la photo {{count}}",
+    "invalid_files_title": "Aucune photo compatible",
+    "invalid_files_description": "Téléchargez des images de moins de 10 Mo.",
+    "upload_failed_title": "Échec du téléchargement",
+    "upload_failed_description": "Réessayez le téléchargement."
   },
   "statuses": {
     "pending": "En attente",
@@ -674,5 +710,11 @@
     "football_field": "Terrain de football",
     "track_and_field": "Piste et terrain",
     "student_lounge": "Salon des élèves"
+  },
+  "lost_items": {
+    "kicker": "Signalements de perte",
+    "title": "Articles perdus",
+    "subtitle": "Parcourez les articles recherchés par les élèves et le personnel et voyez si le personnel vous en a déjà attribué un.",
+    "i_found_this": "J'ai trouvé ceci"
   }
 }

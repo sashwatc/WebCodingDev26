@@ -7,8 +7,6 @@ function getDefaultSettings() {
   return {
     isAdminMode: false,
     theme: "light",
-    readingMode: "default",
-    contrastMode: "default",
   };
 }
 
@@ -27,8 +25,6 @@ function readStoredSettings() {
     return {
       isAdminMode: Boolean(parsed.isAdminMode),
       theme: parsed.theme === "dark" ? "dark" : "light",
-      readingMode: parsed.readingMode === "dyslexic" ? "dyslexic" : "default",
-      contrastMode: parsed.contrastMode === "high" ? "high" : "default",
     };
   } catch {
     return getDefaultSettings();
@@ -57,9 +53,7 @@ export function ModeProvider({ children }) {
 
     const root = document.documentElement;
     root.classList.toggle("dark", settings.theme === "dark");
-    root.dataset.readingMode = settings.readingMode;
-    root.dataset.contrastMode = settings.contrastMode;
-  }, [settings.theme, settings.readingMode, settings.contrastMode]);
+  }, [settings.theme]);
 
   const setIsAdminMode = (value) => {
     setSettings((current) => {
@@ -88,36 +82,6 @@ export function ModeProvider({ children }) {
     });
   };
 
-  const setReadingMode = (value) => {
-    setSettings((current) => {
-      const nextReadingMode = value === "dyslexic" ? "dyslexic" : "default";
-
-      if (current.readingMode === nextReadingMode) {
-        return current;
-      }
-
-      return {
-        ...current,
-        readingMode: nextReadingMode,
-      };
-    });
-  };
-
-  const setContrastMode = (value) => {
-    setSettings((current) => {
-      const nextContrastMode = value === "high" ? "high" : "default";
-
-      if (current.contrastMode === nextContrastMode) {
-        return current;
-      }
-
-      return {
-        ...current,
-        contrastMode: nextContrastMode,
-      };
-    });
-  };
-
   return (
     <ModeContext.Provider
       value={{
@@ -125,10 +89,6 @@ export function ModeProvider({ children }) {
         setIsAdminMode,
         theme: settings.theme,
         setTheme,
-        readingMode: settings.readingMode,
-        setReadingMode,
-        contrastMode: settings.contrastMode,
-        setContrastMode,
       }}
     >
       {children}

@@ -11,7 +11,6 @@ import {
   AlertTriangle,
   Bell,
   ChevronDown,
-  Contrast,
   Home,
   LayoutDashboard,
   Menu,
@@ -21,7 +20,6 @@ import {
   Search,
   Shield,
   Sun,
-  Type,
   User,
   X,
 } from "lucide-react";
@@ -56,10 +54,6 @@ export default function Navbar() {
     setIsAdminMode,
     theme,
     setTheme,
-    readingMode,
-    setReadingMode,
-    contrastMode,
-    setContrastMode,
   } = useMode();
   const {
     user,
@@ -233,34 +227,6 @@ export default function Navbar() {
                   <DropdownMenuRadioItem value="dark" className="gap-2">
                     <Moon className="w-4 h-4" />
                     {t("navbar.dark_mode")}
-                  </DropdownMenuRadioItem>
-                </DropdownMenuRadioGroup>
-                <DropdownMenuSeparator />
-                <DropdownMenuLabel className="text-xs uppercase tracking-[0.14em] text-slate-500">
-                  {t("navbar.reading")}
-                </DropdownMenuLabel>
-                <DropdownMenuRadioGroup value={readingMode} onValueChange={setReadingMode}>
-                  <DropdownMenuRadioItem value="default" className="gap-2">
-                    <Type className="w-4 h-4" />
-                    {t("navbar.standard_reading")}
-                  </DropdownMenuRadioItem>
-                  <DropdownMenuRadioItem value="dyslexic" className="gap-2">
-                    <Type className="w-4 h-4" />
-                    {t("navbar.dyslexic_reading")}
-                  </DropdownMenuRadioItem>
-                </DropdownMenuRadioGroup>
-                <DropdownMenuSeparator />
-                <DropdownMenuLabel className="text-xs uppercase tracking-[0.14em] text-slate-500">
-                  {t("navbar.contrast")}
-                </DropdownMenuLabel>
-                <DropdownMenuRadioGroup value={contrastMode} onValueChange={setContrastMode}>
-                  <DropdownMenuRadioItem value="default" className="gap-2">
-                    <Contrast className="w-4 h-4" />
-                    {t("navbar.standard_contrast")}
-                  </DropdownMenuRadioItem>
-                  <DropdownMenuRadioItem value="high" className="gap-2">
-                    <Contrast className="w-4 h-4" />
-                    {t("navbar.high_contrast")}
                   </DropdownMenuRadioItem>
                 </DropdownMenuRadioGroup>
                 <DropdownMenuSeparator />
@@ -463,26 +429,6 @@ export default function Navbar() {
                   {t("navbar.dark")}
                 </button>
               </div>
-              <button
-                type="button"
-                onClick={() => setReadingMode(readingMode === "dyslexic" ? "default" : "dyslexic")}
-                className={`mt-2 flex w-full items-center justify-center gap-2 rounded-md px-3 py-2 text-xs font-semibold ${
-                  readingMode === "dyslexic" ? "bg-muted text-foreground" : "text-muted-foreground hover:bg-muted"
-                }`}
-              >
-                <Type className="h-3.5 w-3.5" />
-                {readingMode === "dyslexic" ? t("navbar.dyslexic_reading_on") : t("navbar.dyslexic_reading_off")}
-              </button>
-              <button
-                type="button"
-                onClick={() => setContrastMode(contrastMode === "high" ? "default" : "high")}
-                className={`mt-2 flex w-full items-center justify-center gap-2 rounded-md px-3 py-2 text-xs font-semibold ${
-                  contrastMode === "high" ? "bg-muted text-foreground" : "text-muted-foreground hover:bg-muted"
-                }`}
-              >
-                <Contrast className="h-3.5 w-3.5" />
-                {contrastMode === "high" ? t("navbar.high_contrast_on") : t("navbar.high_contrast_off")}
-              </button>
             </div>
 
             {user && hasAdminAccess && (
