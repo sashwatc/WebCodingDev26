@@ -39,7 +39,10 @@
     "not_available": "N/A",
     "date_unavailable": "Date unavailable",
     "unknown_location": "Unknown location",
-    "loading": "Loading..."
+    "loading": "Loading...",
+    "lost_items": "Lost Items",
+    "next": "Next",
+    "ai_description": "AI Enhancements"
   },
   "language_switcher": {
     "label": "Select language",
@@ -132,14 +135,13 @@
     "no_approved_items": "No approved items are available yet.",
     "quick_actions": "Inventory status",
     "quick_actions_subtitle": "Public inventory and recent outcomes.",
+    "quick_search_placeholder": "Or, search the found items inventory directly...",
     "my_dashboard_title": "My dashboard",
     "my_dashboard_description": "Track notifications, claim activity, and updates tied to your account.",
     "project_documentation_title": "Project documentation",
     "project_documentation_description": "Open setup, sources, and accessibility notes for this project.",
     "admin_workspace_title": "Admin workspace",
     "admin_workspace_active": "Review pending items, claims, and reports.",
-    "go_to_admin_panel": "Open Admin Dashboard",
-    "moderator_active_title": "Moderator Workspace Active",
     "admin_workspace_inactive": "Switch to admin view when you need moderation tools.",
     "admin_summary": "Admin summary",
     "admin_summary_subtitle": "Moderation workload is shown only in admin mode.",
@@ -149,7 +151,10 @@
     "recent_admin_activity": "Recent admin activity",
     "recent_admin_activity_subtitle": "Latest moderation and workflow changes recorded in this workspace.",
     "no_activity_logged": "No activity logged yet.",
-    "no_date": "No date"
+    "no_date": "No date",
+    "moderator_active_title": "Moderator Workspace Active",
+    "moderator_active_desc": "Review pending items, claims, and reports.",
+    "go_to_admin_panel": "Open Admin Dashboard"
   },
   "search": {
     "kicker": "Search",
@@ -182,11 +187,11 @@
     "applied_filters": "Filters:",
     "clear_all": "Clear All",
     "found_title": "Found Items",
-    "found_subtitle": "Search the verified found-item inventory. Claimed, returned, and archived records stay out of public results.",
+    "found_subtitle": "Search the verified found-item inventory. Claimed, returned, and archived records stay out of public results; request a claim when something matches.",
     "found_items_tag": "Found Items",
     "lost_reports_tag": "Lost Reports",
     "lost_item_cta_title": "Don't see your missing item listed?",
-    "lost_item_cta_desc": "File a lost item report. PVHS staff will review it, check incoming items, and notify you as soon as a match is found.",
+    "lost_item_cta_desc": "File a lost item report. PVHS staff will review it, check incoming items, and follow up if a match is found.",
     "no_matching_items": "No matching items found",
     "broaden_search": "Try a broader description or remove one of the filters."
   },
@@ -256,7 +261,10 @@
     "error": "Error",
     "submit_failed": "Failed to submit. Please try again.",
     "submitting": "Submitting and processing...",
-    "submit_button": "Submit Found Item"
+    "submit_button": "Submit Found Item",
+    "step_identity": "Item Identity",
+    "step_location": "Time & Place",
+    "step_details": "Verification & Contact"
   },
   "report_lost": {
     "item_type_required": "Item type is required",
@@ -344,6 +352,8 @@
     "truthful_text": "I confirm that the information provided is truthful and accurate. I understand that false claims may lead to disciplinary action. *",
     "verifying": "Verifying and submitting...",
     "submit_button": "Submit Claim",
+    "email_invalid": "Enter a valid email address.",
+    "submit": "Submit Claim",
     "help_staff_verify_title": "Help staff verify ownership",
     "help_staff_verify_description": "Share details only the real owner would know. Staff use this private evidence during review — it is never shown on public item pages.",
     "private_evidence_notice": "Your verification details, proof photo, and case messages stay private. They are only visible to you and authorized staff.",
@@ -537,7 +547,13 @@
     "review_pending": "Your rating is waiting for admin approval.",
     "review_rejected": "Your last rating was not approved. Update it below and resubmit.",
     "submit_rating": "Submit Rating",
-    "no_notifications": "No notifications yet."
+    "no_notifications": "No notifications yet.",
+    "kicker": "Personal Command Center",
+    "browse_items": "Browse Lost & Found",
+    "reported_on_label": "Reported",
+    "ai_suggested_matches": "AI-Suggested Found Matches",
+    "ai_suggested_matches_desc": "We found matching items reported around the time you lost yours. Tap a card to claim it.",
+    "admin_note_label": "Admin Update:"
   },
   "admin_dashboard": {
     "kicker": "Admin Workspace",
@@ -557,7 +573,13 @@
     "unknown_location": "Unknown location",
     "matches_one": "{{count}} match",
     "matches_other": "{{count}} matches",
-    "no_audit_logs": "No audit logs yet."
+    "no_audit_logs": "No audit logs yet.",
+    "review": "Review",
+    "moderation": "Moderation Queue",
+    "found_items_queue": "Found Items Review",
+    "found_items_queue_desc": "Approve or reject newly submitted found items before they go public.",
+    "claims_queue": "Claims Verification",
+    "claims_queue_desc": "Verify ownership proof and details to approve or decline claims against found items."
   },
   "admin_overview": {
     "total_items": "Total Items",
@@ -608,7 +630,13 @@
     "for_item": "For: {{title}}",
     "note_placeholder": "Enter note...",
     "save_note": "Save Note",
-    "note_saved": "Note saved"
+    "note_saved": "Note saved",
+    "archived": "Item archived",
+    "archived_description": "This item has related records, so it was archived instead of deleted.",
+    "review_submission": "Review Submission",
+    "finder": "Finder",
+    "update_status": "Update Status",
+    "confirm_delete": "Are you sure you want to delete this item?"
   },
   "admin_claims_queue": {
     "claim_updated": "Claim updated",
@@ -646,7 +674,8 @@
     "review_status": "Review status: {{status}}",
     "not_submitted": "not submitted",
     "save_notes": "Save Notes",
-    "notes_saved": "Notes saved"
+    "notes_saved": "Notes saved",
+    "actions": "Claim Status Actions"
   },
   "sign_in_dialog": {
     "signed_in": "Signed in",
@@ -772,6 +801,8 @@
     "invalid_size_description": "Keep images under {{limit}}. This file is {{size}}.",
     "limit_reached_title": "Photo limit reached",
     "limit_reached_description": "You can upload up to {{count}} photos.",
+    "invalid_files_title": "No supported photos",
+    "invalid_files_description": "Upload JPG, PNG, or WEBP images under 8 MB.",
     "upload_failed_title": "Upload failed",
     "upload_failed_description": "Try the upload again."
   },
@@ -869,5 +900,11 @@
     "football_field": "Football Field",
     "track_and_field": "Track & Field",
     "student_lounge": "Student Lounge"
+  },
+  "lost_items": {
+    "kicker": "Lost reports",
+    "title": "Lost Items",
+    "subtitle": "Browse items students and staff are looking for and see whether staff have already matched one to you.",
+    "i_found_this": "I Found This"
   }
 }

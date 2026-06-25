@@ -39,7 +39,10 @@
     "not_available": "N/D",
     "date_unavailable": "Fecha no disponible",
     "unknown_location": "Ubicación desconocida",
-    "loading": "Cargando..."
+    "loading": "Cargando...",
+    "lost_items": "Artículos perdidos",
+    "next": "Siguiente",
+    "ai_description": "Mejoras de IA"
   },
   "language_switcher": {
     "label": "Seleccionar idioma",
@@ -132,14 +135,13 @@
     "no_approved_items": "Todavía no hay artículos aprobados disponibles.",
     "quick_actions": "Estado del inventario",
     "quick_actions_subtitle": "Inventario público y resultados recientes.",
+    "quick_search_placeholder": "O busca directamente en el inventario de objetos encontrados...",
     "my_dashboard_title": "Mi panel",
     "my_dashboard_description": "Sigue notificaciones, actividad de reclamos y actualizaciones asociadas a tu cuenta.",
     "project_documentation_title": "Documentación del proyecto",
     "project_documentation_description": "Abre notas de configuración, fuentes y accesibilidad del proyecto.",
     "admin_workspace_title": "Espacio administrativo",
     "admin_workspace_active": "Revisa artículos, reclamos y reportes pendientes.",
-    "go_to_admin_panel": "Abrir panel administrativo",
-    "moderator_active_title": "Espacio de moderación activo",
     "admin_workspace_inactive": "Cambia a la vista administrativa cuando necesites herramientas de moderación.",
     "admin_summary": "Resumen administrativo",
     "admin_summary_subtitle": "La carga de moderación solo se muestra en modo administrador.",
@@ -149,7 +151,10 @@
     "recent_admin_activity": "Actividad administrativa reciente",
     "recent_admin_activity_subtitle": "Últimos cambios de moderación y flujo de trabajo registrados en este espacio.",
     "no_activity_logged": "Todavía no hay actividad registrada.",
-    "no_date": "Sin fecha"
+    "no_date": "Sin fecha",
+    "moderator_active_title": "Espacio de moderación activo",
+    "moderator_active_desc": "Revisa artículos, reclamos y reportes pendientes.",
+    "go_to_admin_panel": "Abrir panel de administración"
   },
   "search": {
     "kicker": "Buscar",
@@ -182,11 +187,11 @@
     "applied_filters": "Filtros:",
     "clear_all": "Borrar todo",
     "found_title": "Artículos encontrados",
-    "found_subtitle": "Busca en el inventario verificado. Los artículos reclamados, devueltos o archivados no aparecen en los resultados públicos.",
+    "found_subtitle": "Busca en el inventario verificado de artículos encontrados. Los artículos reclamados, devueltos o archivados no aparecen en los resultados públicos; solicita un reclamo cuando algo coincida.",
     "found_items_tag": "Artículos encontrados",
     "lost_reports_tag": "Reportes de pérdida",
     "lost_item_cta_title": "¿No ves tu artículo perdido en la lista?",
-    "lost_item_cta_desc": "Envía un reporte de artículo perdido. El personal de PVHS lo revisará y te avisará si aparece una coincidencia.",
+    "lost_item_cta_desc": "Envía un reporte de artículo perdido. El personal de PVHS lo revisará, comprobará los artículos entrantes y dará seguimiento si aparece una coincidencia.",
     "no_matching_items": "No se encontraron artículos coincidentes",
     "broaden_search": "Prueba con una descripción más amplia o elimina uno de los filtros."
   },
@@ -256,7 +261,10 @@
     "error": "Error",
     "submit_failed": "No se pudo enviar. Inténtalo de nuevo.",
     "submitting": "Enviando y procesando...",
-    "submit_button": "Enviar artículo encontrado"
+    "submit_button": "Enviar artículo encontrado",
+    "step_identity": "Identidad del artículo",
+    "step_location": "Hora y lugar",
+    "step_details": "Verificación y contacto"
   },
   "report_lost": {
     "item_type_required": "El tipo de artículo es obligatorio",
@@ -344,6 +352,8 @@
     "truthful_text": "Confirmo que la información proporcionada es veraz y correcta. Entiendo que los reclamos falsos pueden derivar en medidas disciplinarias. *",
     "verifying": "Verificando y enviando...",
     "submit_button": "Enviar reclamo",
+    "email_invalid": "Ingresa una dirección de correo electrónico válida.",
+    "submit": "Enviar reclamo",
     "help_staff_verify_title": "Ayuda al personal a verificar la propiedad",
     "help_staff_verify_description": "Comparte detalles que solo el dueño real conocería. El personal usa esta evidencia privada durante la revisión; nunca se muestra en páginas públicas.",
     "private_evidence_notice": "Tus datos de verificación, foto de prueba y mensajes del caso permanecen privados. Solo los ven tú y el personal autorizado.",
@@ -537,7 +547,13 @@
     "review_pending": "Tu calificación está esperando aprobación administrativa.",
     "review_rejected": "Tu última calificación no fue aprobada. Actualízala abajo y envíala de nuevo.",
     "submit_rating": "Enviar calificación",
-    "no_notifications": "Todavía no hay notificaciones."
+    "no_notifications": "Todavía no hay notificaciones.",
+    "kicker": "Centro de comando personal",
+    "browse_items": "Explorar perdidos y encontrados",
+    "reported_on_label": "Reportado",
+    "ai_suggested_matches": "Coincidencias encontradas sugeridas por IA",
+    "ai_suggested_matches_desc": "Encontramos artículos coincidentes reportados alrededor de la fecha en que perdiste el tuyo. Toca una tarjeta para reclamarlo.",
+    "admin_note_label": "Actualización del administrador:"
   },
   "admin_dashboard": {
     "kicker": "Espacio administrativo",
@@ -557,7 +573,13 @@
     "unknown_location": "Ubicación desconocida",
     "matches_one": "{{count}} coincidencia",
     "matches_other": "{{count}} coincidencias",
-    "no_audit_logs": "Todavía no hay registros de auditoría."
+    "no_audit_logs": "Todavía no hay registros de auditoría.",
+    "review": "Revisar",
+    "moderation": "Cola de moderación",
+    "found_items_queue": "Revisión de artículos encontrados",
+    "found_items_queue_desc": "Aprueba o rechaza artículos encontrados recién enviados antes de que se publiquen.",
+    "claims_queue": "Verificación de reclamos",
+    "claims_queue_desc": "Verifica la prueba de propiedad y los detalles para aprobar o rechazar reclamos sobre artículos encontrados."
   },
   "admin_overview": {
     "total_items": "Total de artículos",
@@ -608,7 +630,13 @@
     "for_item": "Para: {{title}}",
     "note_placeholder": "Escribe una nota...",
     "save_note": "Guardar nota",
-    "note_saved": "Nota guardada"
+    "note_saved": "Nota guardada",
+    "archived": "Artículo archivado",
+    "archived_description": "Este artículo tiene registros relacionados, por lo que se archivó en lugar de eliminarse.",
+    "review_submission": "Revisar envío",
+    "finder": "Informante",
+    "update_status": "Actualizar estado",
+    "confirm_delete": "¿Estás seguro de que quieres eliminar este artículo?"
   },
   "admin_claims_queue": {
     "claim_updated": "Reclamo actualizado",
@@ -646,7 +674,8 @@
     "review_status": "Estado de la reseña: {{status}}",
     "not_submitted": "no enviada",
     "save_notes": "Guardar notas",
-    "notes_saved": "Notas guardadas"
+    "notes_saved": "Notas guardadas",
+    "actions": "Acciones de estado del reclamo"
   },
   "sign_in_dialog": {
     "signed_in": "Sesión iniciada",
@@ -772,6 +801,8 @@
     "invalid_size_description": "Mantén las imágenes por debajo de {{limit}}. Este archivo pesa {{size}}.",
     "limit_reached_title": "Límite de fotos alcanzado",
     "limit_reached_description": "Puedes subir hasta {{count}} fotos.",
+    "invalid_files_title": "No hay fotos compatibles",
+    "invalid_files_description": "Sube imágenes JPG, PNG o WEBP de menos de 8 MB.",
     "upload_failed_title": "Error al subir",
     "upload_failed_description": "Inténtalo de nuevo."
   },
@@ -869,5 +900,11 @@
     "football_field": "Campo de fútbol",
     "track_and_field": "Pista y campo",
     "student_lounge": "Sala estudiantil"
+  },
+  "lost_items": {
+    "kicker": "Reportes de pérdida",
+    "title": "Artículos perdidos",
+    "subtitle": "Explora los artículos que estudiantes y personal están buscando y comprueba si el personal ya te ha asignado uno.",
+    "i_found_this": "Encontré esto"
   }
 }
