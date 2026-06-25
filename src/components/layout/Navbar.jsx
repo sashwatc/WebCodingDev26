@@ -151,8 +151,8 @@ export default function Navbar() {
       className="fixed inset-x-0 top-0 z-50 border-b border-border bg-background"
     >
       <nav className="page-shell" aria-label={t("navbar.main_navigation")}>
-        <div className="flex min-h-16 items-center justify-between gap-4 py-2">
-          <Link to="/Home" className="flex shrink-0 items-center gap-3" aria-label={t("navbar.brand_home", { brand: BRAND_NAME })}>
+        <div className="flex min-h-16 items-center gap-3 py-2">
+          <Link to="/Home" className="flex shrink-0 items-center gap-3 transition-opacity hover:opacity-90" aria-label={t("navbar.brand_home", { brand: BRAND_NAME })}>
             <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
               <img src={schoolMark} alt="" className="h-6 w-6 object-contain" />
             </div>
@@ -162,47 +162,50 @@ export default function Navbar() {
             </div>
           </Link>
 
-          <div className="hidden xl:flex items-center gap-1">
-            {navLinks.map(({ to, label, icon: Icon }) => (
-              <Link
-                key={to}
-                to={to}
-                aria-current={isActive(to) ? "page" : undefined}
-                className={`inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-                  isActive(to)
-                    ? "bg-slate-100 text-foreground dark:bg-slate-800 dark:text-white"
-                    : "text-muted-foreground hover:bg-slate-100 hover:text-foreground dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
-                }`}
-              >
-                <Icon className="h-4 w-4" />
-                <span>{label}</span>
-              </Link>
-            ))}
+          <div className="hidden xl:flex flex-1 items-center justify-center gap-1">
+            {navLinks.map(({ to, label, icon: Icon }) => {
+              const active = isActive(to);
+              return (
+                <Link
+                  key={to}
+                  to={to}
+                  aria-current={active ? "page" : undefined}
+                  className={`relative inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                    active
+                      ? "text-foreground nav-active-dot"
+                      : "text-foreground/70 hover:text-foreground"
+                  }`}
+                >
+                  <Icon className="h-4 w-4" />
+                  <span>{label}</span>
+                </Link>
+              );
+            })}
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="hidden xl:flex flex-1 items-center justify-end gap-2">
             <div className="hidden md:flex items-center rounded-lg border border-border bg-muted p-1">
-                <button
-                  onClick={() => setIsAdminMode(false)}
-                  aria-pressed={!isAdmin}
-                  className={`rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${
-                    !isAdmin ? "bg-background text-foreground" : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  {t("navbar.student")}
-                </button>
-                <button
-                  onClick={handleAdminView}
-                  aria-pressed={isAdmin}
-                  className={`rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${
-                    isAdmin ? "bg-background text-foreground" : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  {t("navbar.admin")}
-                </button>
+              <button
+                onClick={() => setIsAdminMode(false)}
+                aria-pressed={!isAdmin}
+                className={`rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${
+                  !isAdmin ? "bg-background text-foreground" : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {t("navbar.student")}
+              </button>
+              <button
+                onClick={handleAdminView}
+                aria-pressed={isAdmin}
+                className={`rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${
+                  isAdmin ? "bg-background text-foreground" : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {t("navbar.admin")}
+              </button>
             </div>
 
-            <Link to="/ReportFound" className="hidden md:block">
+            <Link to="/ReportFound" className="hidden md:inline-flex">
               <Button size="sm" className="gap-2">
                 <PlusCircle className="h-4 w-4" />
                 {t("common.report_found_item")}
@@ -211,7 +214,7 @@ export default function Navbar() {
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="icon" className="hidden sm:inline-flex">
+                <Button variant="outline" size="icon" className="hidden sm:inline-flex" aria-label={t("navbar.display_settings", "Display settings")}>
                   <MonitorCog className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
@@ -239,8 +242,8 @@ export default function Navbar() {
               </DropdownMenuContent>
             </DropdownMenu>
 
-            {user && hasAdminAccess && (
-              <Link to="/AdminDashboard" className="hidden xl:block">
+            {user && hasAdminAccess && !isAdmin && (
+              <Link to="/AdminDashboard" className="hidden xl:inline-flex">
                 <Button size="sm" variant="outline" className="gap-2">
                   <LayoutDashboard className="h-4 w-4" />
                   {t("common.dashboard")}
@@ -315,18 +318,18 @@ export default function Navbar() {
                 {t("common.sign_in")}
               </Button>
             )}
-
-            <Button
-              variant="outline"
-              size="icon"
-              className="xl:hidden"
-              onClick={() => setMobileOpen(!mobileOpen)}
-              aria-label={mobileOpen ? t("navbar.close_menu") : t("navbar.open_menu")}
-              aria-expanded={mobileOpen}
-            >
-              {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-            </Button>
           </div>
+
+          <Button
+            variant="outline"
+            size="icon"
+            className="ml-auto xl:hidden"
+            onClick={() => setMobileOpen(!mobileOpen)}
+            aria-label={mobileOpen ? t("navbar.close_menu") : t("navbar.open_menu")}
+            aria-expanded={mobileOpen}
+          >
+            {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+          </Button>
         </div>
       </nav>
 
@@ -353,26 +356,29 @@ export default function Navbar() {
                   {t("navbar.admin")}
                 </button>
             </div>
-            <div className="grid gap-2">
-              {navLinks.map(({ to, label, icon: Icon }) => (
-                <Link
-                  key={to}
-                  to={to}
-                  aria-current={isActive(to) ? "page" : undefined}
-                  className={`flex items-center gap-3 rounded-md border px-4 py-3 text-sm font-medium ${
-                    isActive(to)
-                      ? "border-border bg-muted text-foreground"
-                      : "border-transparent text-muted-foreground hover:border-border hover:bg-muted hover:text-foreground"
-                  }`}
-                >
-                  <Icon className="h-4 w-4" />
-                  {label}
-                </Link>
-              ))}
+            <div className="grid gap-1">
+              {navLinks.map(({ to, label, icon: Icon }) => {
+                const active = isActive(to);
+                return (
+                  <Link
+                    key={to}
+                    to={to}
+                    aria-current={active ? "page" : undefined}
+                    className={`relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+                      active
+                        ? "bg-muted text-foreground"
+                        : "text-foreground/70 hover:bg-muted hover:text-foreground"
+                    }`}
+                  >
+                    <Icon className="h-4 w-4" />
+                    {label}
+                  </Link>
+                );
+              })}
 
               <Link
                 to="/ReportFound"
-                className="flex items-center gap-3 rounded-md border border-border bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground"
+                className="mt-2 flex items-center gap-3 rounded-lg bg-primary px-3 py-2.5 text-sm font-semibold text-primary-foreground"
               >
                 <PlusCircle className="h-4 w-4" />
                 {t("common.report_found_item")}

@@ -198,6 +198,15 @@
     @apply mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8;
   }
 
+  .home-section {
+    @apply mx-auto w-full max-w-5xl px-4 sm:px-6;
+  }
+
+  .nav-active-dot::after {
+    content: "";
+    @apply absolute -bottom-1 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-primary;
+  }
+
   .page-header {
     @apply mb-7 space-y-2;
   }
