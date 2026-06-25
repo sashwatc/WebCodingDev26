@@ -72,6 +72,8 @@ export default function Home() {
   const particlesRef      = useRef([]);
   const particleRafRef    = useRef(null);
   const videoRef          = useRef(null);
+  const framesRef         = useRef([]);     // pre-decoded ImageBitmap frames
+  const framesReadyRef    = useRef(false);  // true once baking completes
   const progressBarRef    = useRef(null);
   const exitFadeRef       = useRef(null);
   const platformLightRef  = useRef(null);
@@ -118,30 +120,40 @@ export default function Home() {
       if (c) { c.width = w; c.height = h; }
       const p = particleCanvasRef.current;
       if (p) { p.width = w; p.height = h; }
-      drawVideoFrame();
+      drawFrame(progressRef.current);
     };
     resize();
     window.addEventListener("resize", resize);
     return () => window.removeEventListener("resize", resize);
   }, []); // eslint-disable-line
 
-  /* ── Draw current video frame to canvas (cover-fill) ────────────────────── */
-  const drawVideoFrame = useCallback(() => {
+  /* ── Draw the frame for a scroll progress (cover-fill) ──────────────────────
+     Prefers a pre-decoded bitmap (instant); falls back to the live video
+     element until baking completes. */
+  const drawFrame = useCallback((p) => {
     const canvas = canvasRef.current;
-    const video  = videoRef.current;
-    if (!canvas || !video || video.readyState < 2) return;
+    if (!canvas) return;
+
+    let src, sw0, sh0;
+    if (framesReadyRef.current && framesRef.current.length) {
+      const frames = framesRef.current;
+      const idx = Math.min(frames.length - 1, Math.max(0, Math.round(p * (frames.length - 1))));
+      src = frames[idx]; sw0 = src.width; sh0 = src.height;
+    } else {
+      const video = videoRef.current;
+      if (!video || video.readyState < 2) return;
+      src = video; sw0 = video.videoWidth; sh0 = video.videoHeight;
+    }
+    if (!sw0 || !sh0) return;
 
     const ctx = canvas.getContext("2d");
-    const cw = canvas.width,  ch = canvas.height;
-    const vw = video.videoWidth, vh = video.videoHeight;
-    if (!vw || !vh) return;
-
-    const va = vw / vh, ca = cw / ch;
+    const cw = canvas.width, ch = canvas.height;
+    const va = sw0 / sh0, ca = cw / ch;
     let sx, sy, sw, sh;
-    if (va > ca) { sh = vh; sw = sh * ca; sx = (vw - sw) / 2; sy = 0; }
-    else         { sw = vw; sh = sw / ca; sx = 0; sy = (vh - sh) / 2; }
+    if (va > ca) { sh = sh0; sw = sh * ca; sx = (sw0 - sw) / 2; sy = 0; }
+    else         { sw = sw0; sh = sw / ca; sx = 0; sy = (sh0 - sh) / 2; }
 
-    ctx.drawImage(video, sx, sy, sw, sh, 0, 0, cw, ch);
+    ctx.drawImage(src, sx, sy, sw, sh, 0, 0, cw, ch);
   }, []);
 
   /* ── Narrative scene opacity updater ────────────────────────────────────── */
@@ -187,11 +199,12 @@ export default function Home() {
       if (done) return;
       done = true;
       setIsLoaded(true);
-      drawVideoFrame();
+      drawFrame(progressRef.current);
     };
+    const redraw = () => { if (!framesReadyRef.current) drawFrame(progressRef.current); };
 
     video.addEventListener("loadeddata", onReady, { once: true });
-    video.addEventListener("seeked", drawVideoFrame);
+    video.addEventListener("seeked", redraw);
     video.addEventListener("error", onReady, { once: true });
     video.load();
 
@@ -200,10 +213,70 @@ export default function Home() {
     return () => {
       clearTimeout(fallback);
       video.removeEventListener("loadeddata", onReady);
-      video.removeEventListener("seeked", drawVideoFrame);
+      video.removeEventListener("seeked", redraw);
       video.removeEventListener("error", onReady);
     };
-  }, [drawVideoFrame]);
+  }, [drawFrame]);
+
+  /* ── Background frame baking ────────────────────────────────────────────────
+     Decode N frames into ImageBitmaps off-thread using a dedicated offscreen
+     video, so scroll scrubbing becomes instant (no per-frame video seeking).
+     Runs in the background; the live video handles scrubbing until this is done. */
+  useEffect(() => {
+    let cancelled = false;
+    const N = 64;
+    const ex = document.createElement("video");
+    ex.src = VIDEO_SRC;
+    ex.muted = true;
+    ex.playsInline = true;
+    ex.preload = "auto";
+    ex.crossOrigin = "anonymous";
+
+    const off = document.createElement("canvas");
+    let octx;
+
+    const bake = async () => {
+      const scale = 1.5; // ~2/3 resolution keeps bitmaps light but crisp
+      off.width  = Math.max(2, Math.round(ex.videoWidth  / scale));
+      off.height = Math.max(2, Math.round(ex.videoHeight / scale));
+      octx = off.getContext("2d");
+
+      const frames = [];
+      for (let i = 0; i < N; i++) {
+        if (cancelled) return;
+        ex.currentTime = (i / (N - 1)) * (ex.duration || 0);
+        // eslint-disable-next-line no-await-in-loop
+        await new Promise((res) => {
+          const done = () => { ex.removeEventListener("seeked", done); res(); };
+          ex.addEventListener("seeked", done);
+        });
+        if (cancelled) return;
+        octx.drawImage(ex, 0, 0, off.width, off.height);
+        try {
+          // eslint-disable-next-line no-await-in-loop
+          frames.push(await createImageBitmap(off));
+        } catch {
+          return; // bitmap unsupported → keep live-video fallback
+        }
+      }
+      if (cancelled) return;
+      framesRef.current = frames;
+      framesReadyRef.current = true;
+      drawFrame(progressRef.current); // repaint crisp immediately
+    };
+
+    ex.addEventListener("loadedmetadata", bake, { once: true });
+    ex.load();
+
+    return () => {
+      cancelled = true;
+      framesReadyRef.current = false;
+      framesRef.current.forEach((b) => b.close && b.close());
+      framesRef.current = [];
+      ex.removeAttribute("src");
+      ex.load();
+    };
+  }, [drawFrame]);
 
   /* ── RAF scroll loop — scrubs video + drives scenes across the intro ─────── */
   useEffect(() => {
@@ -227,13 +300,19 @@ export default function Home() {
         if (Math.abs(p - currentP) > PROGRESS_EPSILON) {
           progressRef.current = p;
 
-          if (video && video.duration) {
-            const targetTime = p * video.duration;
-            if (Math.abs(video.currentTime - targetTime) > VIDEO_SEEK_EPSILON) {
-              video.currentTime = targetTime;
+          /* Once frames are baked, draw the bitmap directly (instant, smooth).
+             Until then, fall back to seeking the live video. */
+          if (framesReadyRef.current) {
+            drawFrame(p);
+          } else {
+            if (video && video.duration) {
+              const targetTime = p * video.duration;
+              if (Math.abs(video.currentTime - targetTime) > VIDEO_SEEK_EPSILON) {
+                video.currentTime = targetTime;
+              }
             }
+            drawFrame(p);
           }
-
           updateScenes(p);
 
           if (progressBarRef.current) {
@@ -259,7 +338,7 @@ export default function Home() {
     updateScenes(0);
 
     return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); };
-  }, [isLoaded, drawVideoFrame, updateScenes]);
+  }, [isLoaded, drawFrame, updateScenes]);
 
   /* ── Ambient particle depth layer (pure 2D canvas, parallax by scroll) ──── */
   useEffect(() => {
@@ -310,11 +389,8 @@ export default function Home() {
         ctx.beginPath();
         ctx.arc(p.x, parY, p.r, 0, Math.PI * 2);
         ctx.fillStyle = `rgba(165, 180, 252, ${p.alpha})`;
-        ctx.shadowColor = "rgba(165, 180, 252, 0.5)";
-        ctx.shadowBlur = p.depth * 3;
         ctx.fill();
       }
-      ctx.shadowBlur = 0;
       t += 16;
       particleRafRef.current = requestAnimationFrame(render);
     };
