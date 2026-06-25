@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { appClient } from "@/api/appClient";
 import { useAuth } from "@/lib/AuthContext";
@@ -25,7 +25,6 @@ function ToggleRow({ id, label, description, checked, onCheckedChange, disabled 
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 export default function Settings() {
-  useEffect(() => { document.title = "Settings — Lost Then Found"; }, []);
   const { user, logout } = useAuth();
 
   // ── Notification prefs ──────────────────────────────────────────────────────
