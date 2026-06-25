@@ -41,7 +41,6 @@ function locationFromZoneLabel(label = "") {
 }
 
 export default function ReportLost() {
-  useEffect(() => { document.title = "Report Lost Item — Lost Then Found"; }, []);
   const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();

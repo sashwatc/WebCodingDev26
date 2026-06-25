@@ -14,8 +14,6 @@ import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 import AdminRouteGuard from '@/components/auth/AdminRouteGuard';
-import AuthRouteGuard from '@/components/auth/AuthRouteGuard';
-import StaffRouteGuard from '@/components/auth/StaffRouteGuard';
 import SignInDialog from '@/components/auth/SignInDialog';
 import AdminAccessDialog from '@/components/auth/AdminAccessDialog';
 import RouteEnhancements from '@/components/layout/RouteEnhancements';
@@ -27,6 +25,7 @@ import PublicLayout from '@/components/layout/PublicLayout';
 // Page imports
 import Home from '@/pages/Home';
 import Search from '@/pages/Search';
+import LostItems from '@/pages/LostItems';
 import ReportFound from '@/pages/ReportFound';
 import ReportLost from '@/pages/ReportLost';
 import ItemDetails from '@/pages/ItemDetails';
@@ -40,9 +39,12 @@ import Terms from '@/pages/Terms';
 import Accessibility from '@/pages/Accessibility';
 import Sources from '@/pages/Sources';
 import Documentation from '@/pages/Documentation';
+import ShaderDemo from '@/pages/ShaderDemo';
+import EventHub from '@/pages/EventHub';
+import Beacon from '@/pages/Beacon';
+import Display from '@/pages/Display';
 import PickupPass from '@/pages/PickupPass';
 import PickupStation from '@/pages/PickupStation';
-import Settings from '@/pages/Settings';
 
 const AuthenticatedApp = () => {
   const { t } = useTranslation();
@@ -79,17 +81,18 @@ const AuthenticatedApp = () => {
         <Route element={<PublicLayout />}>
           <Route path="/Home" element={<Home />} />
           <Route path="/Search" element={<Search />} />
-          <Route path="/ReportFound" element={<AuthRouteGuard><ReportFound /></AuthRouteGuard>} />
-          <Route path="/ReportLost" element={<AuthRouteGuard><ReportLost /></AuthRouteGuard>} />
+          <Route path="/LostItems" element={<LostItems />} />
+          <Route path="/ReportFound" element={<ReportFound />} />
+          <Route path="/ReportLost" element={<ReportLost />} />
           <Route path="/ItemDetails" element={<ItemDetails />} />
-          <Route path="/ClaimItem" element={<AuthRouteGuard><ClaimItem /></AuthRouteGuard>} />
-          <Route path="/UserDashboard" element={<AuthRouteGuard><UserDashboard /></AuthRouteGuard>} />
+          <Route path="/ClaimItem" element={<ClaimItem />} />
+          <Route path="/UserDashboard" element={<UserDashboard />} />
           <Route
             path="/AdminDashboard"
             element={(
-              <StaffRouteGuard>
+              <AdminRouteGuard>
                 <AdminDashboard />
-              </StaffRouteGuard>
+              </AdminRouteGuard>
             )}
           />
           <Route path="/About" element={<About />} />
@@ -99,14 +102,17 @@ const AuthenticatedApp = () => {
           <Route path="/Accessibility" element={<Accessibility />} />
           <Route path="/Sources" element={<Sources />} />
           <Route path="/Documentation" element={<Documentation />} />
-          <Route path="/PickupPass" element={<AuthRouteGuard><PickupPass /></AuthRouteGuard>} />
-          <Route path="/Settings" element={<AuthRouteGuard><Settings /></AuthRouteGuard>} />
+          <Route path="/ShaderDemo" element={<ShaderDemo />} />
+          <Route path="/EventHub" element={<EventHub />} />
+          <Route path="/Beacon" element={<Beacon />} />
+          <Route path="/Display" element={<Display />} />
+          <Route path="/PickupPass" element={<PickupPass />} />
           <Route
             path="/PickupStation"
             element={(
-              <StaffRouteGuard>
+              <AdminRouteGuard>
                 <PickupStation />
-              </StaffRouteGuard>
+              </AdminRouteGuard>
             )}
           />
         </Route>

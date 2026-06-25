@@ -2,27 +2,15 @@
  * FindBack AI - FAQ / Help Page
  */
 
-import React, { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import React from "react";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
 import {
   Accordion,
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { appClient } from "@/api/appClient";
-import { useAuth } from "@/lib/AuthContext";
 import { BRAND_NAME } from "@/lib/constants";
-
-const CATEGORIES = ["General", "Claim Issue", "Reporting Issue", "Pickup Issue", "Other"];
 
 const faqs = [
   {
@@ -63,90 +51,7 @@ const faqs = [
   },
 ];
 
-function ContactSupport() {
-  const { user, isAuthenticated } = useAuth();
-  const [subject, setSubject]   = useState("");
-  const [category, setCategory] = useState("");
-  const [message, setMessage]   = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  const [success, setSuccess]   = useState(false);
-  const [error, setError]       = useState(null);
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!subject.trim() || !message.trim() || message.trim().length < 20) {
-      setError("Please fill in all fields. Message must be at least 20 characters.");
-      return;
-    }
-    setError(null);
-    setSubmitting(true);
-    try {
-      await appClient.entities.Notification.create({
-        title: subject.trim(),
-        message: `[${category || "General"}] ${message.trim()}`,
-        type: "support_ticket",
-        user_email: user.email,
-        is_read: false,
-        link: "/UserDashboard",
-      });
-      setSuccess(true);
-      setSubject(""); setCategory(""); setMessage("");
-    } catch (err) {
-      setError(err?.message || "Failed to submit ticket. Please try again.");
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  return (
-    <section className="mt-16 rounded-2xl border border-border bg-card p-8">
-      <h2 className="text-2xl font-bold text-foreground">Contact Support</h2>
-      <p className="mt-1 text-sm text-muted-foreground">Can't find your answer above? Send us a message.</p>
-
-      {/* Office hours */}
-      <div className="mt-4 rounded-lg bg-muted px-4 py-3 text-sm text-foreground">
-        <span className="font-semibold">PVHS Main Office</span> — School days, 8:00 AM to 3:30 PM
-      </div>
-
-      {!isAuthenticated ? (
-        <p className="mt-6 text-sm text-muted-foreground">
-          <Link to="/Home" className="font-medium text-primary underline underline-offset-2">Sign in</Link> to submit a support ticket.
-        </p>
-      ) : success ? (
-        <p className="mt-6 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800">
-          Ticket submitted — staff will respond within 1 school day.
-        </p>
-      ) : (
-        <form onSubmit={handleSubmit} className="mt-6 space-y-4" noValidate>
-          <div>
-            <Label htmlFor="faq-subject">Subject *</Label>
-            <Input id="faq-subject" value={subject} onChange={e => setSubject(e.target.value)} className="mt-1.5" required />
-          </div>
-          <div>
-            <Label htmlFor="faq-category">Category</Label>
-            <Select value={category} onValueChange={setCategory}>
-              <SelectTrigger id="faq-category" className="mt-1.5">
-                <SelectValue placeholder="Select a category" />
-              </SelectTrigger>
-              <SelectContent>
-                {CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <Label htmlFor="faq-message">Message * <span className="text-muted-foreground font-normal">(min 20 chars)</span></Label>
-            <Textarea id="faq-message" rows={4} value={message} onChange={e => setMessage(e.target.value)} className="mt-1.5 resize-none" required />
-          </div>
-          {error && <p className="text-sm text-destructive">{error}</p>}
-          <Button type="submit" disabled={submitting}>{submitting ? "Submitting…" : "Submit Ticket"}</Button>
-        </form>
-      )}
-    </section>
-  );
-}
-
 export default function FAQ() {
-  useEffect(() => { document.title = "FAQ & Support — Lost Then Found"; }, []);
   return (
     <div className="max-w-3xl mx-auto px-4 py-16">
       <div className="text-center mb-12">
@@ -167,7 +72,6 @@ export default function FAQ() {
           </AccordionItem>
         ))}
       </Accordion>
-      <ContactSupport />
     </div>
   );
 }

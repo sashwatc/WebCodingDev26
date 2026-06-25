@@ -1,261 +1,133 @@
 import React from "react";
 import { Link } from "react-router-dom";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { CheckCircle2, Code2, LayoutTemplate, MonitorSmartphone, Shield } from "lucide-react";
 
-function SectionHeading({ children }) {
-  return (
-    <h2 className="mb-4 text-xl font-bold tracking-tight text-foreground" style={{ letterSpacing: "-0.015em" }}>
-      {children}
-    </h2>
-  );
-}
-
-function TableWrapper({ children }) {
-  return (
-    <div className="overflow-x-auto rounded-xl border border-border">
-      <table className="w-full text-sm">
-        {children}
-      </table>
-    </div>
-  );
-}
-
-function Th({ children }) {
-  return (
-    <th className="border-b border-border bg-muted/50 px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.10em] text-muted-foreground whitespace-nowrap">
-      {children}
-    </th>
-  );
-}
-
-function Td({ children, className = "" }) {
-  return (
-    <td className={`px-4 py-3 text-foreground align-top ${className}`}>
-      {children}
-    </td>
-  );
-}
-
-function Check() {
-  return <span className="text-emerald-600 font-bold">✓</span>;
-}
-
-function Dash() {
-  return <span className="text-muted-foreground">—</span>;
-}
-
-function Code({ children }) {
-  return (
-    <code className="rounded bg-muted px-1.5 py-0.5 text-xs font-mono text-foreground">
-      {children}
-    </code>
-  );
-}
-
-const DEMO_ACCOUNTS = [
-  { email: "staff.demo@pleasantvalley.edu",   role: "Staff",   password: "(demo mode, no password)" },
-  { email: "student.demo@pleasantvalley.edu", role: "Student", password: "(demo mode, no password)" },
-  { email: "avery.patel@pleasantvalley.edu",  role: "Admin",   password: "(demo mode, no password)" },
+const documentationCards = [
+  {
+    icon: LayoutTemplate,
+    title: "Custom Product Workflow",
+    body: "The reporting, searching, claiming, and admin-review flows are tailored to a school lost-and-found use case rather than a generic website template.",
+  },
+  {
+    icon: Code2,
+    title: "Modern Frontend Stack",
+    body: "The project uses React, React Router, TanStack Query, Radix-based UI primitives, Framer Motion, and a Spring Boot API contract.",
+  },
+  {
+    icon: Shield,
+    title: "Accessibility and Privacy Focus",
+    body: "The app includes keyboard-friendly components, a skip link, route announcements, visible focus treatment, and FERPA-informed privacy language.",
+  },
+  {
+    icon: MonitorSmartphone,
+    title: "Responsive Multi-Device Layout",
+    body: "Layouts, cards, forms, drawers, dashboards, and navigation adapt across phones, tablets, and desktops using responsive breakpoints and flexible grids.",
+  },
 ];
 
-const ROLE_MATRIX = [
-  { feature: "View found items",   student: true,  staff: true,  admin: true  },
-  { feature: "Report found item",  student: true,  staff: true,  admin: true  },
-  { feature: "Submit claim",       student: true,  staff: false, admin: false },
-  { feature: "Review claims",      student: false, staff: true,  admin: true  },
-  { feature: "Approve items",      student: false, staff: true,  admin: true  },
-  { feature: "Pickup desk",        student: false, staff: true,  admin: true  },
-  { feature: "Manage users",       student: false, staff: false, admin: true  },
+const checklist = [
+  "Searchable found-item catalog with filters, smart matching cues, and grid/list views",
+  "Found-item reporting workflow with validation, image uploads, and tag generation",
+  "Lost-item reporting workflow with advisory match reasons and review steps",
+  "Claim submission flow with verification details and admin-side risk review",
+  "User dashboard for claims, reports, and notifications",
+  "Admin dashboard with moderation queues, analytics, and audit activity",
+  "Recovery Center with cases, likely zones, staff missions, Loss Sentinel, Asset Rescue, and Partner Relay simulation",
+  "Return Pass and Pickup Station workflow with manual code fallback",
+  "Simple API-backed sign-in for demos and judging portability",
 ];
-
-const API_ENDPOINTS = [
-  { method: "GET",    path: "/api/health",                 description: "Health check — returns 200 OK when the server is up" },
-  { method: "GET",    path: "/api/items",                  description: "List found items; supports filter query params (category, color, status)" },
-  { method: "POST",   path: "/api/items",                  description: "Create a new found-item record (staff/admin)" },
-  { method: "GET",    path: "/api/items/{id}",             description: "Fetch a single found item by ID" },
-  { method: "GET",    path: "/api/claims",                 description: "List claim submissions (staff/admin); students see own claims" },
-  { method: "POST",   path: "/api/claims",                 description: "Submit a new claim for a found item" },
-  { method: "GET",    path: "/api/auth/me",                description: "Return the currently authenticated user profile" },
-  { method: "POST",   path: "/api/uploads",                description: "Upload a photo and receive its URL; returns { url }" },
-  { method: "GET",    path: "/api/notifications",          description: "Fetch recovery-pulse notifications for the current user" },
-  { method: "GET",    path: "/api/return-passes/{claimId}", description: "Get the pickup pass for an approved claim" },
-  { method: "POST",   path: "/api/return-passes/verify",   description: "Verify a 6-digit PIN entered at the pickup desk" },
-  { method: "POST",   path: "/api/return-passes/redeem",   description: "Redeem a verified PIN and mark the item as returned" },
-  { method: "GET",    path: "/api/case-messages/{claimId}", description: "List staff/claimant messages for a claim case" },
-  { method: "POST",   path: "/api/case-messages",          description: "Send a message in a claim case thread" },
-  { method: "POST",   path: "/api/ai-assistance/parse",    description: "Parse a natural-language search query into structured filters" },
-  { method: "GET",    path: "/api/admin/claims",           description: "Admin-only: list all claims with full detail for moderation" },
-];
-
-const METHOD_COLORS = {
-  GET:    "text-emerald-700 bg-emerald-50 border-emerald-200",
-  POST:   "text-blue-700 bg-blue-50 border-blue-200",
-  PUT:    "text-amber-700 bg-amber-50 border-amber-200",
-  DELETE: "text-red-700 bg-red-50 border-red-200",
-  PATCH:  "text-purple-700 bg-purple-50 border-purple-200",
-};
 
 export default function Documentation() {
   return (
-    <div className="page-shell max-w-4xl py-12">
-      <div className="page-header max-w-2xl">
-        <span className="page-kicker">Developer guide</span>
-        <h1 className="page-title">Documentation</h1>
-        <p className="page-subtitle">
-          Setup instructions, architecture overview, demo accounts, role permissions, and API reference.
+    <div className="max-w-5xl mx-auto px-4 py-16">
+      <div className="text-center mb-12">
+        <Badge variant="outline" className="mb-3">Documentation</Badge>
+        <h1 className="text-4xl font-bold text-slate-900 mb-4">Project Documentation</h1>
+        <p className="text-slate-500 max-w-3xl mx-auto leading-relaxed">
+          This page summarizes the project scope, technical implementation, compatibility targets, and judging-build notes.
+          It was updated on June 22, 2026.
         </p>
       </div>
 
-      {/* Setup */}
-      <section className="mb-12">
-        <SectionHeading>Setup</SectionHeading>
-        <div className="rounded-xl border border-border bg-card px-6 py-5">
-          <ol className="space-y-4 text-sm text-foreground">
-            <li className="flex gap-3">
-              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-[11px] font-bold text-primary-foreground">1</span>
-              <span>
-                Clone both repositories:
-                <br />
-                <Code>git clone https://github.com/your-org/WebCodingDev26</Code>
-                <br />
-                <Code>git clone https://github.com/your-org/WebCodingDev26-Backend</Code>
-              </span>
-            </li>
-            <li className="flex gap-3">
-              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-[11px] font-bold text-primary-foreground">2</span>
-              <span>
-                Start the backend (requires Java 17+, MongoDB running locally):
-                <br />
-                <Code>cd WebCodingDev26-Backend &amp;&amp; ./mvnw spring-boot:run</Code>
-              </span>
-            </li>
-            <li className="flex gap-3">
-              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-[11px] font-bold text-primary-foreground">3</span>
-              <span>
-                Install dependencies and start the frontend dev server:
-                <br />
-                <Code>cd WebCodingDev26 &amp;&amp; npm install &amp;&amp; VITE_API_URL=http://localhost:8080 npm run dev</Code>
-                <br />
-                Then open <Code>http://localhost:5173</Code> in your browser.
-              </span>
-            </li>
-          </ol>
+      <div className="grid md:grid-cols-2 gap-5 mb-8">
+        {documentationCards.map((card) => (
+          <Card key={card.title} className="border-slate-200 shadow-sm">
+            <CardContent className="p-6">
+              <div className="w-11 h-11 rounded-xl bg-slate-100 flex items-center justify-center mb-4">
+                <card.icon className="w-5 h-5 text-[hsl(213,56%,24%)]" />
+              </div>
+              <h2 className="text-lg font-semibold text-slate-900 mb-2">{card.title}</h2>
+              <p className="text-sm text-slate-600 leading-relaxed">{card.body}</p>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      <div className="grid lg:grid-cols-[1.2fr_0.8fr] gap-6">
+        <Card className="border-slate-200">
+          <CardHeader>
+            <CardTitle>Feature Inventory</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {checklist.map((item) => (
+              <div key={item} className="flex items-start gap-3">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 mt-0.5 flex-shrink-0" />
+                <p className="text-sm text-slate-600">{item}</p>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+
+        <div className="space-y-6">
+          <Card className="border-slate-200">
+            <CardHeader>
+            <CardTitle>Judging Build Notes</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3 text-sm text-slate-600 leading-relaxed">
+            <p>
+                The frontend runs as a Vite React app and connects to a separate Spring Boot API for shared lost-and-found data.
+            </p>
+            <p>
+                The application logic, page layouts, workflows, seeded data, and copy were customized for the lost-and-found scenario rather than assembled from a website theme.
+            </p>
+            <p>
+                Restricted moderation tools require an authenticated admin account. The backend verifies the session and enforces admin-only routes server-side.
+            </p>
+          </CardContent>
+        </Card>
+
+          <Card className="border-slate-200">
+            <CardHeader>
+              <CardTitle>Run Locally</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2 text-sm text-slate-600">
+              <p>Start the backend in the Spring Boot repo:</p>
+              <p><code className="rounded bg-slate-100 px-2 py-1">./mvnw spring-boot:run</code></p>
+              <p><code className="rounded bg-slate-100 px-2 py-1">npm install</code></p>
+              <p><code className="rounded bg-slate-100 px-2 py-1">npm run dev</code></p>
+              <p>Open <code className="rounded bg-slate-100 px-2 py-1">http://localhost:5173</code>.</p>
+              <p>Local API: <code className="rounded bg-slate-100 px-2 py-1">http://localhost:8080</code>.</p>
+              <p>Student demo: <code className="rounded bg-slate-100 px-2 py-1">Jordan Kim</code> / <code className="rounded bg-slate-100 px-2 py-1">jordan.kim@pleasantvalley.edu</code></p>
+              <p>Admin demo: <code className="rounded bg-slate-100 px-2 py-1">Avery Patel</code> / <code className="rounded bg-slate-100 px-2 py-1">avery.patel@pleasantvalley.edu</code></p>
+              <p>Production admin access is controlled by Appwrite team membership; local demo access uses the backend demo fallback only when enabled.</p>
+            </CardContent>
+          </Card>
+
+          <div className="flex flex-wrap gap-3">
+            <Link to="/Sources">
+              <Button variant="outline">View Sources</Button>
+            </Link>
+            <Link to="/Accessibility">
+              <Button variant="outline">Accessibility Statement</Button>
+            </Link>
+            <Link to="/ShaderDemo">
+              <Button variant="outline">Shader Demo</Button>
+            </Link>
+          </div>
         </div>
-      </section>
-
-      {/* Architecture */}
-      <section className="mb-12">
-        <SectionHeading>Architecture</SectionHeading>
-        <div className="rounded-xl border border-border bg-card px-6 py-5 text-sm text-muted-foreground leading-relaxed space-y-3">
-          <p>
-            The <strong className="text-foreground">frontend</strong> is a React + Vite single-page app. It uses TanStack Query for
-            server-state management, react-hook-form + Zod for validated forms, shadcn/ui (Radix) for accessible
-            component primitives, Tailwind CSS for styling, and Framer Motion for animation.
-            Client-side routing is handled by React Router v6.
-          </p>
-          <p>
-            The <strong className="text-foreground">backend</strong> is a Spring Boot application with a MongoDB database.
-            It exposes a REST API consumed exclusively by this frontend. Authentication is handled either through
-            Appwrite (production) or a demo-mode fallback built into the backend for local development and judging.
-          </p>
-          <p>
-            <strong className="text-foreground">Appwrite</strong> is an optional external authentication provider.
-            When Appwrite is unavailable the app degrades gracefully: public item browsing remains fully functional
-            and demo accounts authenticate through the backend fallback.
-            LocalStorage is used for draft autosave, saved searches, theme preference, and reduced-motion preference.
-          </p>
-        </div>
-      </section>
-
-      {/* Demo Accounts */}
-      <section className="mb-12">
-        <SectionHeading>Demo Accounts</SectionHeading>
-        <TableWrapper>
-          <thead>
-            <tr>
-              <Th>Email</Th>
-              <Th>Role</Th>
-              <Th>Password</Th>
-            </tr>
-          </thead>
-          <tbody>
-            {DEMO_ACCOUNTS.map((acct, i) => (
-              <tr key={acct.email} className={i % 2 === 0 ? "" : "bg-muted/20"}>
-                <Td><Code>{acct.email}</Code></Td>
-                <Td>
-                  <span className="inline-flex items-center rounded-full border border-border bg-muted px-2.5 py-0.5 text-xs font-semibold text-muted-foreground">
-                    {acct.role}
-                  </span>
-                </Td>
-                <Td className="text-muted-foreground">{acct.password}</Td>
-              </tr>
-            ))}
-          </tbody>
-        </TableWrapper>
-      </section>
-
-      {/* Role Matrix */}
-      <section className="mb-12">
-        <SectionHeading>Role Matrix</SectionHeading>
-        <TableWrapper>
-          <thead>
-            <tr>
-              <Th>Feature</Th>
-              <Th>Student</Th>
-              <Th>Staff</Th>
-              <Th>Admin</Th>
-            </tr>
-          </thead>
-          <tbody>
-            {ROLE_MATRIX.map((row, i) => (
-              <tr key={row.feature} className={i % 2 === 0 ? "" : "bg-muted/20"}>
-                <Td className="font-medium">{row.feature}</Td>
-                <Td className="text-center">{row.student ? <Check /> : <Dash />}</Td>
-                <Td className="text-center">{row.staff   ? <Check /> : <Dash />}</Td>
-                <Td className="text-center">{row.admin   ? <Check /> : <Dash />}</Td>
-              </tr>
-            ))}
-          </tbody>
-        </TableWrapper>
-      </section>
-
-      {/* Key API Endpoints */}
-      <section className="mb-12">
-        <SectionHeading>Key API Endpoints</SectionHeading>
-        <TableWrapper>
-          <thead>
-            <tr>
-              <Th>Method</Th>
-              <Th>Path</Th>
-              <Th>Description</Th>
-            </tr>
-          </thead>
-          <tbody>
-            {API_ENDPOINTS.map((ep, i) => (
-              <tr key={`${ep.method}-${ep.path}`} className={i % 2 === 0 ? "" : "bg-muted/20"}>
-                <Td>
-                  <span className={`inline-flex items-center rounded border px-2 py-0.5 text-[11px] font-bold tracking-wide ${METHOD_COLORS[ep.method] || ""}`}>
-                    {ep.method}
-                  </span>
-                </Td>
-                <Td>
-                  <Code>{ep.path}</Code>
-                </Td>
-                <Td className="text-muted-foreground">{ep.description}</Td>
-              </tr>
-            ))}
-          </tbody>
-        </TableWrapper>
-      </section>
-
-      {/* Footer links */}
-      <div className="flex flex-wrap gap-3">
-        <Button asChild variant="outline">
-          <Link to="/Sources">Sources &amp; Credits</Link>
-        </Button>
-        <Button asChild variant="outline">
-          <Link to="/Accessibility">Accessibility Statement</Link>
-        </Button>
       </div>
     </div>
   );

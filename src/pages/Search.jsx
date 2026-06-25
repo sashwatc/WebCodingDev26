@@ -1,518 +1,537 @@
+/**
+ * Lost Then Found - Search / Browse Found Items Page
+ * Search-first inventory browsing with explicit loading and failure states.
+ */
+
 import React, { useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { useQuery } from "@tanstack/react-query";
-import { motion } from "framer-motion";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { appClient } from "@/api/appClient";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
-import {
-  Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription,
-  DrawerFooter, DrawerTrigger,
-} from "@/components/ui/drawer";
-import { useToast } from "@/components/ui/use-toast";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import ItemCard from "@/components/search/ItemCard";
 import { SearchResultsSkeleton, SearchStatePanel } from "@/components/search/SearchStates";
-import { CATEGORIES, COLORS } from "@/lib/constants";
-import { translateCategory, translateColor } from "@/lib/i18n-helpers";
+import { CATEGORIES, COLORS, LOCATIONS } from "@/lib/constants";
+import { isPublicFoundItemStatus, isArchivedFoundItemStatus } from "@/lib/found-items";
+import { translateCategory, translateColor, translateLocation } from "@/lib/i18n-helpers";
+import { Grid3X3, List, Loader2, Search as SearchIcon, SlidersHorizontal, Sparkles, X } from "lucide-react";
+import { motion } from "framer-motion";
 import { staggerContainerProps } from "@/lib/motion";
-import {
-  Bookmark, Loader2, Search as SearchIcon, SlidersHorizontal, X,
-} from "lucide-react";
 
-// ── Default filter state ──────────────────────────────────────────────────────
-
-const DEFAULT_FILTERS = {
-  keywords: "",
-  category: "all",
-  color: "all",
-  location: "",
-  status: "all",
-  sort: "newest",
-};
-
-// ── Filter panel content (shared between Sheet and desktop sidebar) ───────────
-
-function FilterPanel({ filters, onFilterChange, onClear }) {
-  const { t } = useTranslation();
-  return (
-    <div className="space-y-5">
-      <div className="space-y-1.5">
-        <Label htmlFor="fp-category" className="text-xs font-semibold uppercase tracking-[0.10em] text-muted-foreground">
-          {t("common.category")}
-        </Label>
-        <Select
-          value={filters.category}
-          onValueChange={(v) => onFilterChange("category", v)}
-        >
-          <SelectTrigger id="fp-category" className="h-10">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">{t("search.all_categories", "All categories")}</SelectItem>
-            {CATEGORIES.map((cat) => (
-              <SelectItem key={cat.value} value={cat.value}>
-                {translateCategory(t, cat.value)}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      <div className="space-y-1.5">
-        <Label htmlFor="fp-color" className="text-xs font-semibold uppercase tracking-[0.10em] text-muted-foreground">
-          {t("common.color")}
-        </Label>
-        <Select
-          value={filters.color}
-          onValueChange={(v) => onFilterChange("color", v)}
-        >
-          <SelectTrigger id="fp-color" className="h-10">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">{t("search.all_colors", "All colors")}</SelectItem>
-            {COLORS.map((color) => (
-              <SelectItem key={color} value={color}>
-                {translateColor(t, color)}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      <div className="space-y-1.5">
-        <Label htmlFor="fp-location" className="text-xs font-semibold uppercase tracking-[0.10em] text-muted-foreground">
-          {t("common.location")}
-        </Label>
-        <Input
-          id="fp-location"
-          placeholder="e.g. Library, Gym…"
-          value={filters.location}
-          onChange={(e) => onFilterChange("location", e.target.value)}
-          className="h-10"
-        />
-      </div>
-
-      <div className="space-y-1.5">
-        <Label htmlFor="fp-status" className="text-xs font-semibold uppercase tracking-[0.10em] text-muted-foreground">
-          Status
-        </Label>
-        <Select
-          value={filters.status}
-          onValueChange={(v) => onFilterChange("status", v)}
-        >
-          <SelectTrigger id="fp-status" className="h-10">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All statuses</SelectItem>
-            <SelectItem value="published">Available</SelectItem>
-            <SelectItem value="claimed">Claimed</SelectItem>
-            <SelectItem value="returned">Returned</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
-      <Button variant="outline" className="w-full" onClick={onClear}>
-        {t("search.clear_filters", "Clear filters")}
-      </Button>
-    </div>
-  );
+function isBackendUnavailable(health) {
+  return health?.status === "unavailable" || health?.backend_required === true;
 }
 
-// ── Main component ────────────────────────────────────────────────────────────
-
-export default function Search() {
-  useEffect(() => { document.title = "Search — Lost Then Found"; }, []);
+export default function Search({ recordTypeOverride = "found" }) {
   const { t } = useTranslation();
-  const { toast } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
-
-  const [rawQuery, setRawQuery] = useState(searchParams.get("q") || "");
-  const [isParsingQuery, setIsParsingQuery] = useState(false);
-  const [filters, setFilters] = useState(DEFAULT_FILTERS);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
-
-  // ── Sync URL query param on first mount ─────────────────────────────────────
-
-  useEffect(() => {
-    const q = searchParams.get("q");
-    if (q) setRawQuery(q);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // ── 500ms debounce → parseSearchQuery ──────────────────────────────────────
+  const queryFromUrl = searchParams.get("q") || "";
+  const recordType = recordTypeOverride || "found";
+  const isLostItemsPage = recordType === "lost";
+  const [searchQuery, setSearchQuery] = useState(queryFromUrl);
+  const [viewMode, setViewMode] = useState("list");
+  const [filters, setFilters] = useState({
+    category: "all",
+    color: "all",
+    location: "all",
+    sort: "newest",
+    recordType,
+  });
+  const [searchAssist, setSearchAssist] = useState(null);
 
   useEffect(() => {
-    if (!rawQuery.trim()) {
-      setFilters((prev) => ({ ...prev, keywords: "" }));
-      const next = new URLSearchParams(searchParams);
-      next.delete("q");
-      setSearchParams(next, { replace: true });
-      return;
-    }
+    setSearchQuery(queryFromUrl);
+  }, [queryFromUrl]);
 
-    const next = new URLSearchParams(searchParams);
-    next.set("q", rawQuery);
-    setSearchParams(next, { replace: true });
-
-    const timer = setTimeout(async () => {
-      setIsParsingQuery(true);
-      try {
-        const parsed = await appClient.aiAssistance.parseSearchQuery(rawQuery);
-        setFilters((prev) => ({
-          ...prev,
-          keywords: parsed.keywords || rawQuery,
-          ...(parsed.category ? { category: parsed.category } : {}),
-          ...(parsed.color ? { color: parsed.color } : {}),
-          ...(parsed.location ? { location: parsed.location } : {}),
-        }));
-      } catch {
-        setFilters((prev) => ({ ...prev, keywords: rawQuery }));
-      } finally {
-        setIsParsingQuery(false);
-      }
-    }, 500);
-
-    return () => clearTimeout(timer);
-  // searchParams deliberately excluded — only rawQuery should trigger this
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rawQuery]);
-
-  // ── Server-side filter params ────────────────────────────────────────────────
-
-  const serverParams = useMemo(() => ({
-    ...(filters.category !== "all" && { category: filters.category }),
-    ...(filters.color !== "all" && { color: filters.color }),
-    ...(filters.status !== "all" && { status: filters.status }),
-  }), [filters.category, filters.color, filters.status]);
+  useEffect(() => {
+    setFilters((curr) => ({ ...curr, recordType }));
+  }, [recordType]);
 
   const {
-    data: rawItems = [],
-    isLoading,
-    error,
-    refetch,
+    data: health,
+    isLoading: healthLoading,
+    refetch: refetchHealth,
   } = useQuery({
-    queryKey: ["searchItems", serverParams],
-    queryFn: () => appClient.items.filter(serverParams),
+    queryKey: ["backendHealth"],
+    queryFn: () => appClient.health.check(),
+    staleTime: 30_000,
+    retry: 1,
+  });
+
+  const backendUnavailable = !healthLoading && isBackendUnavailable(health);
+
+  const { data, isLoading, error, refetch: refetchSearch } = useQuery({
+    queryKey: ["searchRecords"],
+    queryFn: async () => {
+      const [foundItems, lostReports] = await Promise.all([
+        appClient.entities.FoundItem.list("-created_date", 200),
+        appClient.entities.LostReport.list("-created_date", 200),
+      ]);
+
+      return { foundItems, lostReports };
+    },
+    enabled: !backendUnavailable,
     staleTime: 60_000,
   });
 
-  // ── Client-side filter + sort ────────────────────────────────────────────────
+  const foundItems = data?.foundItems || [];
+  const lostReports = data?.lostReports || [];
+
+  const publicFoundItems = useMemo(
+    () =>
+      foundItems.filter(
+        (item) =>
+          item.record_type !== "lost" &&
+          isPublicFoundItemStatus(item.status) &&
+          !isArchivedFoundItemStatus(item.status)
+      ),
+    [foundItems]
+  );
+
+  const publicLostReports = useMemo(
+    () =>
+      lostReports
+        .filter((report) => !["resolved", "closed"].includes(report.status))
+        .map((report) => ({
+          id: report.id,
+          title: report.item_type || t("item_details.lost_item_report"),
+          description: report.description || "",
+          ai_description: "",
+          category: report.category || "",
+          color: report.color || "",
+          brand: report.brand || "",
+          location_found: report.last_seen_location || "",
+          date_found: report.date_lost || "",
+          photo_urls: report.photo_url ? [report.photo_url] : [],
+          status: report.status || "open",
+          record_type: "lost",
+          tags: [report.color, report.brand].filter(Boolean),
+          created_date: report.created_date || "",
+          updated_date: report.updated_date || "",
+          matching_count: report.matched_items?.length || 0,
+          matched_items: report.matched_items || [],
+        })),
+    [lostReports, t]
+  );
+
+  const searchableRecords = useMemo(() => {
+    return isLostItemsPage ? publicLostReports : publicFoundItems;
+  }, [isLostItemsPage, publicFoundItems, publicLostReports]);
 
   const filteredItems = useMemo(() => {
-    let items = [...rawItems];
+    let items = [...searchableRecords];
 
-    if (filters.location.trim()) {
-      const loc = filters.location.toLowerCase();
-      items = items.filter((item) =>
-        (item.location_found || "").toLowerCase().includes(loc),
-      );
-    }
-
-    if (filters.keywords.trim()) {
-      const kws = filters.keywords
-        .toLowerCase()
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      const queryTokens = query
+        .replace(/[^a-z0-9\s]/g, " ")
         .split(/\s+/)
-        .filter((k) => k.length > 1);
+        .filter((token) => token.length > 2)
+        .filter((token) => !["after", "near", "with", "from", "lost", "found", "item"].includes(token));
       items = items.filter((item) => {
-        const text = [item.title, item.description, item.brand, ...(item.tags || [])]
+        const fields = [
+          item.title,
+          item.description,
+          item.ai_description,
+          item.brand,
+          item.color,
+          item.location_found,
+          item.subcategory,
+          item.distinguishing_features,
+          item.record_type,
+          ...(item.tags || []),
+        ]
           .filter(Boolean)
           .join(" ")
           .toLowerCase();
-        return kws.some((kw) => text.includes(kw));
+
+        return fields.includes(query) || (queryTokens.length > 0 && queryTokens.some((token) => fields.includes(token)));
       });
     }
 
-    return items.sort((a, b) => {
-      if (filters.sort === "updated") {
-        return new Date(b.updated_date || 0) - new Date(a.updated_date || 0);
-      }
-      return (
-        new Date(b.created_date || b.date_found || 0) -
-        new Date(a.created_date || a.date_found || 0)
-      );
+    if (filters.category !== "all") {
+      items = items.filter((item) => item.category === filters.category);
+    }
+
+    if (filters.color !== "all") {
+      items = items.filter((item) => item.color === filters.color);
+    }
+
+    if (filters.location !== "all") {
+      items = items.filter((item) => item.location_found === filters.location);
+    }
+
+    if (filters.recordType !== "all") {
+      items = items.filter((item) => item.record_type === filters.recordType);
+    }
+
+    items.sort((a, b) => {
+      const first = new Date(a.date_found || a.created_date || 0);
+      const second = new Date(b.date_found || b.created_date || 0);
+      return filters.sort === "oldest" ? first - second : second - first;
     });
-  }, [rawItems, filters]);
 
-  // ── Filter chips ─────────────────────────────────────────────────────────────
+    return items;
+  }, [filters, searchQuery, searchableRecords]);
 
-  const setFilter = (key, value) => setFilters((prev) => ({ ...prev, [key]: value }));
-
-  const chips = [
-    filters.keywords && {
-      key: "keywords",
-      label: `"${filters.keywords}"`,
-      onRemove: () => setFilter("keywords", ""),
-    },
-    filters.category !== "all" && {
-      key: "category",
-      label: translateCategory(t, filters.category),
-      onRemove: () => setFilter("category", "all"),
-    },
-    filters.color !== "all" && {
-      key: "color",
-      label: translateColor(t, filters.color),
-      onRemove: () => setFilter("color", "all"),
-    },
-    filters.location && {
-      key: "location",
-      label: filters.location,
-      onRemove: () => setFilter("location", ""),
-    },
-    filters.status !== "all" && {
-      key: "status",
-      label: filters.status,
-      onRemove: () => setFilter("status", "all"),
-    },
+  const activeFilterBadges = [
+    filters.category !== "all" ? translateCategory(t, filters.category) : null,
+    filters.color !== "all" ? translateColor(t, filters.color) : null,
+    filters.location !== "all" ? translateLocation(t, filters.location) : null,
+    searchQuery ? t("search.query_badge", { query: searchQuery }) : null,
   ].filter(Boolean);
 
-  // ── Helpers ──────────────────────────────────────────────────────────────────
-
   const clearFilters = () => {
-    setRawQuery("");
-    setFilters(DEFAULT_FILTERS);
-    const next = new URLSearchParams(searchParams);
-    next.delete("q");
-    setSearchParams(next, { replace: true });
+    setSearchQuery("");
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.delete("q");
+    setSearchParams(nextParams);
+    setFilters({
+      category: "all",
+      color: "all",
+      location: "all",
+      sort: "newest",
+      recordType,
+    });
   };
 
-  const handleSaveSearch = () => {
-    try {
-      const existing = JSON.parse(localStorage.getItem("ltf-saved-searches") || "[]");
-      existing.push({ query: rawQuery, filters, timestamp: Date.now() });
-      localStorage.setItem("ltf-saved-searches", JSON.stringify(existing));
-      toast({ title: "Search saved" });
-    } catch {
-      toast({ title: "Could not save search", variant: "destructive" });
-    }
+  const hasActiveFilters = activeFilterBadges.length > 0;
+  const resultsLabel = isLoading
+    ? t("common.loading")
+    : t("search.results_count", { count: filteredItems.length });
+
+  const handleRetry = () => {
+    void refetchHealth();
+    void refetchSearch();
   };
 
-  const filterPanelProps = {
-    filters,
-    onFilterChange: setFilter,
-    onClear: clearFilters,
-  };
-
-  const activeCount = chips.length;
-
-  // ── Render ───────────────────────────────────────────────────────────────────
+  const searchAssistMutation = useMutation({
+    mutationFn: (query) => appClient.aiAssistance.parseSearchQuery(query),
+    onSuccess: (suggestion) => {
+      setSearchAssist(suggestion);
+      setFilters((current) => ({
+        ...current,
+        category: suggestion?.category || current.category,
+        color: suggestion?.color || current.color,
+        location: suggestion?.location || current.location,
+      }));
+    },
+  });
 
   return (
     <div className="page-shell py-10">
       <div className="page-header max-w-3xl">
-        <span className="page-kicker">{t("search.kicker", "Item archive")}</span>
-        <h1 className="page-title">{t("search.found_title", "Found Items")}</h1>
+        <span className="page-kicker">{isLostItemsPage ? t("lost_items.kicker", "Lost reports") : t("search.kicker")}</span>
+        <h1 className="page-title">{isLostItemsPage ? t("lost_items.title", "Lost Items") : t("search.found_title", "Found Items")}</h1>
         <p className="page-subtitle">
-          {t("search.found_subtitle", "Search the verified found-item inventory.")}
+          {isLostItemsPage
+            ? t(
+                "lost_items.subtitle",
+                "Browse items students and staff are looking for. If you physically found one, submit it as a found item so the normal verification workflow can begin."
+              )
+            : t(
+                "search.found_subtitle",
+                "Search the verified found-item inventory. Claimed, returned, and archived records stay out of public results."
+              )}
         </p>
       </div>
 
-      {/* ── Search bar ──────────────────────────────────────────────────────── */}
-      <section className="mb-4 space-y-3" aria-label={t("search.search_label", "Search")}>
-        <div className="flex gap-2">
-          {/* Input */}
+      <div className="mb-6 flex flex-wrap gap-2">
+        <Button asChild variant={!isLostItemsPage ? "default" : "outline"} size="sm">
+          <Link to="/Search">{t("search.found_items_tag", "Found Items")}</Link>
+        </Button>
+        <Button asChild variant={isLostItemsPage ? "default" : "outline"} size="sm">
+          <Link to="/LostItems">{t("search.lost_reports_tag", "Lost Reports")}</Link>
+        </Button>
+      </div>
+
+      <section className="mb-6 space-y-4" aria-label={t("search.search_label")}>
+        <div className="search-toolbar">
           <div className="relative flex-1">
-            {isParsingQuery ? (
-              <Loader2
-                className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground"
-                aria-hidden="true"
-              />
-            ) : (
-              <SearchIcon
-                className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
-                aria-hidden="true"
-              />
-            )}
+            <SearchIcon className="search-toolbar-icon" aria-hidden="true" />
             <Input
-              value={rawQuery}
-              onChange={(e) => setRawQuery(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  // Trigger immediately on Enter by flushing the pending debounce
-                  setFilters((prev) => ({ ...prev, keywords: rawQuery.trim() }));
+              value={searchQuery}
+              onChange={(event) => {
+                const nextQuery = event.target.value;
+                setSearchQuery(nextQuery);
+                const nextParams = new URLSearchParams(searchParams);
+                if (nextQuery.trim()) {
+                  nextParams.set("q", nextQuery);
+                } else {
+                  nextParams.delete("q");
                 }
+                setSearchParams(nextParams);
               }}
-              className="h-11 pl-9 pr-4"
-              placeholder={t("search.search_placeholder", "Search by item, brand, color…")}
-              aria-label={t("search.search_aria", "Search found items")}
+              className="search-toolbar-input"
+              placeholder={t("search.search_placeholder")}
+              aria-label={t("search.search_aria")}
             />
           </div>
 
-          {/* Desktop sidebar toggle */}
-          <Button
-            variant="outline"
-            className="hidden h-11 gap-2 xl:flex"
-            onClick={() => setSidebarOpen((o) => !o)}
-            aria-expanded={sidebarOpen}
-          >
-            <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
-            Filters
-            {activeCount > 0 && (
-              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
-                {activeCount}
-              </span>
-            )}
-          </Button>
-
-          {/* Mobile bottom Drawer trigger */}
-          <Drawer open={mobileFilterOpen} onOpenChange={setMobileFilterOpen}>
-            <DrawerTrigger asChild>
-              <Button variant="outline" className="h-11 gap-2 xl:hidden">
-                <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
-                Filters
-                {activeCount > 0 && (
-                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
-                    {activeCount}
-                  </span>
-                )}
-              </Button>
-            </DrawerTrigger>
-            <DrawerContent>
-              <DrawerHeader className="text-left">
-                <DrawerTitle className="flex items-center gap-2">
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              className="search-toolbar-filter gap-2"
+              disabled={!searchQuery.trim() || searchAssistMutation.isPending}
+              onClick={() => searchAssistMutation.mutate(searchQuery)}
+            >
+              {searchAssistMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+              <span className="hidden sm:inline">Interpret search</span>
+            </Button>
+            <Sheet>
+              <SheetTrigger asChild>
+                <Button variant="outline" className="search-toolbar-filter gap-2">
                   <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
-                  Filter Options
-                </DrawerTitle>
-                <DrawerDescription>
-                  Refine results by category, color, location, and status.
-                </DrawerDescription>
-              </DrawerHeader>
-              <div className="max-h-[55vh] overflow-y-auto px-4 pb-2">
-                <FilterPanel {...filterPanelProps} />
-              </div>
-              <DrawerFooter>
-                <Button onClick={() => setMobileFilterOpen(false)} className="min-h-[44px]">
-                  Apply Filters
+                  <span>{t("search.filters", "Filters")}</span>
+                  {activeFilterBadges.length > 0 ? (
+                    <span className="search-filter-count" aria-label={t("search.applied_filters", "Filters:")}>
+                      {activeFilterBadges.length}
+                    </span>
+                  ) : null}
                 </Button>
-              </DrawerFooter>
-            </DrawerContent>
-          </Drawer>
+              </SheetTrigger>
+              <SheetContent className="w-full p-6 sm:max-w-md">
+                <SheetHeader className="mb-6 border-b pb-4">
+                  <SheetTitle className="flex items-center gap-2 text-xl font-semibold">
+                    <SlidersHorizontal className="h-5 w-5" aria-hidden="true" />
+                    {t("search.filter_settings", "Filter Options")}
+                  </SheetTitle>
+                  <SheetDescription>
+                    {t("search.filter_description", "Refine results by category, color, location, and type.")}
+                  </SheetDescription>
+                </SheetHeader>
 
-          {/* Save Search */}
-          <Button
-            variant="outline"
-            className="h-11 gap-2"
-            onClick={handleSaveSearch}
-            aria-label="Save this search"
-          >
-            <Bookmark className="h-4 w-4" aria-hidden="true" />
-            <span className="hidden sm:inline">Save Search</span>
-          </Button>
+                <div className="space-y-6">
+                  <div className="space-y-2">
+                    <label className="filter-label" htmlFor="search-category-filter">
+                      {t("common.category")}
+                    </label>
+                    <Select value={filters.category} onValueChange={(value) => setFilters((current) => ({ ...current, category: value }))}>
+                      <SelectTrigger id="search-category-filter" className="h-11">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">{t("search.all_categories")}</SelectItem>
+                        {CATEGORIES.map((category) => (
+                          <SelectItem key={category.value} value={category.value}>
+                            {translateCategory(t, category.value)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="filter-label" htmlFor="search-color-filter">
+                      {t("common.color")}
+                    </label>
+                    <Select value={filters.color} onValueChange={(value) => setFilters((current) => ({ ...current, color: value }))}>
+                      <SelectTrigger id="search-color-filter" className="h-11">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">{t("search.all_colors")}</SelectItem>
+                        {COLORS.map((color) => (
+                          <SelectItem key={color} value={color}>
+                            {translateColor(t, color)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="filter-label" htmlFor="search-location-filter">
+                      {t("common.location")}
+                    </label>
+                    <Select value={filters.location} onValueChange={(value) => setFilters((current) => ({ ...current, location: value }))}>
+                      <SelectTrigger id="search-location-filter" className="h-11">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">{t("search.all_locations")}</SelectItem>
+                        {LOCATIONS.map((location) => (
+                          <SelectItem key={location} value={location}>
+                            {translateLocation(t, location)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="filter-label" htmlFor="search-sort-filter">
+                      {t("common.sort")}
+                    </label>
+                    <Select value={filters.sort} onValueChange={(value) => setFilters((current) => ({ ...current, sort: value }))}>
+                      <SelectTrigger id="search-sort-filter" className="h-11">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="newest">{t("search.newest_first")}</SelectItem>
+                        <SelectItem value="oldest">{t("search.oldest_first")}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="mt-6 border-t pt-6">
+                  <Button variant="outline" className="w-full" onClick={clearFilters}>
+                    {t("search.clear_filters")}
+                  </Button>
+                </div>
+              </SheetContent>
+            </Sheet>
+
+            <div className="view-toggle" role="group" aria-label={t("search.list_view")}>
+              <Button
+                variant={viewMode === "list" ? "secondary" : "ghost"}
+                size="icon"
+                aria-label={t("search.list_view")}
+                aria-pressed={viewMode === "list"}
+                onClick={() => setViewMode("list")}
+                className="h-10 w-10"
+              >
+                <List className="h-4 w-4" />
+              </Button>
+              <Button
+                variant={viewMode === "grid" ? "secondary" : "ghost"}
+                size="icon"
+                aria-label={t("search.grid_view")}
+                aria-pressed={viewMode === "grid"}
+                onClick={() => setViewMode("grid")}
+                className="h-10 w-10"
+              >
+                <Grid3X3 className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
         </div>
 
-        {/* ── Filter chips ──────────────────────────────────────────────────── */}
-        {chips.length > 0 && (
-          <div className="flex flex-wrap items-center gap-1.5" role="list" aria-label="Active filters">
-            {chips.map((chip) => (
-              <span
-                key={chip.key}
-                role="listitem"
-                className="inline-flex items-center gap-1 rounded-full border border-border bg-muted px-3 py-1 text-xs font-medium text-foreground"
-              >
-                {chip.label}
+        {searchAssist ? (
+          <div className="soft-panel px-4 py-3 text-sm text-foreground">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">Editable search suggestions</span>
+              {searchAssist.category ? <Badge variant="secondary">{translateCategory(t, searchAssist.category)}</Badge> : null}
+              {searchAssist.color ? <Badge variant="secondary">{translateColor(t, searchAssist.color)}</Badge> : null}
+              {searchAssist.location ? <Badge variant="secondary">{translateLocation(t, searchAssist.location)}</Badge> : null}
+              {searchAssist.date_hint ? <Badge variant="outline">{searchAssist.date_hint}</Badge> : null}
+            </div>
+            <p className="mt-2 text-xs leading-5 text-muted-foreground">
+              {searchAssist.explanation || "Suggestions are advisory only. Edit the search box or filters anytime."}
+            </p>
+          </div>
+        ) : null}
+
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-wrap items-center gap-1.5">
+            {[
+              { val: "electronics", label: t("categories.electronics") },
+              { val: "clothing", label: t("categories.clothing") },
+              { val: "keys_ids", label: t("categories.keys_ids") },
+              { val: "bags_cases", label: t("categories.bags_cases") },
+            ].map((cat) => {
+              const active = filters.category === cat.val;
+              return (
                 <button
+                  key={cat.val}
                   type="button"
-                  onClick={chip.onRemove}
-                  className="ml-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full text-muted-foreground hover:text-foreground"
-                  aria-label={`Remove ${chip.label} filter`}
+                  onClick={() => setFilters((curr) => ({ ...curr, category: active ? "all" : cat.val }))}
+                  aria-pressed={active}
+                  className={`quick-filter-chip ${active ? "quick-filter-chip-active" : ""}`}
                 >
-                  <X className="h-3 w-3" aria-hidden="true" />
+                  {cat.label}
                 </button>
-              </span>
+              );
+            })}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+            <Badge variant="outline">{t("search.available_found_items", { count: publicFoundItems.length })}</Badge>
+            <Badge variant="outline">{t("search.active_lost_reports", { count: publicLostReports.length })}</Badge>
+          </div>
+        </div>
+
+        {hasActiveFilters ? (
+          <div className="active-filter-bar">
+            <span className="text-xs font-medium text-muted-foreground">{t("search.applied_filters", "Filters:")}</span>
+            {activeFilterBadges.map((badge) => (
+              <Badge key={badge} variant="secondary" className="text-xs font-medium">
+                {badge}
+              </Badge>
             ))}
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-7 gap-1 px-2 text-xs"
-              onClick={clearFilters}
-            >
+            <Button variant="ghost" size="sm" onClick={clearFilters} className="ml-auto h-7 gap-1 px-2 text-xs">
               <X className="h-3 w-3" aria-hidden="true" />
-              Clear all
+              {t("search.clear_all", "Clear All")}
             </Button>
           </div>
-        )}
+        ) : null}
       </section>
 
-      {/* ── Main layout: sidebar + results ──────────────────────────────────── */}
-      <div className="flex gap-8">
+      <p className="mb-4 text-sm text-muted-foreground" aria-live="polite">
+        {resultsLabel}
+      </p>
 
-        {/* Desktop sidebar */}
-        {sidebarOpen && (
-          <aside className="hidden w-56 shrink-0 xl:block">
-            <div className="sticky top-24 rounded-xl border border-border bg-card p-5">
-              <p className="mb-4 text-xs font-semibold uppercase tracking-[0.10em] text-muted-foreground">
-                Filters
-              </p>
-              <FilterPanel {...filterPanelProps} />
-            </div>
-          </aside>
-        )}
+      {healthLoading || isLoading ? <SearchResultsSkeleton viewMode={viewMode} /> : null}
 
-        {/* Results column */}
-        <div className="min-w-0 flex-1">
-          {/* Sort + count bar */}
-          <div className="mb-4 flex items-center justify-between gap-3">
-            <p className="text-sm text-muted-foreground" aria-live="polite" aria-atomic="true">
-              {isLoading
-                ? t("common.loading", "Loading…")
-                : `${filteredItems.length} item${filteredItems.length !== 1 ? "s" : ""}`}
-            </p>
-            <Select
-              value={filters.sort}
-              onValueChange={(v) => setFilter("sort", v)}
-            >
-              <SelectTrigger className="h-9 w-44">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="newest">Newest</SelectItem>
-                <SelectItem value="updated">Recently Updated</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+      {!healthLoading && backendUnavailable ? (
+        <SearchStatePanel
+          variant="backend"
+          title={t("search.backend_unavailable_title")}
+          description={t("search.backend_unavailable_description")}
+          onRetry={handleRetry}
+        />
+      ) : null}
 
-          {/* Loading */}
-          {isLoading && <SearchResultsSkeleton viewMode="list" count={3} />}
+      {!healthLoading && !backendUnavailable && error ? (
+        <SearchStatePanel
+          variant="error"
+          title={t("search.unable_to_load")}
+          description={error.message || t("search.error_description")}
+          onRetry={handleRetry}
+        />
+      ) : null}
 
-          {/* Error */}
-          {!isLoading && error && (
-            <SearchStatePanel
-              variant="error"
-              title="Could not load items"
-              description={error.message || "An unexpected error occurred."}
-              onRetry={refetch}
-            />
-          )}
+      {!healthLoading && !backendUnavailable && !isLoading && !error && filteredItems.length === 0 ? (
+        <SearchStatePanel
+          variant="empty"
+          title={t("search.no_matching_items")}
+          description={t("search.broaden_search")}
+          onClearFilters={hasActiveFilters ? clearFilters : undefined}
+          clearFiltersLabel={t("search.clear_filters")}
+        />
+      ) : null}
 
-          {/* Empty */}
-          {!isLoading && !error && filteredItems.length === 0 && (
-            <SearchStatePanel
-              variant="empty"
-              title="No items match"
-              description="Try different keywords or remove some filters."
-              onClearFilters={chips.length > 0 ? clearFilters : undefined}
-              clearFiltersLabel="Clear filters"
-            />
-          )}
+      {!healthLoading && !backendUnavailable && !isLoading && !error && filteredItems.length > 0 ? (
+        <motion.div
+          className={viewMode === "grid" ? "grid gap-3 sm:grid-cols-2 xl:grid-cols-3" : "space-y-3"}
+          {...staggerContainerProps}
+        >
+          {filteredItems.map((item) => (
+            <ItemCard key={item.id} item={item} viewMode={viewMode} compact={viewMode === "list"} />
+          ))}
+        </motion.div>
+      ) : null}
 
-          {/* Results */}
-          {!isLoading && !error && filteredItems.length > 0 && (
-            <motion.div className="space-y-3" aria-label="Search results" {...staggerContainerProps}>
-              {filteredItems.map((item) => (
-                <ItemCard key={item.id} item={item} viewMode="list" compact />
-              ))}
-            </motion.div>
-          )}
+      {isLostItemsPage ? (
+        <div className="search-secondary-cta mt-12 max-w-2xl">
+          <h3 className="text-base font-semibold text-foreground">{t("search.lost_item_cta_title", "Don't see your missing item listed?")}</h3>
+          <p className="mt-2 text-sm text-muted-foreground">
+            {t(
+              "search.lost_item_cta_desc",
+              "File a lost item report. PVHS staff will review it, check incoming items, and notify you as soon as a match is found."
+            )}
+          </p>
+          <Button asChild variant="outline" className="mt-4">
+            <Link to="/ReportLost">{t("common.report_lost_item", "Report a Lost Item")}</Link>
+          </Button>
         </div>
-      </div>
+      ) : null}
     </div>
   );
 }

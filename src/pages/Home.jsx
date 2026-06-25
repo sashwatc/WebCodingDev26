@@ -3,7 +3,7 @@
  * Design source: claude.ai/design/p/01cc7384-e5c3-420e-ab6c-f3e1e590d292
  */
 
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { motion } from "framer-motion";
@@ -52,10 +52,9 @@ const heroTitle = {
 
 /* ─── Page ────────────────────────────────────────────────────────────── */
 export default function Home() {
-  useEffect(() => { document.title = "Home — Lost Then Found"; }, []);
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { user, isAdmin, isAuthenticated, isLoadingAuth } = useAuth();
+  const { user, isAdmin, isLoadingAuth } = useAuth();
   const [homeSearchQuery, setHomeSearchQuery]   = useState("");
   const [searchFocused,   setSearchFocused]     = useState(false);
 
@@ -71,44 +70,8 @@ export default function Home() {
   const titleParts = t("home.title").split(". ");
   const hasTwoLines = titleParts.length === 2;
 
-  if (!isLoadingAuth && isAuthenticated) {
-    return (
-      <div className="page-shell py-12" role="main">
-        <h1 className="text-2xl font-bold tracking-tight text-foreground">
-          Welcome back, {user?.full_name}
-        </h1>
-        <div className="mt-8 grid gap-4 sm:grid-cols-3">
-          <Link
-            to="/Search"
-            className="archive-card flex flex-col gap-2 p-6 hover:shadow-md transition-shadow"
-          >
-            <Search className="h-5 w-5 text-primary" aria-hidden="true" />
-            <span className="font-semibold text-foreground">Find Items</span>
-            <span className="text-sm text-muted-foreground">Browse the found-item archive</span>
-          </Link>
-          <Link
-            to="/ReportFound"
-            className="archive-card flex flex-col gap-2 p-6 hover:shadow-md transition-shadow"
-          >
-            <PlusCircle className="h-5 w-5 text-emerald-600" aria-hidden="true" />
-            <span className="font-semibold text-foreground">Report Found</span>
-            <span className="text-sm text-muted-foreground">Log an item you found</span>
-          </Link>
-          <Link
-            to="/UserDashboard"
-            className="archive-card flex flex-col gap-2 p-6 hover:shadow-md transition-shadow"
-          >
-            <FileText className="h-5 w-5 text-blue-600" aria-hidden="true" />
-            <span className="font-semibold text-foreground">My Recovery</span>
-            <span className="text-sm text-muted-foreground">Your submissions and claims</span>
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="bg-transparent" role="main">
+    <div className="bg-transparent">
 
       {/* ════════════════════ HERO ════════════════════ */}
       <section
@@ -190,7 +153,7 @@ export default function Home() {
               onSubmit={handleHomeSearch}
               className="relative mx-auto mt-10 max-w-[560px]"
               role="search"
-              aria-label={t("home.search_aria", "Search found items")}
+              aria-label={t("home.search_aria", "Search the found item inventory")}
             >
               <motion.div
                 animate={{

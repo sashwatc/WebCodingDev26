@@ -1,246 +1,179 @@
-import React, { useEffect, useRef, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { appClient } from "@/api/appClient";
+import React, { useId, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
-import {
-  InputOTP,
-  InputOTPGroup,
-  InputOTPSlot,
-} from "@/components/ui/input-otp";
-import { CheckCircle, Loader2, Package, RotateCcw } from "lucide-react";
-
-// ── States ─────────────────────────────────────────────────────────────────
-
-const S = { ENTRY: "entry", CONFIRM: "confirm", SUCCESS: "success" };
-
-// ── Main component ─────────────────────────────────────────────────────────
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useToast } from "@/components/ui/use-toast";
+import { useRedeemReturnPass, useVerifyReturnPass } from "@/hooks/useReturnPassWorkflow";
+import { Loader2, ScanLine, ShieldCheck } from "lucide-react";
 
 export default function PickupStation() {
-  useEffect(() => { document.title = "Pickup Station — Lost Then Found"; }, []);
-  const [screen, setScreen]           = useState(S.ENTRY);
-  const [pin, setPin]                 = useState("");
-  const [verifyResult, setVerifyResult] = useState(null); // {found_item_id, return_pass_id, claimant_name, ...}
-  const [verifying, setVerifying]     = useState(false);
-  const [redeeming, setRedeeming]     = useState(false);
-  const [error, setError]             = useState(null);
+  const { t } = useTranslation();
+  const { toast } = useToast();
+  const codeInputId = useId();
+  const [code, setCode] = useState("");
+  const [verified, setVerified] = useState(null);
 
-  const otpRef = useRef(null);
+  const verifyMutation = useVerifyReturnPass();
+  const redeemMutation = useRedeemReturnPass();
 
-  // Focus OTP on mount / return-to-desk
-  useEffect(() => {
-    if (screen === S.ENTRY) otpRef.current?.focus();
-  }, [screen]);
-
-  // ── Item query (fires once verify succeeds) ──────────────────────────────
-
-  const { data: item, isLoading: itemLoading } = useQuery({
-    queryKey: ["pickupStationItem", verifyResult?.found_item_id],
-    queryFn: () => appClient.items.get(verifyResult.found_item_id),
-    enabled: !!verifyResult?.found_item_id,
-    staleTime: Infinity,
-  });
-
-  // ── Handlers ─────────────────────────────────────────────────────────────
-
-  const reset = () => {
-    setScreen(S.ENTRY);
-    setPin("");
-    setVerifyResult(null);
-    setError(null);
+  const resetFlow = () => {
+    setVerified(null);
+    setCode("");
   };
 
   const handleVerify = async () => {
-    if (pin.length < 6 || verifying) return;
-    setVerifying(true);
-    setError(null);
+    const trimmed = code.trim();
+    if (!trimmed || verifyMutation.isPending) {
+      return;
+    }
+
     try {
-      const result = await appClient.returnPasses.verify(pin);
-      if (!result?.valid) {
-        setError("Invalid or expired code — please try again");
-        setPin("");
-        return;
+      const result = await verifyMutation.mutateAsync(trimmed);
+      setVerified(result);
+      if (!result.valid) {
+        toast({
+          title: t("pickup_station.verify_failed_title"),
+          description: result.message || t("pickup_station.verify_failed_description"),
+          variant: "destructive",
+        });
       }
-      setVerifyResult(result);
-      setScreen(S.CONFIRM);
-    } catch {
-      setError("Invalid or expired code — please try again");
-      setPin("");
-    } finally {
-      setVerifying(false);
+    } catch (error) {
+      setVerified(null);
+      toast({
+        title: t("pickup_station.verify_failed_title"),
+        description: error.message || t("pickup_station.verify_failed_description"),
+        variant: "destructive",
+      });
     }
   };
 
   const handleRedeem = async () => {
-    if (!verifyResult || redeeming) return;
-    setRedeeming(true);
+    if (!verified?.valid || !verified.return_pass_id || redeemMutation.isPending) {
+      return;
+    }
+
     try {
-      await appClient.returnPasses.redeem(verifyResult.return_pass_id, pin);
-      const { default: confetti } = await import("canvas-confetti");
-      confetti({ particleCount: 120, spread: 70 });
-      setScreen(S.SUCCESS);
-    } catch (err) {
-      setError(err?.message || "Redemption failed — please try again");
-      setScreen(S.ENTRY);
-      setPin("");
-    } finally {
-      setRedeeming(false);
+      await redeemMutation.mutateAsync({
+        passId: verified.return_pass_id,
+        oneTimeCode: code.trim(),
+      });
+      resetFlow();
+      toast({
+        title: t("pickup_station.redeem_success_title"),
+        description: t("pickup_station.redeem_success_description"),
+      });
+    } catch (error) {
+      toast({
+        title: t("pickup_station.redeem_failed_title"),
+        description: error.message || t("pickup_station.redeem_failed_description"),
+        variant: "destructive",
+      });
     }
   };
 
-  // ── Render ────────────────────────────────────────────────────────────────
-
   return (
-    <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center px-6 py-12">
-      <div className="w-full max-w-lg">
+    <div className="page-shell max-w-xl py-10 sm:py-12">
+      <div className="surface-card p-6 sm:p-8">
+        <div className="flex items-start gap-3">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-indigo-50 text-indigo-700">
+            <ScanLine className="h-5 w-5" aria-hidden="true" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-slate-950">{t("pickup_station.title")}</h1>
+            <p className="mt-1 text-sm leading-6 text-slate-600">{t("pickup_station.description")}</p>
+          </div>
+        </div>
 
-        {/* ── STATE 1: PIN Entry ─────────────────────────────────────────── */}
-        {screen === S.ENTRY && (
-          <div className="text-center">
-            <h1 className="text-4xl font-extrabold tracking-tight text-foreground">
-              Pickup Desk
-            </h1>
-            <p className="mt-3 text-lg text-muted-foreground">
-              Enter the student's 6-digit pickup code
-            </p>
+        <form
+          className="mt-6 space-y-4"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (verified?.valid) {
+              handleRedeem();
+              return;
+            }
+            handleVerify();
+          }}
+        >
+          <div className="space-y-2">
+            <Label htmlFor={codeInputId}>{t("pickup_station.code_label")}</Label>
+            <Input
+              id={codeInputId}
+              value={code}
+              onChange={(event) => {
+                setCode(event.target.value);
+                if (verified) {
+                  setVerified(null);
+                }
+              }}
+              placeholder={t("pickup_station.code_placeholder")}
+              autoComplete="off"
+              inputMode="numeric"
+              aria-describedby="pickup-station-help"
+              disabled={redeemMutation.isPending}
+            />
+            <p id="pickup-station-help" className="text-xs text-slate-500">{t("pickup_station.code_help")}</p>
+          </div>
 
-            <div className="mt-10 flex justify-center">
-              <InputOTP
-                ref={otpRef}
-                maxLength={6}
-                value={pin}
-                onChange={(val) => { setPin(val); setError(null); }}
-                onComplete={handleVerify}
-              >
-                <InputOTPGroup>
-                  {Array.from({ length: 6 }).map((_, i) => (
-                    <InputOTPSlot
-                      key={i}
-                      index={i}
-                      className="h-16 w-14 text-2xl font-bold"
-                    />
-                  ))}
-                </InputOTPGroup>
-              </InputOTP>
-            </div>
-
-            {error && (
-              <p className="mt-4 text-sm font-medium text-destructive" role="alert">
-                {error}
-              </p>
-            )}
-
+          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
             <Button
-              size="lg"
-              className="mt-8 w-full max-w-xs text-base"
-              disabled={pin.length < 6 || verifying}
+              type="button"
+              disabled={!code.trim() || verifyMutation.isPending || redeemMutation.isPending}
               onClick={handleVerify}
             >
-              {verifying && <Loader2 className="mr-2 h-5 w-5 animate-spin" aria-hidden="true" />}
-              {verifying ? "Verifying…" : "Verify Code"}
+              {verifyMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
+              {t("pickup_station.verify_button")}
             </Button>
-          </div>
-        )}
 
-        {/* ── STATE 2: Confirmation ──────────────────────────────────────── */}
-        {screen === S.CONFIRM && (
-          <div className="text-center">
-            <h1 className="text-3xl font-extrabold tracking-tight text-foreground">
-              Confirm Handoff
-            </h1>
-
-            {/* Item card */}
-            <div className="mx-auto mt-8 overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
-              {itemLoading ? (
-                <div className="flex h-56 items-center justify-center bg-muted">
-                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" aria-hidden="true" />
-                </div>
-              ) : item?.photo_urls?.[0] ? (
-                <img
-                  src={item.photo_urls[0]}
-                  alt={item.title}
-                  className="h-56 w-full object-cover"
-                />
-              ) : (
-                <div className="flex h-56 items-center justify-center bg-muted">
-                  <Package className="h-16 w-16 text-muted-foreground/30" aria-hidden="true" />
-                </div>
-              )}
-
-              <div className="px-6 py-5">
-                <h2 className="text-xl font-bold text-foreground">
-                  {item?.title || verifyResult?.found_item_title || "Item"}
-                </h2>
-                <p className="mt-2 text-sm text-muted-foreground">
-                  Returning to:{" "}
-                  <span className="font-semibold text-foreground">
-                    {verifyResult?.claimant_name || "Student"}
-                  </span>
-                </p>
-              </div>
-            </div>
-
-            {error && (
-              <p className="mt-4 text-sm font-medium text-destructive" role="alert">
-                {error}
-              </p>
-            )}
-
-            {/* Actions */}
-            <div className="mt-8 flex gap-4">
+            {verified?.valid && (
               <Button
-                variant="outline"
-                size="lg"
-                className="flex-1 text-base"
-                onClick={reset}
-                disabled={redeeming}
-              >
-                Cancel
-              </Button>
-              <Button
-                size="lg"
-                className="flex-1 bg-emerald-600 text-base text-white hover:bg-emerald-700 focus-visible:ring-emerald-500"
-                disabled={redeeming}
+                type="button"
+                className="bg-emerald-600 hover:bg-emerald-700"
+                disabled={redeemMutation.isPending}
                 onClick={handleRedeem}
               >
-                {redeeming && <Loader2 className="mr-2 h-5 w-5 animate-spin" aria-hidden="true" />}
-                {redeeming ? "Processing…" : "Complete Handoff"}
+                {redeemMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                {t("pickup_station.redeem_button")}
               </Button>
-            </div>
+            )}
+
+            {(verified || code) && (
+              <Button type="button" variant="ghost" onClick={resetFlow} disabled={verifyMutation.isPending || redeemMutation.isPending}>
+                {t("pickup_station.reset_button")}
+              </Button>
+            )}
+          </div>
+        </form>
+
+        {verified && (
+          <div
+            className={`mt-5 rounded-xl border p-4 text-sm ${
+              verified.valid
+                ? "border-emerald-200 bg-emerald-50 text-emerald-900"
+                : "border-amber-200 bg-amber-50 text-amber-900"
+            }`}
+            role="status"
+            aria-live="polite"
+          >
+            <p className="font-semibold">{verified.message || t("pickup_station.verify_result_fallback")}</p>
+            {verified.valid && (
+              <dl className="mt-3 grid gap-2 text-xs sm:grid-cols-2">
+                <div>
+                  <dt className="font-semibold uppercase tracking-wide opacity-70">{t("pickup_station.claim_label")}</dt>
+                  <dd className="mt-0.5 font-mono">{verified.claim_id || t("common.not_available")}</dd>
+                </div>
+                <div>
+                  <dt className="font-semibold uppercase tracking-wide opacity-70">{t("pickup_station.item_label")}</dt>
+                  <dd className="mt-0.5 font-mono">{verified.found_item_id || t("common.not_available")}</dd>
+                </div>
+              </dl>
+            )}
+            {verified.backend_required && (
+              <p className="mt-2 text-xs">{t("pickup_station.backend_required")}</p>
+            )}
           </div>
         )}
-
-        {/* ── STATE 3: Success ───────────────────────────────────────────── */}
-        {screen === S.SUCCESS && (
-          <div className="text-center">
-            <CheckCircle
-              className="mx-auto text-emerald-500"
-              style={{ width: 80, height: 80 }}
-              aria-hidden="true"
-            />
-            <h2 className="mt-6 text-3xl font-extrabold tracking-tight text-foreground">
-              Item successfully returned!
-            </h2>
-            <p className="mt-3 text-lg font-semibold text-foreground">
-              {item?.title || verifyResult?.found_item_title || "Item"}
-            </p>
-            <p className="mt-1 text-base text-muted-foreground">
-              Returned to{" "}
-              <span className="font-semibold text-foreground">
-                {verifyResult?.claimant_name || "Student"}
-              </span>
-            </p>
-            <Button
-              size="lg"
-              variant="outline"
-              className="mt-10 gap-2 text-base"
-              onClick={reset}
-            >
-              <RotateCcw className="h-5 w-5" aria-hidden="true" />
-              Return to Desk
-            </Button>
-          </div>
-        )}
-
       </div>
     </div>
   );
