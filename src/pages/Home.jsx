@@ -1,17 +1,20 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/lib/AuthContext";
 import { useMode } from "@/lib/ModeContext";
-import { FloatingPaths } from "@/components/ui/background-paths";
-import {
-  AlertTriangle,
-  PlusCircle,
-  Search,
-  Shield,
-} from "lucide-react";
+import { appClient } from "@/api/appClient";
+import ItemCard from "@/components/search/ItemCard";
+import { SearchResultsSkeleton, SearchStatePanel } from "@/components/search/SearchStates";
+import { isPublicFoundItemStatus, isArchivedFoundItemStatus } from "@/lib/found-items";
+import { AlertTriangle, PlusCircle, Search, Shield } from "lucide-react";
+
+function isBackendUnavailable(health) {
+  return health?.status === "unavailable" || health?.backend_required === true;
+}
 
 export default function Home() {
   const { t } = useTranslation();
@@ -22,102 +25,202 @@ export default function Home() {
 
   const isAdminWorkspace = hasAdminAccess && isAdminMode;
 
+  const { data: health, isLoading: healthLoading, refetch: refetchHealth } = useQuery({
+    queryKey: ["backendHealth"],
+    queryFn: () => appClient.health.check(),
+    staleTime: 30_000,
+    retry: 1,
+  });
+
+  const backendUnavailable = !healthLoading && isBackendUnavailable(health);
+
+  const {
+    data: previewItems = [],
+    isLoading: previewLoading,
+    error: previewError,
+    refetch: refetchPreview,
+  } = useQuery({
+    queryKey: ["homePreviewItems"],
+    queryFn: async () => {
+      const items = await appClient.entities.FoundItem.list("-created_date", 12);
+      return items
+        .filter(
+          (item) =>
+            item.record_type !== "lost" &&
+            isPublicFoundItemStatus(item.status) &&
+            !isArchivedFoundItemStatus(item.status)
+        )
+        .slice(0, 4);
+    },
+    enabled: !backendUnavailable,
+    staleTime: 60_000,
+  });
+
   const handleHomeSearch = (event) => {
     event.preventDefault();
     const query = homeSearchQuery.trim();
     navigate(query ? `/Search?q=${encodeURIComponent(query)}` : "/Search");
   };
 
+  const previewState = useMemo(() => {
+    if (backendUnavailable) {
+      return "backend";
+    }
+    if (previewLoading) {
+      return "loading";
+    }
+    if (previewError) {
+      return "error";
+    }
+    if (previewItems.length === 0) {
+      return "empty";
+    }
+    return "ready";
+  }, [backendUnavailable, previewError, previewItems.length, previewLoading]);
+
   return (
-    <div className="relative min-h-[75vh] w-full flex items-center justify-center overflow-hidden bg-background">
-      {/* Background Paths */}
-      <div className="absolute inset-0 z-0 pointer-events-none">
-        <FloatingPaths position={1} />
-        <FloatingPaths position={-1} />
-      </div>
+    <div className="page-shell py-10 sm:py-14">
+      <section className="max-w-3xl" aria-labelledby="home-title">
+        <p className="page-kicker">{t("home.kicker")}</p>
+        <h1 id="home-title" className="page-title mt-2">
+          {t("home.title")}
+        </h1>
+        <p className="page-subtitle mt-3">{t("home.subtitle")}</p>
+        <p className="mt-2 text-sm text-muted-foreground">{t("home.front_desk_note")}</p>
+      </section>
 
-      <div className="relative z-10 page-shell pb-12 pt-8 flex flex-col items-center justify-center w-full">
-        <section className="surface-card p-6 sm:p-8 md:p-10 lg:p-12 overflow-hidden flex flex-col items-center text-center max-w-3xl w-full shadow-sm backdrop-blur-md bg-white/80 dark:bg-slate-900/80" aria-labelledby="home-title">
-          <div className="space-y-3 max-w-2xl">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-widest">{t("home.kicker")}</span>
-            <h1 id="home-title" className="text-3xl font-extrabold tracking-tight text-slate-950 sm:text-4xl">
-              {t("home.title")}
-            </h1>
-            <p className="text-sm sm:text-base text-slate-600 leading-relaxed max-w-xl mx-auto">
-              {t("home.subtitle")}
-            </p>
+      <section className="mt-8 max-w-2xl" aria-labelledby="home-search-heading">
+        <h2 id="home-search-heading" className="sr-only">
+          {t("home.search_step_title")}
+        </h2>
+        <form onSubmit={handleHomeSearch} className="search-hero-form">
+          <div className="relative flex-1">
+            <Search className="search-hero-icon" aria-hidden="true" />
+            <Input
+              value={homeSearchQuery}
+              onChange={(event) => setHomeSearchQuery(event.target.value)}
+              className="search-hero-input"
+              placeholder={t("home.search_placeholder")}
+              aria-label={t("home.search_aria")}
+            />
           </div>
+          <Button type="submit" className="search-hero-submit shrink-0">
+            {t("home.search_inventory")}
+          </Button>
+        </form>
+        <p className="mt-2 text-sm text-muted-foreground">{t("home.search_help")}</p>
+      </section>
 
-          <div className="mt-8 w-full max-w-xl">
-            <form onSubmit={handleHomeSearch} className="flex flex-col sm:flex-row gap-3">
-              <div className="relative flex-1">
-                <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
-                <Input
-                  value={homeSearchQuery}
-                  onChange={(event) => setHomeSearchQuery(event.target.value)}
-                  className="h-12 rounded-xl border-slate-300 bg-white pl-12 text-sm focus-visible:ring-indigo-500"
-                  placeholder={t("home.quick_search_placeholder", "Or, search the found items inventory directly...")}
-                />
-              </div>
-              <Button type="submit" className="px-6 shadow-md">
-                {t("home.search_inventory", "Search Inventory")}
-              </Button>
-            </form>
+      <section className="mt-8 max-w-2xl" aria-labelledby="home-secondary-actions">
+        <h2 id="home-secondary-actions" className="text-sm font-semibold text-foreground">
+          {t("home.next_step_title")}
+        </h2>
+        <p className="mt-1 text-sm text-muted-foreground">{t("home.next_step_helper")}</p>
+        <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+          <Link to="/ReportLost" className="flex-1">
+            <Button variant="outline" className="secondary-action-button w-full justify-start gap-2">
+              <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
+              <span className="text-left">
+                <span className="block font-semibold">{t("home.cant_find_it")}</span>
+                <span className="block text-xs font-normal text-muted-foreground">{t("home.lost_helper")}</span>
+              </span>
+            </Button>
+          </Link>
+          <Link to="/ReportFound" className="flex-1">
+            <Button variant="outline" className="secondary-action-button w-full justify-start gap-2">
+              <PlusCircle className="h-4 w-4 shrink-0" aria-hidden="true" />
+              <span className="text-left">
+                <span className="block font-semibold">{t("home.found_something")}</span>
+                <span className="block text-xs font-normal text-muted-foreground">{t("home.found_helper")}</span>
+              </span>
+            </Button>
+          </Link>
+        </div>
+      </section>
+
+      <section className="mt-12" aria-labelledby="home-preview-heading">
+        <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h2 id="home-preview-heading" className="section-heading">
+              {t("home.recently_approved_items")}
+            </h2>
+            <p className="mt-1 text-sm text-muted-foreground">{t("home.recently_approved_subtitle")}</p>
           </div>
+          <Button asChild variant="outline" size="sm">
+            <Link to="/Search">{t("home.open_search")}</Link>
+          </Button>
+        </div>
 
-          <div className="mt-6 flex flex-wrap justify-center gap-4">
-            <Link to="/Search?type=lost">
-              <Button variant="default" className="flex items-center gap-2 border-amber-500/20 bg-amber-500/5 text-amber-800 dark:text-amber-100 hover:bg-amber-500/10">
-                <AlertTriangle className="w-4 h-4 text-amber-700" />
-                {t("home.cant_find_it", "I lost something")}
-              </Button>
-            </Link>
-            <Link to="/ReportFound">
-              <Button variant="default" className="flex items-center gap-2 border-sky-500/20 bg-sky-500/5 text-sky-800 dark:text-sky-100 hover:bg-sky-500/10">
-                <PlusCircle className="w-4 h-4 text-sky-700" />
-                {t("home.found_something", "I found something")}
-              </Button>
-            </Link>
+        {previewState === "loading" ? <SearchResultsSkeleton viewMode="list" count={3} /> : null}
+
+        {previewState === "backend" ? (
+          <SearchStatePanel
+            variant="backend"
+            title={t("search.backend_unavailable_title")}
+            description={t("search.backend_unavailable_description")}
+            onRetry={() => {
+              void refetchHealth();
+              void refetchPreview();
+            }}
+          />
+        ) : null}
+
+        {previewState === "error" ? (
+          <SearchStatePanel
+            variant="error"
+            title={t("search.unable_to_load")}
+            description={previewError?.message || t("search.error_description")}
+            onRetry={() => refetchPreview()}
+          />
+        ) : null}
+
+        {previewState === "empty" ? (
+          <SearchStatePanel
+            variant="empty"
+            title={t("home.no_approved_items")}
+            description={t("search.broaden_search")}
+          />
+        ) : null}
+
+        {previewState === "ready" ? (
+          <div className="space-y-3">
+            {previewItems.map((item) => (
+              <ItemCard key={item.id} item={item} viewMode="list" compact />
+            ))}
           </div>
+        ) : null}
+      </section>
 
-
-          {/* Clean Moderator / User Dashboard Shortcut at the bottom */}
-          <div className="mt-8 pt-6 border-t border-slate-200/80 w-full max-w-lg">
-            {isAdminWorkspace ? (
-              <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-left">
-                <div className="space-y-1">
-                  <h3 className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
-                    <Shield className="w-4 h-4 text-primary animate-pulse" />
-                    {t("home.moderator_active_title", "Moderator Workspace Active")}
-                  </h3>
-                  <p className="text-xs text-slate-500">
-                    {t("home.moderator_active_desc", "Review pending items, claims, and reports.")}
-                  </p>
-                </div>
-                <Button asChild variant="default" size="sm" className="w-full sm:w-auto flex-shrink-0">
-                  <Link to="/AdminDashboard">
-                    {t("home.go_to_admin_panel", "Open Admin Dashboard")}
-                  </Link>
-                </Button>
-              </div>
-            ) : (
-              <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-left">
-                <div className="space-y-1">
-                  <h3 className="text-sm font-bold text-slate-900">{t("home.my_dashboard_title")}</h3>
-                  <p className="text-xs text-slate-500">
-                    {user ? t("home.my_dashboard_description") : t("home.project_documentation_description")}
-                  </p>
-                </div>
-                <Button asChild variant="outline" size="sm" className="w-full sm:w-auto flex-shrink-0">
-                  <Link to={user ? "/UserDashboard" : "/Documentation"}>
-                    {user ? t("navbar.my_dashboard") : t("footer.project_documentation")}
-                  </Link>
-                </Button>
-              </div>
-            )}
+      <section className="mt-10 border-t border-border pt-8 max-w-2xl">
+        {isAdminWorkspace ? (
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="space-y-1">
+              <h3 className="text-sm font-semibold text-foreground flex items-center gap-1.5">
+                <Shield className="h-4 w-4" aria-hidden="true" />
+                {t("home.moderator_active_title")}
+              </h3>
+              <p className="text-sm text-muted-foreground">{t("home.admin_workspace_active")}</p>
+            </div>
+            <Button asChild size="sm" className="w-full sm:w-auto">
+              <Link to="/AdminDashboard">{t("home.go_to_admin_panel")}</Link>
+            </Button>
           </div>
-        </section>
-      </div>
+        ) : (
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="space-y-1">
+              <h3 className="text-sm font-semibold text-foreground">{t("home.my_dashboard_title")}</h3>
+              <p className="text-sm text-muted-foreground">
+                {user ? t("home.my_dashboard_description") : t("home.project_documentation_description")}
+              </p>
+            </div>
+            <Button asChild variant="outline" size="sm" className="w-full sm:w-auto">
+              <Link to={user ? "/UserDashboard" : "/Documentation"}>
+                {user ? t("navbar.my_dashboard") : t("footer.project_documentation")}
+              </Link>
+            </Button>
+          </div>
+        )}
+      </section>
     </div>
   );
 }

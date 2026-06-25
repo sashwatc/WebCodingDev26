@@ -1,132 +1,70 @@
 # Lost Then Found
 
-Lost Then Found is a React-based PVHS lost-and-found website built for the FBLA Website Coding & Development event. It focuses on searchable found items, lost-item reporting, claim verification, admin review tools, accessibility support, and judging-ready documentation.
+PVHS lost-and-found recovery platform built for FBLA Website Coding & Development / NLC judging. The frontend is a React/Vite app focused on search-first discovery, accessible reporting, secure claim review, event recovery, QR Beacon reporting, and admin demo scenarios backed by persisted Spring Boot data.
 
-## Project Highlights
+## Highlights
 
-- Custom school lost-and-found workflow with pages for home, search, report found, report lost, item details, claiming, user dashboard, admin dashboard, FAQ, privacy, accessibility, sources, and project documentation
-- Responsive layouts designed for phones, tablets, and desktops
-- Spring Boot-ready API integration for all entities, uploads, and sign-in records
-- Intelligent matching helpers for lost reports, suggested tags, and claim risk scoring
-- Accessibility improvements including a skip link, route announcements, keyboard-friendly components, reduced-motion support, and visible focus treatment
+- Search-first homepage and `/Search` with loading, empty, error, and backend-unavailable states.
+- Public-safe Found Item browse/detail pages with private fields redacted.
+- Separate Lost Report and Found Item workflows; Lost Reports never fabricate inventory.
+- Claims require admin review, and pickup completion is handled through Return Pass verification/redeem flows.
+- Event Hub and QR Beacon pages use manually configured event/zone context; no GPS or live calendar claims.
+- Admin Dashboard includes claim review, Recovery Center, Loss Sentinel, Pickup Station, Event Hub controls, and Demo Builder.
+- Optional assistance can interpret natural-language search and suggest editable found-item fields; deterministic fallback works without Ollama.
+- Appwrite email/password + Google OAuth can mint JWTs that the backend verifies server-side. Local demo sign-in remains a documented fallback only when enabled.
 
 ## Tech Stack
 
-- React 18
-- React Router
-- TanStack Query
-- Vite
-- Tailwind CSS
-- Radix UI primitives
-- Framer Motion
+- React 18, Vite, HashRouter, TanStack Query
+- Tailwind CSS, Radix UI primitives, Framer Motion
+- i18next locales for English, Spanish, and French
+- Spring Boot API in `../WebCodingDev26-Backend`
+- MongoDB for persisted workflow records
 
 ## Local Development
 
-For the normal full-stack setup, put backend secrets in `.env.local`:
-
-```env
-MONGO_URI=mongodb+srv://USERNAME:PASSWORD@your-cluster.mongodb.net/lostthenfound?retryWrites=true&w=majority&appName=LostThenFound
-MONGO_DATABASE=lostthenfound
-```
-
-Then run the full app:
-
-```bash
-npm install
-npm run ts
-```
-
-You can also run the same full-stack flow with:
-
-```bash
-npm run ts backend
-```
-
-The script starts the Spring Boot backend from `../WebCodingDev26-Backend`, waits for `http://localhost:8080/api/health`, then starts the Vite frontend at `http://localhost:5173`.
-
-Backend only:
-
-```bash
-npm run backend
-```
-
-Frontend only:
+Frontend:
 
 ```bash
 npm install
 npm run dev
 ```
 
-Open `http://localhost:5173`.
+Backend:
 
-Notes:
+```bash
+cd ../WebCodingDev26-Backend
+./mvnw spring-boot:run
+```
 
-- The backend runs on `http://localhost:8080`.
-- The frontend calls `/api/*`, and Vite proxies those requests to `http://127.0.0.1:8080` during local development.
-- Leave `VITE_API_URL` blank for local Vite development.
-- Demo student account: `Jordan Kim` / `jordan.kim@pleasantvalley.edu`
-- Demo admin account: `Avery Patel` / `avery.patel@pleasantvalley.edu`
-- Admin unlock password: `PVHS-Admin-2026`
+Open `http://localhost:5173`. Local Vite proxies `/api/*` to `http://127.0.0.1:8080`.
 
-## Build and Quality Checks
+Production frontend builds should set `VITE_API_URL` to the backend origin only, without `/api`.
+
+## Authentication
+
+Production auth uses Appwrite as the credential provider:
+
+- Frontend env: `VITE_APPWRITE_ENDPOINT`, `VITE_APPWRITE_PROJECT_ID`
+- Backend env: same Appwrite values plus `VITE_APPWRITE_ADMIN_TEAM_ID`
+- Set `AUTH_DEMO_FALLBACK_ENABLED=false` in production
+
+The backend verifies `X-Appwrite-JWT` server-side and derives admin access from Appwrite team membership. Do not commit provider secrets or local `.env*` files.
+
+Local demo mode can use the seeded student/admin demo accounts only when Appwrite is unconfigured and backend demo fallback remains enabled.
+
+## Checks
 
 ```bash
 npm run lint
+npm run typecheck
 npm run build
 ```
 
-## Deployment
+## Documentation
 
-For a standard frontend deployment:
-
-```bash
-npm install
-npm run build
-```
-
-Deploy the built frontend from `dist/` and run the Spring Boot API as a separate backend service.
-
-### Data Storage
-
-- Local development data is seeded by the Spring Boot backend.
-- The frontend can also fall back to its local browser cache if the backend is unavailable.
-
-### Split Frontend / Backend Deployments
-
-If you deploy the frontend and backend separately, set `VITE_API_URL` during the frontend build so the site knows where to reach the API.
-
-Example:
-
-```bash
-VITE_API_URL=https://your-backend-domain.com npm run build
-```
-
-Do not include `/api` at the end of `VITE_API_URL`.
-
-## Judging Build Notes
-
-- The app is intended to run against the Spring Boot API for hosted deployments.
-- The application logic, page flows, seeded records, and content are customized for this project rather than assembled from a generic website template.
-- Admin views require sign-in plus the admin unlock password in this build.
-
-## Accessibility
-
-The project is designed around WCAG-informed practices, including:
-
-- Semantic page structure and headings
-- Keyboard-accessible dialogs, tabs, menus, and drawers
-- A working skip-to-content link
-- Screen-reader route announcements
-- Reduced-motion support
-- Descriptive labels and validation feedback on forms
-
-See the in-app accessibility statement at `/Accessibility`.
-
-## Sources and Citations
-
-Official references used in the project are listed on the in-app Sources page at `/Sources`. They include:
-
-- W3C Web Content Accessibility Guidelines (WCAG)
-- W3C WAI-ARIA Authoring Practices Guide
-- U.S. Department of Education student privacy resources and FERPA regulations
-- React, Vite, TanStack Query, and Radix documentation
+- `docs/ARCHITECTURE.md` - system architecture and API boundaries
+- `docs/NLC_WEB_READINESS.md` - final readiness audit and residual risks
+- `docs/NLC_DEMO_SCRIPT.md` - 2-4 minute judge demo route
+- `docs/AUTH_INTEGRATION.md` - Appwrite/backend authorization contract
+- Backend API docs live in `../WebCodingDev26-Backend/docs/`

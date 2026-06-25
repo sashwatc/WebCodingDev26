@@ -6,6 +6,7 @@
  */
 
 import React from "react";
+import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -28,12 +29,16 @@ import {
   Radar,
   ShieldCheck,
   Route,
+  PlayCircle,
+  Trash2,
 } from "lucide-react";
 
 export default function AdminDashboard() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = React.useState("overview");
+  const [lastScenarioResult, setLastScenarioResult] = React.useState(null);
+  const [cleanupConfirmation, setCleanupConfirmation] = React.useState("");
   const { data: foundItems = [], isLoading: fiLoading } = useQuery({
     queryKey: ["adminFoundItems"],
     queryFn: () => appClient.entities.FoundItem.list("-created_date", 500),
@@ -44,9 +49,18 @@ export default function AdminDashboard() {
     queryFn: () => appClient.entities.LostReport.list("-created_date", 500),
   });
 
-  const { data: claims = [], isLoading: clLoading } = useQuery({
+  const { data: claims = [], isLoading: clLoading, error: claimsError } = useQuery({
     queryKey: ["adminClaims"],
     queryFn: () => appClient.entities.Claim.list("-created_date", 500),
+  });
+
+  const {
+    data: recoveryCenter,
+    isLoading: recoveryLoading,
+    error: recoveryError,
+  } = useQuery({
+    queryKey: ["adminRecoveryCenter"],
+    queryFn: () => appClient.recoveryCenter.summary(),
   });
 
   const { data: auditLogs = [] } = useQuery({
@@ -104,10 +118,43 @@ export default function AdminDashboard() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["adminSentinelAlerts"] }),
   });
 
-  const isLoading = fiLoading || lrLoading || clLoading;
-  const pendingCount = foundItems.filter((item) => item.status === "pending_review").length;
-  const pendingClaims = claims.filter((claim) => claim.status === "submitted" || claim.review_status === "pending").length;
-  const openReports = lostReports.filter((report) => report.status === "open").length;
+  const invalidateDemoData = () => {
+    [
+      ["adminFoundItems"],
+      ["adminLostReports"],
+      ["adminClaims"],
+      ["adminRecoveryCenter"],
+      ["adminRecoveryCases"],
+      ["adminRecoveryMissions"],
+      ["adminSentinelAlerts"],
+      ["homePreviewItems"],
+      ["searchRecords"],
+      ["eventHubFeed"],
+    ].forEach((queryKey) => queryClient.invalidateQueries({ queryKey }));
+  };
+
+  const createScenarioMutation = useMutation({
+    mutationFn: (scenario) => appClient.demoScenarios.create(scenario),
+    onSuccess: (result) => {
+      setLastScenarioResult(result);
+      invalidateDemoData();
+    },
+  });
+
+  const cleanupDemoMutation = useMutation({
+    mutationFn: () => appClient.demoScenarios.cleanup(cleanupConfirmation),
+    onSuccess: (result) => {
+      setLastScenarioResult(result);
+      setCleanupConfirmation("");
+      invalidateDemoData();
+    },
+  });
+
+  const isLoading = fiLoading || lrLoading || clLoading || recoveryLoading;
+  const recoverySummary = recoveryCenter?.summary;
+  const pendingCount = foundItems.filter((item) => ["pending_review", "FOUND"].includes(item.status)).length;
+  const pendingClaims = recoverySummary?.claims_awaiting_review ?? claims.filter((claim) => claim.status === "submitted" || claim.status === "under_review").length;
+  const openReports = recoverySummary?.active_cases ?? lostReports.filter((report) => report.status === "open").length;
   const EmptyAdminPanel = ({ icon: Icon, title, description }) => (
     <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-5 py-10 text-center dark:border-slate-800 dark:bg-slate-900/30">
       <Icon className="mx-auto mb-3 h-9 w-9 text-slate-300 dark:text-slate-600" />
@@ -125,6 +172,12 @@ export default function AdminDashboard() {
             <h1 className="page-title text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight mt-1">{t("admin_dashboard.title")}</h1>
             <p className="page-subtitle text-slate-500 dark:text-slate-400 mt-2 max-w-2xl">{t("admin_dashboard.subtitle")}</p>
           </div>
+          <Button asChild className="shrink-0 gap-2 bg-emerald-600 hover:bg-emerald-700 text-white">
+            <Link to="/PickupStation">
+              <Route className="h-4 w-4" aria-hidden="true" />
+              {t("pickup_station.open_station")}
+            </Link>
+          </Button>
         </div>
 
         {/* Simplified stats card row */}
@@ -141,6 +194,12 @@ export default function AdminDashboard() {
           ))}
         </div>
 
+        {(recoveryError || claimsError) && (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
+            {t("admin_dashboard.backend_partial_error", "Some admin data could not be loaded from the backend. Counts may be incomplete until the API is available.")}
+          </div>
+        )}
+
         {isLoading ? (
           <div className="space-y-4">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -152,7 +211,7 @@ export default function AdminDashboard() {
           </div>
         ) : (
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800/80 p-1 rounded-xl mb-6 flex w-fit gap-1 shadow-inner">
+            <TabsList className="responsive-tabs bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800/80 p-1 rounded-xl shadow-inner">
               <TabsTrigger
                 value="overview"
                 className="px-5 py-2.5 rounded-lg text-sm font-semibold transition-all text-slate-500 dark:text-slate-400 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-800 data-[state=active]:text-slate-900 dark:data-[state=active]:text-white data-[state=active]:shadow-sm gap-2"
@@ -197,6 +256,13 @@ export default function AdminDashboard() {
               >
                 <ShieldCheck className="h-4 w-4" />
                 Loss Sentinel
+              </TabsTrigger>
+              <TabsTrigger
+                value="demo"
+                className="px-5 py-2.5 rounded-lg text-sm font-semibold transition-all text-slate-500 dark:text-slate-400 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-800 data-[state=active]:text-slate-900 dark:data-[state=active]:text-white data-[state=active]:shadow-sm gap-2"
+              >
+                <PlayCircle className="h-4 w-4" />
+                Demo Builder
               </TabsTrigger>
             </TabsList>
 
@@ -462,6 +528,111 @@ export default function AdminDashboard() {
                   </div>
                 ))
               )}
+            </TabsContent>
+
+            <TabsContent value="demo" className="space-y-5">
+              <div className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900/40">
+                <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                  <div>
+                    <h2 className="flex items-center gap-2 text-lg font-bold text-slate-900 dark:text-slate-100">
+                      <PlayCircle className="h-5 w-5 text-primary" />
+                      Event Recovery Demo Scenario Builder
+                    </h2>
+                    <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-500 dark:text-slate-400">
+                      Creates real MongoDB records through backend services and flags them as demo data. It never claims live PVHS calendar, GPS, or automated school-system integration.
+                    </p>
+                  </div>
+                  <Button asChild variant="outline">
+                    <Link to="/EventHub?id=hub_basketball_game">Open Event Hub</Link>
+                  </Button>
+                </div>
+
+                <div className="mt-5 grid gap-3 lg:grid-cols-3">
+                  {[
+                    {
+                      id: "airpods_gym",
+                      title: "AirPods at Gym",
+                      description: "Creates a gym Lost Report, recovery case, missions, found item, and pending claim.",
+                    },
+                    {
+                      id: "approved_calculator_return",
+                      title: "Approved Calculator Return",
+                      description: "Creates an approved calculator claim and active Return Pass for Pickup Station demo.",
+                    },
+                    {
+                      id: "gym_electronics_pattern",
+                      title: "Gym Electronics Pattern",
+                      description: "Creates persisted Lost Reports and recomputes Loss Sentinel counts from records.",
+                    },
+                  ].map((scenario) => (
+                    <div key={scenario.id} className="rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950">
+                      <p className="font-semibold text-slate-900 dark:text-slate-100">{scenario.title}</p>
+                      <p className="mt-2 min-h-12 text-sm leading-6 text-slate-500 dark:text-slate-400">{scenario.description}</p>
+                      <Button
+                        type="button"
+                        className="mt-4 w-full gap-2"
+                        variant="outline"
+                        disabled={createScenarioMutation.isPending}
+                        onClick={() => createScenarioMutation.mutate(scenario.id)}
+                      >
+                        <PlayCircle className="h-4 w-4" aria-hidden="true" />
+                        {createScenarioMutation.isPending ? "Creating..." : "Create scenario"}
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+
+                {createScenarioMutation.error && (
+                  <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+                    {createScenarioMutation.error.message || "Scenario creation failed."}
+                  </div>
+                )}
+
+                {lastScenarioResult && (
+                  <div className="mt-5 rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
+                    <p className="font-semibold">{lastScenarioResult.scenario ? `Created ${lastScenarioResult.scenario}` : "Demo cleanup completed"}</p>
+                    {lastScenarioResult.details?.next_step && <p className="mt-1">{lastScenarioResult.details.next_step}</p>}
+                    <div className="mt-3 grid gap-2 text-xs sm:grid-cols-3">
+                      <span>Lost Reports: {lastScenarioResult.lost_report_ids?.length ?? lastScenarioResult.deleted?.lost_reports ?? 0}</span>
+                      <span>Found Items: {lastScenarioResult.found_item_ids?.length ?? lastScenarioResult.deleted?.found_items ?? 0}</span>
+                      <span>Claims: {lastScenarioResult.claim_ids?.length ?? lastScenarioResult.deleted?.claims ?? 0}</span>
+                    </div>
+                    {lastScenarioResult.details?.return_pass_id && (
+                      <p className="mt-2 text-xs">Return Pass created: {lastScenarioResult.details.return_pass_id}</p>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <div className="rounded-xl border border-red-200 bg-red-50 p-5 dark:border-red-500/30 dark:bg-red-950/20">
+                <h2 className="flex items-center gap-2 text-lg font-bold text-red-900 dark:text-red-200">
+                  <Trash2 className="h-5 w-5" />
+                  Cleanup demo records
+                </h2>
+                <p className="mt-1 text-sm leading-6 text-red-800 dark:text-red-200/80">
+                  Cleanup deletes only records marked <code>is_demo=true</code>. Type <strong>DELETE DEMO DATA</strong> to confirm.
+                </p>
+                <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+                  <input
+                    value={cleanupConfirmation}
+                    onChange={(event) => setCleanupConfirmation(event.target.value)}
+                    className="h-10 flex-1 rounded-md border border-red-200 bg-white px-3 text-sm text-slate-900 outline-none focus-visible:ring-2 focus-visible:ring-red-500"
+                    aria-label="Demo cleanup confirmation"
+                    placeholder="DELETE DEMO DATA"
+                  />
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    disabled={cleanupConfirmation !== "DELETE DEMO DATA" || cleanupDemoMutation.isPending}
+                    onClick={() => cleanupDemoMutation.mutate()}
+                  >
+                    {cleanupDemoMutation.isPending ? "Cleaning..." : "Clean demo data"}
+                  </Button>
+                </div>
+                {cleanupDemoMutation.error && (
+                  <p className="mt-3 text-sm text-red-800 dark:text-red-200">{cleanupDemoMutation.error.message || "Cleanup failed."}</p>
+                )}
+              </div>
             </TabsContent>
           </Tabs>
         )}

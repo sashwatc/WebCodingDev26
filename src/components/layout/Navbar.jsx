@@ -95,9 +95,8 @@ export default function Navbar() {
 
   const navLinks = [
     { to: "/Home", label: t("common.home"), icon: Home },
-    { to: "/Search", label: t("common.search_items"), icon: Search },
+    { to: "/Search", label: t("common.search_items"), icon: Search, primary: true },
     { to: "/LostItems", label: t("common.lost_items", "Lost Items"), icon: AlertTriangle },
-    { to: "/ReportLost", label: t("common.report_lost_item"), icon: AlertTriangle },
   ];
 
   const handleSignIn = async () => {
@@ -169,15 +168,17 @@ export default function Navbar() {
           </Link>
 
           <div className="hidden xl:flex items-center gap-1">
-            {navLinks.map(({ to, label, icon: Icon }) => (
+            {navLinks.map(({ to, label, icon: Icon, primary }) => (
               <Link
                 key={to}
                 to={to}
                 aria-current={isActive(to) ? "page" : undefined}
                 className={`inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
                   isActive(to)
-                    ? "bg-slate-100 text-foreground dark:bg-slate-800 dark:text-white"
-                    : "text-muted-foreground hover:bg-slate-100 hover:text-foreground dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
+                    ? "bg-muted text-foreground"
+                    : primary
+                      ? "text-foreground hover:bg-muted"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
                 }`}
               >
                 <Icon className="h-4 w-4" />
@@ -209,7 +210,7 @@ export default function Navbar() {
             </div>
 
             <Link to="/ReportFound" className="hidden md:block">
-              <Button size="sm" className="gap-2">
+              <Button size="sm" variant="outline" className="gap-2">
                 <PlusCircle className="h-4 w-4" />
                 {t("common.report_found_item")}
               </Button>
@@ -217,8 +218,8 @@ export default function Navbar() {
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="icon" className="hidden sm:inline-flex">
-                  <MonitorCog className="h-4 w-4" />
+                <Button variant="outline" size="icon" className="hidden sm:inline-flex" aria-label={t("navbar.appearance")}>
+                  <MonitorCog className="h-4 w-4" aria-hidden="true" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-60">
@@ -283,16 +284,16 @@ export default function Navbar() {
             )}
 
             {user && (
-              <Link to="/UserDashboard" aria-label={t("navbar.notifications")}>
-                <Button variant="outline" size="icon" className="relative">
-                  <Bell className="h-4 w-4" />
+              <Button asChild variant="outline" size="icon" className="relative touch-target" aria-label={t("navbar.notifications")}>
+                <Link to="/UserDashboard">
+                  <Bell className="h-4 w-4" aria-hidden="true" />
                   {notifications.length > 0 && (
                     <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground">
                       {notifications.length > 9 ? "9+" : notifications.length}
                     </span>
                   )}
-                </Button>
-              </Link>
+                </Link>
+              </Button>
             )}
 
             {user && (
@@ -405,8 +406,16 @@ export default function Navbar() {
               ))}
 
               <Link
+                to="/ReportLost"
+                className="flex items-center gap-3 rounded-md border border-border px-4 py-3 text-sm font-medium text-foreground"
+              >
+                <AlertTriangle className="h-4 w-4" />
+                {t("common.report_lost_item")}
+              </Link>
+
+              <Link
                 to="/ReportFound"
-                className="flex items-center gap-3 rounded-md border border-border bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground"
+                className="flex items-center gap-3 rounded-md border border-border px-4 py-3 text-sm font-medium text-foreground"
               >
                 <PlusCircle className="h-4 w-4" />
                 {t("common.report_found_item")}

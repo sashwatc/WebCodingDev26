@@ -34,6 +34,17 @@ import {
   Sparkles,
 } from "lucide-react";
 
+function locationFromZoneLabel(label = "") {
+  const normalized = label.toLowerCase();
+  if (normalized.includes("gym") || normalized.includes("athletic")) return "Gymnasium";
+  if (normalized.includes("library")) return "Library";
+  if (normalized.includes("office")) return "Main Office";
+  if (normalized.includes("cafeteria")) return "Cafeteria";
+  if (normalized.includes("bus")) return "Bus Loop";
+  if (normalized.includes("auditorium")) return "Auditorium";
+  return "";
+}
+
 const createInitialForm = (params = new URLSearchParams()) => ({
   title: "",
   category: "",
@@ -75,6 +86,7 @@ export default function ReportFound() {
   const [form, setForm] = useState(() => createInitialForm(new URLSearchParams(location.search)));
   const [errors, setErrors] = useState({});
   const [generatedTags, setGeneratedTags] = useState([]);
+  const [intakeSuggestion, setIntakeSuggestion] = useState(null);
   const aiProcessing = helperProcessing;
 
   const [formStep, setFormStep] = useState(1);
@@ -88,6 +100,23 @@ export default function ReportFound() {
     },
     enabled: !!linkedLostReportId,
   });
+
+  const { data: campusZones = [] } = useQuery({
+    queryKey: ["campusZones"],
+    queryFn: () => appClient.campusZones.list(),
+    enabled: Boolean(form.campus_zone_id),
+  });
+
+  useEffect(() => {
+    if (!form.campus_zone_id || form.location_found) {
+      return;
+    }
+    const zone = campusZones.find((entry) => entry.id === form.campus_zone_id);
+    const nextLocation = locationFromZoneLabel(zone?.label || "");
+    if (nextLocation) {
+      setForm((current) => ({ ...current, location_found: nextLocation }));
+    }
+  }, [campusZones, form.campus_zone_id, form.location_found]);
 
   useEffect(() => {
     if (!linkedLostReport || prefilledReportId === linkedLostReport.id) {
@@ -180,6 +209,38 @@ export default function ReportFound() {
     });
   };
 
+  const intakeSuggestionMutation = useMutation({
+    mutationFn: () =>
+      appClient.aiAssistance.suggestFoundItemFields({
+        title: form.title,
+        description: form.description,
+        photo_urls: form.photo_urls,
+      }),
+    onSuccess: (suggestion) => {
+      setIntakeSuggestion(suggestion);
+      toast({
+        title: "Editable suggestions ready",
+        description: "Review each suggestion before applying it. AI never approves ownership or claims.",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Suggestions unavailable",
+        description: error.message || "Deterministic assistance could not be loaded.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const applyIntakeSuggestion = (field) => {
+    if (!intakeSuggestion) return;
+    if (field === "tags") {
+      setGeneratedTags(Array.isArray(intakeSuggestion.tags) ? intakeSuggestion.tags : []);
+      return;
+    }
+    updateField(field, intakeSuggestion[field] || "");
+  };
+
   const submitMutation = useMutation({
     mutationFn: async (data) => {
       let tags = generatedTags;
@@ -197,36 +258,19 @@ export default function ReportFound() {
         tags,
         ai_description: aiDesc,
         item_code: generateItemCode(),
-        status: "pending_review",
+        status: "FOUND",
       });
 
       if (data.linked_lost_report_id) {
-        const reports = await appClient.entities.LostReport.filter({ id: data.linked_lost_report_id });
-        const report = reports[0];
-
-        const alreadyLinked = report?.matched_items?.some((match) => match.found_item_id === createdItem.id);
-
-        if (report && !alreadyLinked) {
-          await appClient.entities.LostReport.update(report.id, {
-            status: "matched",
-            matched_items: [
-              ...(report.matched_items || []).filter((match) => match.found_item_id !== createdItem.id),
-              {
-                found_item_id: createdItem.id,
-                confidence: 100,
-                reasons: ["finder response"],
-                source: "finder_response",
-                created_date: new Date().toISOString(),
-              },
-            ],
-          });
-        }
+        await appClient.matches.refreshFoundItem(createdItem.id);
       }
 
       return createdItem;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries();
+      queryClient.invalidateQueries({ queryKey: ["searchRecords"] });
+      queryClient.invalidateQueries({ queryKey: ["homePreviewItems"] });
+      queryClient.invalidateQueries({ queryKey: ["adminFoundItems"] });
       setStep(2);
     },
     onError: (error) => {
@@ -618,6 +662,60 @@ export default function ReportFound() {
                   />
                 </div>
               </div>
+
+              {((form.photo_urls || []).length > 0 || form.title || form.description) && (
+                <div className="soft-panel px-4 py-4">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold text-slate-900">Optional field suggestions</p>
+                      <p className="mt-1 text-xs leading-5 text-slate-500">
+                        Uses public item details only. Suggestions are editable and never approve ownership or claims.
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="gap-1"
+                      onClick={() => intakeSuggestionMutation.mutate()}
+                      disabled={intakeSuggestionMutation.isPending}
+                    >
+                      {intakeSuggestionMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                      Suggest fields
+                    </Button>
+                  </div>
+
+                  {intakeSuggestion ? (
+                    <div className="mt-4 space-y-3">
+                      <p className="text-xs leading-5 text-slate-500">
+                        {intakeSuggestion.explanation || "Deterministic fallback generated these editable suggestions."}
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {intakeSuggestion.category ? (
+                          <Button type="button" variant="secondary" size="sm" onClick={() => applyIntakeSuggestion("category")}>
+                            Use category: {translateCategory(t, intakeSuggestion.category)}
+                          </Button>
+                        ) : null}
+                        {intakeSuggestion.color ? (
+                          <Button type="button" variant="secondary" size="sm" onClick={() => applyIntakeSuggestion("color")}>
+                            Use color: {translateColor(t, intakeSuggestion.color)}
+                          </Button>
+                        ) : null}
+                        {intakeSuggestion.brand ? (
+                          <Button type="button" variant="secondary" size="sm" onClick={() => applyIntakeSuggestion("brand")}>
+                            Use brand: {intakeSuggestion.brand}
+                          </Button>
+                        ) : null}
+                        {Array.isArray(intakeSuggestion.tags) && intakeSuggestion.tags.length > 0 ? (
+                          <Button type="button" variant="secondary" size="sm" onClick={() => applyIntakeSuggestion("tags")}>
+                            Use {intakeSuggestion.tags.length} tags
+                          </Button>
+                        ) : null}
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+              )}
 
               {(form.title || form.description) && (
                 <div className="soft-panel px-4 py-4">

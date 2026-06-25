@@ -23,7 +23,7 @@ const faqs = [
   },
   {
     q: "What happens after I submit a lost-item report?",
-    a: "The matching engine compares your report with found items using category, brand, color, description overlap, date proximity, and location proximity. Strong matches appear with confidence indicators.",
+    a: "The matching engine compares your report with found items using category, brand, color, description overlap, date proximity, and location proximity. Suggested matches include readable reasons and still require normal claim review.",
   },
   {
     q: "How do I claim an item?",

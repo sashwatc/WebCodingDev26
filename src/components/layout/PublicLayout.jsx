@@ -22,7 +22,7 @@ export default function PublicLayout() {
   };
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="min-h-screen overflow-x-clip bg-background text-foreground">
       <a href="#main-content" className="skip-link" onClick={handleSkipToContent}>
         Skip to main content
       </a>

@@ -31,7 +31,7 @@ const documentationCards = [
 const checklist = [
   "Searchable found-item catalog with filters, smart matching cues, and grid/list views",
   "Found-item reporting workflow with validation, image uploads, and tag generation",
-  "Lost-item reporting workflow with match suggestions and confidence indicators",
+  "Lost-item reporting workflow with advisory match reasons and review steps",
   "Claim submission flow with verification details and admin-side risk review",
   "User dashboard for claims, reports, and notifications",
   "Admin dashboard with moderation queues, analytics, and audit activity",
@@ -94,7 +94,7 @@ export default function Documentation() {
                 The application logic, page layouts, workflows, seeded data, and copy were customized for the lost-and-found scenario rather than assembled from a website theme.
             </p>
             <p>
-                Restricted moderation tools still require sign-in plus the admin unlock password, so the admin workflow can be demonstrated without exposing private views to every user.
+                Restricted moderation tools require an authenticated admin account. The backend verifies the session and enforces admin-only routes server-side.
             </p>
           </CardContent>
         </Card>
@@ -112,7 +112,7 @@ export default function Documentation() {
               <p>Local API: <code className="rounded bg-slate-100 px-2 py-1">http://localhost:8080</code>.</p>
               <p>Student demo: <code className="rounded bg-slate-100 px-2 py-1">Jordan Kim</code> / <code className="rounded bg-slate-100 px-2 py-1">jordan.kim@pleasantvalley.edu</code></p>
               <p>Admin demo: <code className="rounded bg-slate-100 px-2 py-1">Avery Patel</code> / <code className="rounded bg-slate-100 px-2 py-1">avery.patel@pleasantvalley.edu</code></p>
-              <p>Admin unlock password: <code className="rounded bg-slate-100 px-2 py-1">PVHS-Admin-2026</code></p>
+              <p>Production admin access is controlled by Appwrite team membership; local demo access uses the backend demo fallback only when enabled.</p>
             </CardContent>
           </Card>
 

@@ -74,9 +74,9 @@ export default function ItemDetails() {
         return reports[0] ? normalizeLostReport(reports[0]) : null;
       }
 
-      const foundItems = await appClient.entities.FoundItem.filter({ id: itemId });
-      if (foundItems[0]) {
-        return foundItems[0];
+      const foundItem = await appClient.entities.FoundItem.get(itemId);
+      if (foundItem) {
+        return foundItem;
       }
 
       const reports = await appClient.entities.LostReport.filter({ id: itemId });

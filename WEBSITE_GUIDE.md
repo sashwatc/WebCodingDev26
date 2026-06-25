@@ -145,18 +145,16 @@ The app uses a simplified sign-in system with two pre-configured demo accounts:
 
 ---
 
-## 5. Admin Access & Unlocking
+## 5. Admin Access
 
-Admin access is a **separate layer** on top of regular authentication. Even the admin demo account (Avery Patel) must explicitly unlock admin mode.
+Admin access is enforced by the Spring Boot backend. In production, the user must be authenticated through Appwrite and belong to the configured admin team. In local demo mode, the backend demo fallback can recognize the seeded admin account when explicitly enabled.
 
-### How to Unlock Admin Access
+### How to Access Admin Tools
 
-1. **Sign in** with any account (the admin demo account is recommended).
-2. Click the **shield icon (🛡️)** in the navigation bar, or find the "Unlock Admin" option in the user menu.
-3. An **Admin Access Dialog** appears asking for a password.
-4. Enter the admin password: **`PVHS-Admin-2026`**
-5. Click **"Unlock Admin"**.
-6. A success toast confirms admin mode is active.
+1. **Sign in** with the admin demo account or an Appwrite admin-team account.
+2. Open **Admin Dashboard** from the navigation or go to `/AdminDashboard`.
+3. The route guard checks the backend-provided user role before rendering moderation tools.
+4. If the account is not an admin, the page shows an access-locked state instead of admin controls.
 
 ### What Admin Access Enables
 - Access to the **Admin Dashboard** (`/AdminDashboard`)
@@ -251,9 +249,9 @@ A multi-step wizard for students to report items they've lost.
 
 **After Submission:**
 1. A **loading screen** appears: "Scanning database for potential matches..." with a progress bar
-2. The AI matching engine runs, comparing the lost report against all found items
+2. The matching engine runs, comparing the lost report against eligible found items
 3. **Results page** shows:
-   - If matches found: Cards showing each potential match with confidence percentage, match reasons (category match, color match, etc.), and "View" buttons
+   - If matches found: Cards showing each potential match with readable reasons (category match, color match, etc.) and "View" buttons
    - If no matches: A message saying staff will be notified
 
 **Visual Progress Tracker:**
@@ -389,7 +387,7 @@ A personal command center for signed-in users.
 **Tab 1 — My Lost Reports:**
 - Lists all lost reports filed by the user
 - Each card shows: photo thumbnail, item type, status badge, description, reported date, location
-- **AI Match Suggestions**: If the matching engine found potential matches, they appear as clickable cards in a purple "AI-Suggested Found Matches" section with item thumbnails and "→" arrows to view each match
+- **Suggested Matches**: If the matching engine found potential matches, they appear as clickable cards with item thumbnails, readable reasons, and "→" arrows to view each match
 
 **Tab 2 — My Claims:**
 - Lists all claims the user has submitted
@@ -473,7 +471,7 @@ Split into two side-by-side columns:
 - Each report card shows:
   - Photo thumbnail
   - Item type and status badge
-  - AI match count badge (if matches exist)
+  - Suggested match count badge (if matches exist)
   - Description
   - Contact name, date lost, last seen location
   - Urgency badge (Low / Medium / High / Critical)
@@ -610,7 +608,7 @@ Admin receives it in their "Found Items Review" panel
 ### 7.3 Workflow: Claiming a Found Item
 
 ```
-Student finds a matching item (via Search, AI match, or browsing)
+Student finds a matching item (via Search, suggested match, or browsing)
     │
     ▼
 Clicks item → Goes to Item Details page
@@ -656,7 +654,7 @@ Claim appears in:
 ### 7.4 Workflow: Admin Reviews & Approves
 
 ```
-Admin signs in → Unlocks admin access (PVHS-Admin-2026)
+Admin signs in → Backend verifies admin role
     │
     ▼
 Opens Admin Dashboard → Moderation Queue tab
@@ -904,8 +902,8 @@ Translation files are stored in the `src/locales/` directory.
 | `GET /api/health` | Health check |
 
 ### Data Models
-- **FoundItem** — Found item records with photos, metadata, AI descriptions
-- **LostReport** — Lost item reports with contact info and AI match results
+- **FoundItem** — Found item records with photos, metadata, and editable assistance fields
+- **LostReport** — Lost item reports with contact info and advisory match results
 - **Claim** — Ownership claims with risk scores and admin notes
 - **Notification** — User notifications (admin actions, match alerts)
 - **AuditLog** — Admin action audit trail (who did what, when)
@@ -1000,7 +998,7 @@ WebCodingDev26/
 |--------|--------|
 | **Run the website** | Start backend (`node server.js`) then frontend (`npm run dev`) |
 | **Sign in as student** | Click Sign In → Student Demo → Sign In |
-| **Sign in as admin** | Click Sign In → Admin Demo → Sign In → Shield icon → Enter `PVHS-Admin-2026` |
+| **Sign in as admin** | Click Sign In → Admin Demo or Appwrite admin account → Open Admin Dashboard |
 | **Report a lost item** | Home → "I lost something" → Fill 3-step form |
 | **Report a found item** | Home → "I found something" → Fill 4-step form |
 | **Search items** | Navigate to Search → Use filters/search bar |

@@ -1,23 +1,28 @@
 /**
- * FindBack AI - Search / Browse Found Items Page
- * Prioritizes direct filtering and quick record review.
+ * Lost Then Found - Search / Browse Found Items Page
+ * Search-first inventory browsing with explicit loading and failure states.
  */
 
 import React, { useEffect, useMemo, useState } from "react";
 import { useSearchParams, Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { appClient } from "@/api/appClient";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import ItemCard from "@/components/search/ItemCard";
+import { SearchResultsSkeleton, SearchStatePanel } from "@/components/search/SearchStates";
 import { CATEGORIES, COLORS, LOCATIONS } from "@/lib/constants";
+import { isPublicFoundItemStatus, isArchivedFoundItemStatus } from "@/lib/found-items";
 import { translateCategory, translateColor, translateLocation } from "@/lib/i18n-helpers";
-import { Grid3X3, List, Package, Search as SearchIcon, SlidersHorizontal, X } from "lucide-react";
+import { Grid3X3, List, Loader2, Search as SearchIcon, SlidersHorizontal, Sparkles, X } from "lucide-react";
+
+function isBackendUnavailable(health) {
+  return health?.status === "unavailable" || health?.backend_required === true;
+}
 
 export default function Search({ recordTypeOverride = "found" }) {
   const { t } = useTranslation();
@@ -34,6 +39,7 @@ export default function Search({ recordTypeOverride = "found" }) {
     sort: "newest",
     recordType,
   });
+  const [searchAssist, setSearchAssist] = useState(null);
 
   useEffect(() => {
     setSearchQuery(queryFromUrl);
@@ -43,7 +49,20 @@ export default function Search({ recordTypeOverride = "found" }) {
     setFilters((curr) => ({ ...curr, recordType }));
   }, [recordType]);
 
-  const { data, isLoading, error } = useQuery({
+  const {
+    data: health,
+    isLoading: healthLoading,
+    refetch: refetchHealth,
+  } = useQuery({
+    queryKey: ["backendHealth"],
+    queryFn: () => appClient.health.check(),
+    staleTime: 30_000,
+    retry: 1,
+  });
+
+  const backendUnavailable = !healthLoading && isBackendUnavailable(health);
+
+  const { data, isLoading, error, refetch: refetchSearch } = useQuery({
     queryKey: ["searchRecords"],
     queryFn: async () => {
       const [foundItems, lostReports] = await Promise.all([
@@ -53,6 +72,8 @@ export default function Search({ recordTypeOverride = "found" }) {
 
       return { foundItems, lostReports };
     },
+    enabled: !backendUnavailable,
+    staleTime: 60_000,
   });
 
   const foundItems = data?.foundItems || [];
@@ -61,7 +82,10 @@ export default function Search({ recordTypeOverride = "found" }) {
   const publicFoundItems = useMemo(
     () =>
       foundItems.filter(
-        (item) => item.record_type !== "lost" && item.status === "approved" && !["claimed", "returned", "archived"].includes(item.status)
+        (item) =>
+          item.record_type !== "lost" &&
+          isPublicFoundItemStatus(item.status) &&
+          !isArchivedFoundItemStatus(item.status)
       ),
     [foundItems]
   );
@@ -84,7 +108,7 @@ export default function Search({ recordTypeOverride = "found" }) {
           status: report.status || "open",
           record_type: "lost",
           tags: [report.color, report.brand].filter(Boolean),
-           created_date: report.created_date || "",
+          created_date: report.created_date || "",
           updated_date: report.updated_date || "",
           matching_count: report.matched_items?.length || 0,
           matched_items: report.matched_items || [],
@@ -92,18 +116,20 @@ export default function Search({ recordTypeOverride = "found" }) {
     [lostReports, t]
   );
 
-  const searchableRecords = useMemo(
-    () => {
-      return isLostItemsPage ? publicLostReports : publicFoundItems;
-    },
-    [isLostItemsPage, publicFoundItems, publicLostReports]
-  );
+  const searchableRecords = useMemo(() => {
+    return isLostItemsPage ? publicLostReports : publicFoundItems;
+  }, [isLostItemsPage, publicFoundItems, publicLostReports]);
 
   const filteredItems = useMemo(() => {
     let items = [...searchableRecords];
 
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
+      const queryTokens = query
+        .replace(/[^a-z0-9\s]/g, " ")
+        .split(/\s+/)
+        .filter((token) => token.length > 2)
+        .filter((token) => !["after", "near", "with", "from", "lost", "found", "item"].includes(token));
       items = items.filter((item) => {
         const fields = [
           item.title,
@@ -121,7 +147,7 @@ export default function Search({ recordTypeOverride = "found" }) {
           .join(" ")
           .toLowerCase();
 
-        return fields.includes(query);
+        return fields.includes(query) || (queryTokens.length > 0 && queryTokens.some((token) => fields.includes(token)));
       });
     }
 
@@ -172,45 +198,59 @@ export default function Search({ recordTypeOverride = "found" }) {
   };
 
   const hasActiveFilters = activeFilterBadges.length > 0;
+  const resultsLabel = isLoading
+    ? t("common.loading")
+    : t("search.results_count", { count: filteredItems.length });
 
-  if (error) {
-    return (
-      <div className="page-shell py-10">
-        <div className="surface-card p-6 text-center">
-          <Package className="mx-auto mb-4 h-10 w-10 text-slate-300" />
-          <h2 className="text-lg font-semibold text-slate-950">{t("search.unable_to_load")}</h2>
-          <p className="mt-2 text-sm text-slate-600">{error.message}</p>
-        </div>
-      </div>
-    );
-  }
+  const handleRetry = () => {
+    void refetchHealth();
+    void refetchSearch();
+  };
+
+  const searchAssistMutation = useMutation({
+    mutationFn: (query) => appClient.aiAssistance.parseSearchQuery(query),
+    onSuccess: (suggestion) => {
+      setSearchAssist(suggestion);
+      setFilters((current) => ({
+        ...current,
+        category: suggestion?.category || current.category,
+        color: suggestion?.color || current.color,
+        location: suggestion?.location || current.location,
+      }));
+    },
+  });
 
   return (
     <div className="page-shell py-10">
-      <div className="page-header">
+      <div className="page-header max-w-3xl">
         <span className="page-kicker">{isLostItemsPage ? t("lost_items.kicker", "Lost reports") : t("search.kicker")}</span>
         <h1 className="page-title">{isLostItemsPage ? t("lost_items.title", "Lost Items") : t("search.found_title", "Found Items")}</h1>
         <p className="page-subtitle">
           {isLostItemsPage
-            ? t("lost_items.subtitle", "Browse items students and staff are looking for. If you physically found one, submit it as a found item so the normal verification workflow can begin.")
-            : t("search.found_subtitle", "Search the verified found-item inventory. Claimed, returned, and archived records stay out of public results.")}
+            ? t(
+                "lost_items.subtitle",
+                "Browse items students and staff are looking for. If you physically found one, submit it as a found item so the normal verification workflow can begin."
+              )
+            : t(
+                "search.found_subtitle",
+                "Search the verified found-item inventory. Claimed, returned, and archived records stay out of public results."
+              )}
         </p>
       </div>
 
       <div className="mb-6 flex flex-wrap gap-2">
-        <Button asChild variant={!isLostItemsPage ? "secondary" : "outline"} size="sm">
+        <Button asChild variant={!isLostItemsPage ? "default" : "outline"} size="sm">
           <Link to="/Search">{t("search.found_items_tag", "Found Items")}</Link>
         </Button>
-        <Button asChild variant={isLostItemsPage ? "secondary" : "outline"} size="sm">
+        <Button asChild variant={isLostItemsPage ? "default" : "outline"} size="sm">
           <Link to="/LostItems">{t("search.lost_reports_tag", "Lost Reports")}</Link>
         </Button>
       </div>
 
-      <section className="mb-6 space-y-4">
-        {/* Main Search Row */}
-        <div className="flex flex-col sm:flex-row gap-3">
+      <section className="mb-6 space-y-4" aria-label={t("search.search_label")}>
+        <div className="search-toolbar">
           <div className="relative flex-1">
-            <SearchIcon className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
+            <SearchIcon className="search-toolbar-icon" aria-hidden="true" />
             <Input
               value={searchQuery}
               onChange={(event) => {
@@ -224,30 +264,39 @@ export default function Search({ recordTypeOverride = "found" }) {
                 }
                 setSearchParams(nextParams);
               }}
-              className="h-12 rounded-xl border-slate-300 bg-white pl-12 text-sm shadow-sm"
+              className="search-toolbar-input"
               placeholder={t("search.search_placeholder")}
               aria-label={t("search.search_aria")}
             />
           </div>
 
           <div className="flex gap-2">
-            {/* Sliding Drawer Filter Dialog */}
+            <Button
+              type="button"
+              variant="outline"
+              className="search-toolbar-filter gap-2"
+              disabled={!searchQuery.trim() || searchAssistMutation.isPending}
+              onClick={() => searchAssistMutation.mutate(searchQuery)}
+            >
+              {searchAssistMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+              <span className="hidden sm:inline">Interpret search</span>
+            </Button>
             <Sheet>
               <SheetTrigger asChild>
-                <Button variant="outline" className="h-12 gap-2 border-slate-300 rounded-xl px-5 shadow-sm">
-                  <SlidersHorizontal className="h-4 w-4" />
+                <Button variant="outline" className="search-toolbar-filter gap-2">
+                  <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
                   <span>{t("search.filters", "Filters")}</span>
-                  {activeFilterBadges.length > 0 && (
-                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
+                  {activeFilterBadges.length > 0 ? (
+                    <span className="search-filter-count" aria-label={t("search.applied_filters", "Filters:")}>
                       {activeFilterBadges.length}
                     </span>
-                  )}
+                  ) : null}
                 </Button>
               </SheetTrigger>
-              <SheetContent className="w-full sm:max-w-md p-6">
-                <SheetHeader className="border-b pb-4 mb-6">
-                  <SheetTitle className="text-xl font-bold flex items-center gap-2">
-                    <SlidersHorizontal className="h-5 w-5 text-primary" />
+              <SheetContent className="w-full p-6 sm:max-w-md">
+                <SheetHeader className="mb-6 border-b pb-4">
+                  <SheetTitle className="flex items-center gap-2 text-xl font-semibold">
+                    <SlidersHorizontal className="h-5 w-5" aria-hidden="true" />
                     {t("search.filter_settings", "Filter Options")}
                   </SheetTitle>
                   <SheetDescription>
@@ -256,13 +305,12 @@ export default function Search({ recordTypeOverride = "found" }) {
                 </SheetHeader>
 
                 <div className="space-y-6">
-                  {/* Category filter */}
                   <div className="space-y-2">
-                    <label className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+                    <label className="filter-label" htmlFor="search-category-filter">
                       {t("common.category")}
                     </label>
                     <Select value={filters.category} onValueChange={(value) => setFilters((current) => ({ ...current, category: value }))}>
-                      <SelectTrigger className="w-full h-11 border-slate-300">
+                      <SelectTrigger id="search-category-filter" className="h-11">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -276,13 +324,12 @@ export default function Search({ recordTypeOverride = "found" }) {
                     </Select>
                   </div>
 
-                  {/* Color filter */}
                   <div className="space-y-2">
-                    <label className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+                    <label className="filter-label" htmlFor="search-color-filter">
                       {t("common.color")}
                     </label>
                     <Select value={filters.color} onValueChange={(value) => setFilters((current) => ({ ...current, color: value }))}>
-                      <SelectTrigger className="w-full h-11 border-slate-300">
+                      <SelectTrigger id="search-color-filter" className="h-11">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -296,13 +343,12 @@ export default function Search({ recordTypeOverride = "found" }) {
                     </Select>
                   </div>
 
-                  {/* Location filter */}
                   <div className="space-y-2">
-                    <label className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+                    <label className="filter-label" htmlFor="search-location-filter">
                       {t("common.location")}
                     </label>
                     <Select value={filters.location} onValueChange={(value) => setFilters((current) => ({ ...current, location: value }))}>
-                      <SelectTrigger className="w-full h-11 border-slate-300">
+                      <SelectTrigger id="search-location-filter" className="h-11">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -316,13 +362,12 @@ export default function Search({ recordTypeOverride = "found" }) {
                     </Select>
                   </div>
 
-                  {/* Sort */}
                   <div className="space-y-2">
-                    <label className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+                    <label className="filter-label" htmlFor="search-sort-filter">
                       {t("common.sort")}
                     </label>
                     <Select value={filters.sort} onValueChange={(value) => setFilters((current) => ({ ...current, sort: value }))}>
-                      <SelectTrigger className="w-full h-11 border-slate-300">
+                      <SelectTrigger id="search-sort-filter" className="h-11">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -333,21 +378,22 @@ export default function Search({ recordTypeOverride = "found" }) {
                   </div>
                 </div>
 
-                <div className="border-t pt-6 mt-6">
-                  <Button variant="outline" className="w-full text-slate-500 hover:text-slate-900" onClick={clearFilters}>
+                <div className="mt-6 border-t pt-6">
+                  <Button variant="outline" className="w-full" onClick={clearFilters}>
                     {t("search.clear_filters")}
                   </Button>
                 </div>
               </SheetContent>
             </Sheet>
 
-            <div className="flex items-center rounded-xl border border-slate-300 shadow-sm bg-white p-1">
+            <div className="view-toggle" role="group" aria-label={t("search.list_view")}>
               <Button
                 variant={viewMode === "list" ? "secondary" : "ghost"}
                 size="icon"
                 aria-label={t("search.list_view")}
+                aria-pressed={viewMode === "list"}
                 onClick={() => setViewMode("list")}
-                className="h-10 w-10 rounded-lg"
+                className="h-10 w-10"
               >
                 <List className="h-4 w-4" />
               </Button>
@@ -355,8 +401,9 @@ export default function Search({ recordTypeOverride = "found" }) {
                 variant={viewMode === "grid" ? "secondary" : "ghost"}
                 size="icon"
                 aria-label={t("search.grid_view")}
+                aria-pressed={viewMode === "grid"}
                 onClick={() => setViewMode("grid")}
-                className="h-10 w-10 rounded-lg"
+                className="h-10 w-10"
               >
                 <Grid3X3 className="h-4 w-4" />
               </Button>
@@ -364,27 +411,37 @@ export default function Search({ recordTypeOverride = "found" }) {
           </div>
         </div>
 
-        {/* Quick Filter Tags & Badges */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-2">
-          <div className="flex flex-wrap items-center gap-1.5 overflow-x-auto pb-1 max-w-full">
-            {/* Category Quick Tags */}
+        {searchAssist ? (
+          <div className="soft-panel px-4 py-3 text-sm text-slate-700">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="font-semibold text-slate-900">Editable search suggestions:</span>
+              {searchAssist.category ? <Badge variant="secondary">{translateCategory(t, searchAssist.category)}</Badge> : null}
+              {searchAssist.color ? <Badge variant="secondary">{translateColor(t, searchAssist.color)}</Badge> : null}
+              {searchAssist.location ? <Badge variant="secondary">{translateLocation(t, searchAssist.location)}</Badge> : null}
+              {searchAssist.date_hint ? <Badge variant="outline">{searchAssist.date_hint}</Badge> : null}
+            </div>
+            <p className="mt-2 text-xs leading-5 text-slate-500">
+              {searchAssist.explanation || "Suggestions are advisory only. Edit the search box or filters anytime."}
+            </p>
+          </div>
+        ) : null}
+
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-wrap items-center gap-1.5">
             {[
               { val: "electronics", label: t("categories.electronics") },
               { val: "clothing", label: t("categories.clothing") },
               { val: "keys_ids", label: t("categories.keys_ids") },
-              { val: "bags_cases", label: t("categories.bags_cases") }
-            ].map(cat => {
+              { val: "bags_cases", label: t("categories.bags_cases") },
+            ].map((cat) => {
               const active = filters.category === cat.val;
               return (
                 <button
                   key={cat.val}
                   type="button"
-                  onClick={() => setFilters(curr => ({ ...curr, category: active ? "all" : cat.val }))}
-                  className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all border ${
-                    active
-                      ? "bg-slate-900 text-white border-slate-900 dark:bg-slate-200 dark:text-slate-900"
-                      : "bg-white text-slate-600 hover:text-slate-900 border-slate-200"
-                  }`}
+                  onClick={() => setFilters((curr) => ({ ...curr, category: active ? "all" : cat.val }))}
+                  aria-pressed={active}
+                  className={`quick-filter-chip ${active ? "quick-filter-chip-active" : ""}`}
                 >
                   {cat.label}
                 </button>
@@ -392,83 +449,84 @@ export default function Search({ recordTypeOverride = "found" }) {
             })}
           </div>
 
-          <div className="flex items-center gap-2 text-xs text-slate-500">
-            <Badge variant="outline" className="border-slate-200">{t("search.available_found_items", { count: publicFoundItems.length })}</Badge>
-            <Badge variant="outline" className="border-slate-200">{t("search.active_lost_reports", { count: publicLostReports.length })}</Badge>
+          <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+            <Badge variant="outline">{t("search.available_found_items", { count: publicFoundItems.length })}</Badge>
+            <Badge variant="outline">{t("search.active_lost_reports", { count: publicLostReports.length })}</Badge>
           </div>
         </div>
 
-        {/* Active badges list if any filters active */}
-        {hasActiveFilters && (
-          <div className="flex flex-wrap items-center gap-1.5 bg-slate-50 border p-2.5 rounded-xl animate-in fade-in duration-200">
-            <span className="text-xs font-medium text-slate-500 mr-1">{t("search.applied_filters", "Filters:")}</span>
+        {hasActiveFilters ? (
+          <div className="active-filter-bar">
+            <span className="text-xs font-medium text-muted-foreground">{t("search.applied_filters", "Filters:")}</span>
             {activeFilterBadges.map((badge) => (
-              <Badge key={badge} variant="secondary" className="gap-1 bg-white border border-slate-200 px-2 py-0.5 text-xs font-medium">
+              <Badge key={badge} variant="secondary" className="text-xs font-medium">
                 {badge}
               </Badge>
             ))}
-            <Button variant="ghost" size="sm" onClick={clearFilters} className="h-6 px-2 text-xs gap-1 ml-auto text-slate-500 hover:text-slate-950">
-              <X className="h-3 w-3" />
+            <Button variant="ghost" size="sm" onClick={clearFilters} className="ml-auto h-7 gap-1 px-2 text-xs">
+              <X className="h-3 w-3" aria-hidden="true" />
               {t("search.clear_all", "Clear All")}
             </Button>
           </div>
-        )}
+        ) : null}
       </section>
 
-      <div className="mb-4 text-sm text-slate-600">
-        {isLoading ? t("common.loading") : t("search.results_count", { count: filteredItems.length })}
-      </div>
+      <p className="mb-4 text-sm text-muted-foreground" aria-live="polite">
+        {resultsLabel}
+      </p>
 
-      {isLoading && (
-        <div className={viewMode === "grid" ? "grid gap-4 sm:grid-cols-2 xl:grid-cols-3" : "space-y-3"}>
-          {Array.from({ length: 6 }).map((_, index) => (
-            <div key={index} className="surface-card p-4">
-              <Skeleton className="mb-3 h-32 rounded-md" />
-              <Skeleton className="mb-2 h-4 w-2/3" />
-              <Skeleton className="h-4 w-full" />
-            </div>
-          ))}
-        </div>
-      )}
+      {healthLoading || isLoading ? <SearchResultsSkeleton viewMode={viewMode} /> : null}
 
-      {!isLoading && filteredItems.length === 0 && (
-        <div className="surface-card px-5 py-10 text-center">
-          <Package className="mx-auto mb-3 h-10 w-10 text-slate-300" />
-          <h2 className="section-heading">{t("search.no_matching_items")}</h2>
-          <p className="mt-2 text-sm text-slate-600">
-            {t("search.broaden_search")}
-          </p>
-          {hasActiveFilters && (
-            <Button variant="outline" className="mt-4" onClick={clearFilters}>
-              {t("search.clear_filters")}
-            </Button>
-          )}
-        </div>
-      )}
+      {!healthLoading && backendUnavailable ? (
+        <SearchStatePanel
+          variant="backend"
+          title={t("search.backend_unavailable_title")}
+          description={t("search.backend_unavailable_description")}
+          onRetry={handleRetry}
+        />
+      ) : null}
 
-      {!isLoading && filteredItems.length > 0 && (
-        <div className={viewMode === "grid" ? "grid gap-4 sm:grid-cols-2 xl:grid-cols-3" : "space-y-3"}>
+      {!healthLoading && !backendUnavailable && error ? (
+        <SearchStatePanel
+          variant="error"
+          title={t("search.unable_to_load")}
+          description={error.message || t("search.error_description")}
+          onRetry={handleRetry}
+        />
+      ) : null}
+
+      {!healthLoading && !backendUnavailable && !isLoading && !error && filteredItems.length === 0 ? (
+        <SearchStatePanel
+          variant="empty"
+          title={t("search.no_matching_items")}
+          description={t("search.broaden_search")}
+          onClearFilters={hasActiveFilters ? clearFilters : undefined}
+          clearFiltersLabel={t("search.clear_filters")}
+        />
+      ) : null}
+
+      {!healthLoading && !backendUnavailable && !isLoading && !error && filteredItems.length > 0 ? (
+        <div className={viewMode === "grid" ? "grid gap-3 sm:grid-cols-2 xl:grid-cols-3" : "space-y-3"}>
           {filteredItems.map((item) => (
-            <ItemCard key={item.id} item={item} viewMode={viewMode} />
+            <ItemCard key={item.id} item={item} viewMode={viewMode} compact={viewMode === "list"} />
           ))}
         </div>
-      )}
+      ) : null}
 
-      {isLostItemsPage && (
-        <div className="mt-12 p-6 rounded-xl border border-amber-250 bg-amber-500/5 dark:border-amber-900/40 dark:bg-amber-950/10 text-center max-w-2xl mx-auto space-y-3 shadow-sm">
-          <h3 className="text-base font-bold text-amber-950 dark:text-amber-200">
-            {t("search.lost_item_cta_title", "Don't see your missing item listed?")}
-          </h3>
-          <p className="text-xs text-slate-600 dark:text-slate-400 max-w-md mx-auto leading-relaxed">
-            {t("search.lost_item_cta_desc", "File a lost item report. PVHS staff will review it, check incoming items, and notify you as soon as a match is found.")}
+      {isLostItemsPage ? (
+        <div className="search-secondary-cta mt-12 max-w-2xl">
+          <h3 className="text-base font-semibold text-foreground">{t("search.lost_item_cta_title", "Don't see your missing item listed?")}</h3>
+          <p className="mt-2 text-sm text-muted-foreground">
+            {t(
+              "search.lost_item_cta_desc",
+              "File a lost item report. PVHS staff will review it, check incoming items, and notify you as soon as a match is found."
+            )}
           </p>
-          <Button asChild className="bg-amber-600 hover:bg-amber-700 text-white font-semibold rounded-xl mt-2 px-6">
-            <Link to="/ReportLost">
-              {t("common.report_lost_item", "Report a Lost Item")}
-            </Link>
+          <Button asChild variant="outline" className="mt-4">
+            <Link to="/ReportLost">{t("common.report_lost_item", "Report a Lost Item")}</Link>
           </Button>
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

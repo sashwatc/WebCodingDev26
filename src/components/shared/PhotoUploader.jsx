@@ -1,170 +1,340 @@
 /**
- * FindBack AI - Photo Uploader Component
- * Drag-and-drop file upload with preview, validation, and progress feedback.
- * Reused across found item and lost report forms.
+ * Photo uploader with crop, validation, progress, and accessible previews.
  */
 
-import React, { useState, useRef } from "react";
-import { Upload, X, Loader2 } from "lucide-react";
+import React, { useId, useRef, useState } from "react";
+import { ImagePlus, Loader2, LockKeyhole, RefreshCw, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { appClient } from "@/api/appClient";
 import { useToast } from "@/components/ui/use-toast";
+import { Button } from "@/components/ui/button";
+import ImageCropDialog from "@/components/shared/ImageCropDialog";
+import {
+  canvasToFile,
+  formatFileSize,
+  IMAGE_UPLOAD_LIMITS,
+  validateImageFile,
+} from "@/lib/image-upload";
 
-export default function PhotoUploader({ photos = [], onChange, maxPhotos = 3, label }) {
+export default function PhotoUploader({
+  photos = [],
+  onChange,
+  maxPhotos = 3,
+  label,
+  aspectRatio = 4 / 3,
+  isPrivate = false,
+  enableCrop = true,
+}) {
   const { t } = useTranslation();
   const { toast } = useToast();
+  const inputId = useId();
   const [isDragging, setIsDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0 });
+  const [cropFile, setCropFile] = useState(null);
+  const [pendingFiles, setPendingFiles] = useState([]);
   const fileInputRef = useRef(null);
   const dragDepthRef = useRef(0);
   const displayLabel = label || t("photo_uploader.upload_photos");
 
-  const handleFiles = async (files) => {
-    if (uploading || photos.length >= maxPhotos) return;
+  const remainingSlots = Math.max(0, maxPhotos - photos.length);
+  const isFull = photos.length >= maxPhotos;
 
-    const incomingFiles = Array.from(files || []);
-    if (incomingFiles.length === 0) return;
-
-    const validFiles = incomingFiles.filter(f => 
-      f.type.startsWith("image/") && f.size < 10 * 1024 * 1024 // Max 10MB
-    );
-    if (validFiles.length === 0) {
+  const notifyInvalidFile = (result) => {
+    if (result.code === "type") {
       toast({
-        title: t("photo_uploader.invalid_files_title", "No supported photos"),
-        description: t("photo_uploader.invalid_files_description", "Upload image files under 10 MB."),
+        title: t("photo_uploader.invalid_type_title"),
+        description: t("photo_uploader.invalid_type_description"),
         variant: "destructive",
       });
       return;
     }
 
+    if (result.code === "size") {
+      toast({
+        title: t("photo_uploader.invalid_size_title"),
+        description: t("photo_uploader.invalid_size_description", {
+          limit: formatFileSize(IMAGE_UPLOAD_LIMITS.maxBytes),
+          size: formatFileSize(result.size),
+        }),
+        variant: "destructive",
+      });
+    }
+  };
+
+  const queueFiles = (files) => {
+    if (uploading || isFull) {
+      return;
+    }
+
+    const validFiles = [];
+    Array.from(files || []).forEach((file) => {
+      const result = validateImageFile(file);
+      if (result.valid) {
+        validFiles.push(file);
+      } else {
+        notifyInvalidFile(result);
+      }
+    });
+
+    if (validFiles.length === 0) {
+      return;
+    }
+
+    const allowed = validFiles.slice(0, remainingSlots);
+    if (allowed.length < validFiles.length) {
+      toast({
+        title: t("photo_uploader.limit_reached_title"),
+        description: t("photo_uploader.limit_reached_description", { count: maxPhotos }),
+      });
+    }
+
+    if (enableCrop) {
+      setPendingFiles(allowed.slice(1));
+      setCropFile(allowed[0]);
+      return;
+    }
+
+    void uploadFiles(allowed);
+  };
+
+  const uploadFiles = async (files) => {
+    if (!files.length) {
+      return;
+    }
+
     setUploading(true);
-    const newPhotos = [...photos];
+    setUploadProgress({ current: 0, total: files.length });
+    const nextPhotos = [...photos];
 
     try {
-      for (const file of validFiles) {
-        if (newPhotos.length >= maxPhotos) break;
-        const { file_url } = await appClient.integrations.Core.UploadFile({ file });
-        if (file_url) newPhotos.push(file_url);
+      for (let index = 0; index < files.length; index += 1) {
+        if (nextPhotos.length >= maxPhotos) {
+          break;
+        }
+
+        setUploadProgress({ current: index + 1, total: files.length });
+        const { file_url: fileUrl } = await appClient.integrations.Core.UploadFile({ file: files[index] });
+        if (fileUrl) {
+          nextPhotos.push(fileUrl);
+        }
       }
 
-      onChange(newPhotos);
+      onChange(nextPhotos);
     } catch (error) {
       toast({
-        title: t("photo_uploader.upload_failed_title", "Upload failed"),
-        description: error.message || t("photo_uploader.upload_failed_description", "Try the upload again."),
+        title: t("photo_uploader.upload_failed_title"),
+        description: error.message || t("photo_uploader.upload_failed_description"),
         variant: "destructive",
       });
     } finally {
       setUploading(false);
+      setUploadProgress({ current: 0, total: 0 });
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }
     }
   };
 
-  const removePhoto = (index) => {
-    onChange(photos.filter((_, i) => i !== index));
+  const handleCropConfirm = async (canvas) => {
+    const sourceFile = cropFile;
+    if (!sourceFile) {
+      return;
+    }
+
+    const extension = sourceFile.type === "image/png" ? "png" : sourceFile.type === "image/webp" ? "webp" : "jpg";
+    const mimeType = sourceFile.type === "image/png" ? "image/png" : sourceFile.type === "image/webp" ? "image/webp" : "image/jpeg";
+    const baseName = (sourceFile.name || "photo").replace(/\.[^.]+$/, "");
+    const croppedFile = await canvasToFile(canvas, `${baseName}-cropped.${extension}`, mimeType);
+
+    setCropFile(null);
+    await uploadFiles([croppedFile]);
+
+    if (pendingFiles.length > 0) {
+      const [nextFile, ...rest] = pendingFiles;
+      setPendingFiles(rest);
+      setCropFile(nextFile);
+    }
   };
 
-  const handleDrop = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
+  const handleCropCancel = () => {
+    setCropFile(null);
+    setPendingFiles([]);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+  const removePhoto = (index) => {
+    onChange(photos.filter((_, photoIndex) => photoIndex !== index));
+  };
+
+  const replacePhoto = (index) => {
+    removePhoto(index);
+    fileInputRef.current?.click();
+  };
+
+  const handleDrop = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
     dragDepthRef.current = 0;
     setIsDragging(false);
-    handleFiles(e.dataTransfer.files);
-  };
-
-  const handleDragEnter = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    dragDepthRef.current += 1;
-    setIsDragging(true);
-  };
-
-  const handleDragOver = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    e.dataTransfer.dropEffect = "copy";
-    setIsDragging(true);
-  };
-
-  const handleDragLeave = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    dragDepthRef.current = Math.max(0, dragDepthRef.current - 1);
-    if (dragDepthRef.current === 0) {
-      setIsDragging(false);
-    }
+    queueFiles(event.dataTransfer.files);
   };
 
   return (
     <div className="space-y-3">
-      <label className="text-sm font-medium text-slate-800">{displayLabel}</label>
-      
-      {/* Drag & Drop Zone */}
+      <div className="flex flex-wrap items-center gap-2">
+        <label htmlFor={inputId} className="text-sm font-medium text-slate-800">
+          {displayLabel}
+        </label>
+        {isPrivate && (
+          <span className="inline-flex items-center gap-1 rounded-full border border-slate-300 bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-700">
+            <LockKeyhole className="h-3.5 w-3.5" aria-hidden="true" />
+            {t("photo_uploader.private_badge")}
+          </span>
+        )}
+      </div>
+
       <div
-        onDragEnter={handleDragEnter}
-        onDragOver={handleDragOver}
-        onDragLeave={handleDragLeave}
+        onDragEnter={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          dragDepthRef.current += 1;
+          setIsDragging(true);
+        }}
+        onDragOver={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          event.dataTransfer.dropEffect = "copy";
+          setIsDragging(true);
+        }}
+        onDragLeave={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          dragDepthRef.current = Math.max(0, dragDepthRef.current - 1);
+          if (dragDepthRef.current === 0) {
+            setIsDragging(false);
+          }
+        }}
         onDrop={handleDrop}
-        onClick={() => fileInputRef.current?.click()}
-        className={`relative rounded-xl border-2 border-dashed p-6 text-center transition-colors ${
+        className={`relative rounded-xl border-2 border-dashed p-4 text-center transition-colors sm:p-6 ${
           isDragging
             ? "border-primary bg-slate-100"
             : "border-slate-300 bg-slate-50 hover:border-slate-400 hover:bg-slate-100"
-        } ${photos.length >= maxPhotos ? "opacity-50 pointer-events-none" : ""}`}
-        role="button"
-        aria-label={t("photo_uploader.upload_area_label")}
-        tabIndex={0}
-        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") fileInputRef.current?.click(); }}
+        } ${isFull ? "opacity-60" : ""}`}
       >
         <input
           ref={fileInputRef}
+          id={inputId}
           type="file"
-          accept="image/*"
-          multiple
-          onChange={(e) => handleFiles(e.target.files)}
-          disabled={uploading || photos.length >= maxPhotos}
-          className="hidden"
-          aria-hidden="true"
+          accept={IMAGE_UPLOAD_LIMITS.acceptAttribute}
+          multiple={maxPhotos > 1}
+          onChange={(event) => queueFiles(event.target.files)}
+          disabled={uploading || isFull}
+          className="sr-only"
         />
+
         {uploading ? (
-          <div className="flex flex-col items-center gap-2">
-            <Loader2 className="w-8 h-8 text-teal-600 animate-spin" />
-            <p className="text-sm text-slate-500">{t("photo_uploader.uploading")}</p>
+          <div className="space-y-3" role="status" aria-live="polite">
+            <Loader2 className="mx-auto h-8 w-8 animate-spin text-teal-600" aria-hidden="true" />
+            <p className="text-sm font-medium text-slate-700">{t("photo_uploader.uploading")}</p>
+            {uploadProgress.total > 0 && (
+              <>
+                <p className="text-xs text-slate-500">
+                  {t("photo_uploader.upload_progress", {
+                    current: uploadProgress.current,
+                    total: uploadProgress.total,
+                  })}
+                </p>
+                <div className="mx-auto h-2 w-full max-w-xs overflow-hidden rounded-full bg-slate-200">
+                  <div
+                    className="h-full rounded-full bg-teal-600 transition-[width]"
+                    style={{ width: `${(uploadProgress.current / uploadProgress.total) * 100}%` }}
+                    aria-hidden="true"
+                  />
+                </div>
+              </>
+            )}
           </div>
         ) : (
-          <div className="flex flex-col items-center gap-2">
+          <div className="flex flex-col items-center gap-3">
             <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white">
-              <Upload className="w-5 h-5 text-primary" />
+              <ImagePlus className="h-5 w-5 text-primary" aria-hidden="true" />
             </div>
-            <p className="text-sm font-semibold text-slate-700">
-              {t("photo_uploader.drag_drop")}
-            </p>
-            <p className="text-xs text-slate-500">
-              {t("photo_uploader.max_photos", { count: maxPhotos })}
-            </p>
+            <div className="space-y-1">
+              <p className="text-sm font-semibold text-slate-700">{t("photo_uploader.drag_drop")}</p>
+              <p className="text-xs text-slate-500">{t("photo_uploader.max_photos", { count: maxPhotos })}</p>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="min-h-11"
+              disabled={isFull}
+              onClick={() => fileInputRef.current?.click()}
+            >
+              {t("photo_uploader.browse_button")}
+            </Button>
           </div>
         )}
       </div>
 
-      {/* Photo Previews */}
       {photos.length > 0 && (
-        <div className="flex gap-3 flex-wrap">
-          {photos.map((url, i) => (
-            <div key={i} className="group relative h-24 w-24 overflow-hidden rounded-xl border border-slate-200 bg-white">
-              <img src={url} alt={t("photo_uploader.uploaded_photo", { count: i + 1 })} className="w-full h-full object-cover" />
-              <button
-                onClick={(e) => { e.stopPropagation(); removePhoto(i); }}
-                className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-slate-900 text-white opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 sm:focus-visible:opacity-100"
-                aria-label={t("photo_uploader.remove_photo", { count: i + 1 })}
+        <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3" aria-label={t("photo_uploader.preview_list_label")}>
+          {photos.map((url, index) => (
+            <li key={`${url}-${index}`} className="space-y-2">
+              <div
+                className="relative overflow-hidden rounded-xl border border-slate-200 bg-white"
+                style={{ aspectRatio: String(aspectRatio) }}
               >
-                <X className="w-3 h-3" />
-              </button>
-            </div>
+                <img
+                  src={url}
+                  alt={
+                    isPrivate
+                      ? t("photo_uploader.private_photo_alt", { count: index + 1 })
+                      : t("photo_uploader.uploaded_photo", { count: index + 1 })
+                  }
+                  className="h-full w-full object-cover"
+                />
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="min-h-10 flex-1 gap-1.5"
+                  onClick={() => replacePhoto(index)}
+                  aria-label={t("photo_uploader.replace_photo", { count: index + 1 })}
+                >
+                  <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
+                  {t("photo_uploader.replace")}
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="min-h-10 gap-1.5 text-red-700"
+                  onClick={() => removePhoto(index)}
+                  aria-label={t("photo_uploader.remove_photo", { count: index + 1 })}
+                >
+                  <X className="h-3.5 w-3.5" aria-hidden="true" />
+                  {t("photo_uploader.remove")}
+                </Button>
+              </div>
+            </li>
           ))}
-        </div>
+        </ul>
       )}
+
+      <ImageCropDialog
+        open={Boolean(cropFile)}
+        file={cropFile}
+        aspectRatio={aspectRatio}
+        isPrivate={isPrivate}
+        onCancel={handleCropCancel}
+        onConfirm={handleCropConfirm}
+      />
     </div>
   );
 }

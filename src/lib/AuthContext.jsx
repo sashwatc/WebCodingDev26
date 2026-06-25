@@ -1,38 +1,11 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { appClient } from "@/api/appClient";
 import { queryClientInstance } from "@/lib/query-client";
-import { ADMIN_ACCESS_PASSWORD } from "@/lib/constants";
 
 const AuthContext = createContext();
-const ADMIN_ACCESS_STORAGE_KEY = "findback-admin-access";
 
-function readAdminAccess() {
-  if (typeof window === "undefined") {
-    return false;
-  }
-
-  try {
-    return window.localStorage.getItem(ADMIN_ACCESS_STORAGE_KEY) === "true";
-  } catch {
-    return false;
-  }
-}
-
-function writeAdminAccess(nextValue) {
-  if (typeof window === "undefined") {
-    return;
-  }
-
-  try {
-    if (nextValue) {
-      window.localStorage.setItem(ADMIN_ACCESS_STORAGE_KEY, "true");
-      return;
-    }
-
-    window.localStorage.removeItem(ADMIN_ACCESS_STORAGE_KEY);
-  } catch {
-    // Ignore storage write failures in restricted browser contexts.
-  }
+function isBackendAdmin(user) {
+  return String(user?.role || "").toLowerCase() === "admin";
 }
 
 export const AuthProvider = ({ children }) => {
@@ -44,10 +17,17 @@ export const AuthProvider = ({ children }) => {
   const [appPublicSettings, setAppPublicSettings] = useState(null);
   const [isSignInOpen, setIsSignInOpen] = useState(false);
   const [isAdminAccessOpen, setIsAdminAccessOpen] = useState(false);
-  const [hasAdminAccess, setHasAdminAccess] = useState(readAdminAccess);
+  const [hasAdminAccess, setHasAdminAccess] = useState(false);
 
   useEffect(() => {
-    void checkAppState();
+    void (async () => {
+      try {
+        await appClient.auth.completeOAuthRedirect?.();
+      } catch {
+        // Ignore: a failed OAuth completion falls back to the unauthenticated state.
+      }
+      await checkAppState();
+    })();
 
     const {
       data: { subscription },
@@ -79,7 +59,7 @@ export const AuthProvider = ({ children }) => {
       const currentUser = await appClient.auth.me();
       setUser(currentUser);
       setIsAuthenticated(Boolean(currentUser));
-      setHasAdminAccess(Boolean(currentUser) && readAdminAccess());
+      setHasAdminAccess(isBackendAdmin(currentUser));
       setAppPublicSettings({
         id: "standalone",
         public_settings: {
@@ -101,7 +81,6 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = async () => {
-    writeAdminAccess(false);
     setHasAdminAccess(false);
     setIsAdminAccessOpen(false);
     await appClient.auth.logout(window.location.href);
@@ -109,12 +88,17 @@ export const AuthProvider = ({ children }) => {
 
   const signIn = async (credentials) => {
     const nextUser = await appClient.auth.signIn(credentials);
-    writeAdminAccess(false);
-    setHasAdminAccess(false);
+    setHasAdminAccess(isBackendAdmin(nextUser));
     setIsAdminAccessOpen(false);
     setIsSignInOpen(false);
     return nextUser;
   };
+
+  const signInWithGoogle = async () => {
+    return appClient.auth.signInWithGoogle();
+  };
+
+  const isAppwriteEnabled = Boolean(appClient.auth.isAppwriteEnabled?.());
 
   const navigateToLogin = async () => {
     setIsSignInOpen(true);
@@ -127,27 +111,31 @@ export const AuthProvider = ({ children }) => {
       return false;
     }
 
-    setIsAdminAccessOpen(true);
+    if (!isBackendAdmin(user)) {
+      setIsAdminAccessOpen(true);
+      return false;
+    }
+
+    setHasAdminAccess(true);
+    setIsAdminAccessOpen(false);
     return true;
   };
 
-  const requestAdminAccess = async (password) => {
+  const requestAdminAccess = async () => {
     if (!user) {
       throw new Error("Sign in before opening admin controls.");
     }
 
-    if (String(password || "").trim() !== ADMIN_ACCESS_PASSWORD) {
-      throw new Error("Incorrect admin password.");
+    if (!isBackendAdmin(user)) {
+      throw new Error("This account does not have admin access.");
     }
 
-    writeAdminAccess(true);
     setHasAdminAccess(true);
     setIsAdminAccessOpen(false);
     return true;
   };
 
   const revokeAdminAccess = () => {
-    writeAdminAccess(false);
     setHasAdminAccess(false);
     setIsAdminAccessOpen(false);
   };
@@ -164,6 +152,8 @@ export const AuthProvider = ({ children }) => {
         appPublicSettings,
         logout,
         signIn,
+        signInWithGoogle,
+        isAppwriteEnabled,
         navigateToLogin,
         openAdminAccess,
         requestAdminAccess,
