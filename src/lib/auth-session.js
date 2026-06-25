@@ -13,10 +13,12 @@ import {
   AUTH_STORAGE_KEY,
   UI_SETTINGS_STORAGE_KEY,
   isAdminRole,
+  isStaffRole,
+  isStudentRole,
   stripLegacyAdminModeFromUiSettings,
 } from "@/lib/auth-role";
 
-export { AUTH_STORAGE_KEY, UI_SETTINGS_STORAGE_KEY, isAdminRole, stripLegacyAdminModeFromUiSettings };
+export { AUTH_STORAGE_KEY, UI_SETTINGS_STORAGE_KEY, isAdminRole, isStaffRole, isStudentRole, stripLegacyAdminModeFromUiSettings };
 
 /** Demo header is only sent when Appwrite is off or no JWT is stored. */
 export function shouldAttachDemoUserHeader() {

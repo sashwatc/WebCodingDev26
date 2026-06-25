@@ -580,3 +580,12 @@
     scroll-behavior: auto !important;
   }
 }
+
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border-width: 0; }
+
+@media print {
+  nav, footer, .no-print, button:not(.print-show), [role="navigation"] { display: none !important; }
+  body { background: white !important; color: black !important; font-size: 12pt; }
+  a { color: black; text-decoration: none; }
+  .print-only { display: block !important; }
+}

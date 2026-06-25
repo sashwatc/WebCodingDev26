@@ -1,143 +1,174 @@
 import React from "react";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
-import { ExternalLink, BookOpen, Shield, Code2 } from "lucide-react";
+import { ExternalLink } from "lucide-react";
 
-const sourceGroups = [
+const LIBRARIES = [
+  { name: "React",           license: "MIT",        href: "https://react.dev/" },
+  { name: "Vite",            license: "MIT",        href: "https://vitejs.dev/" },
+  { name: "Spring Boot",     license: "Apache 2.0", href: "https://spring.io/projects/spring-boot" },
+  { name: "Tailwind CSS",    license: "MIT",        href: "https://tailwindcss.com/" },
+  { name: "shadcn/ui",       license: "MIT",        href: "https://ui.shadcn.com/" },
+  { name: "Framer Motion",   license: "MIT",        href: "https://www.framer.com/motion/" },
+  { name: "React Hook Form", license: "MIT",        href: "https://react-hook-form.com/" },
+  { name: "Zod",             license: "MIT",        href: "https://zod.dev/" },
+  { name: "TanStack Query",  license: "MIT",        href: "https://tanstack.com/query/latest" },
+  { name: "date-fns",        license: "MIT",        href: "https://date-fns.org/" },
+  { name: "Lucide React",    license: "ISC",        href: "https://lucide.dev/" },
+  { name: "MongoDB",         license: "SSPL",       href: "https://www.mongodb.com/" },
+];
+
+const APIS = [
   {
-    title: "Accessibility and Inclusive Design",
-    icon: BookOpen,
-    items: [
-      {
-        title: "Web Content Accessibility Guidelines (WCAG) Overview",
-        organization: "W3C Web Accessibility Initiative",
-        href: "https://www.w3.org/WAI/standards-guidelines/wcag/",
-        summary: "Primary accessibility standard used to guide semantic structure, focus states, contrast decisions, and zoom support.",
-      },
-      {
-        title: "WAI-ARIA Authoring Practices Guide",
-        organization: "W3C Web Accessibility Initiative",
-        href: "https://www.w3.org/WAI/ARIA/apg/",
-        summary: "Reference for keyboard interaction and accessible patterns such as dialogs, menus, tabs, and disclosures.",
-      },
-      {
-        title: "Accessibility Overview",
-        organization: "Radix UI",
-        href: "https://www.radix-ui.com/primitives/docs/overview/accessibility",
-        summary: "Used as a technical reference for accessible component primitives in the UI layer.",
-      },
-    ],
+    name: "Anthropic Claude API",
+    description: "Used for AI-assisted search query parsing and found-item field suggestions.",
+    href: "https://www.anthropic.com/",
   },
   {
-    title: "Student Privacy and Responsible Data Use",
-    icon: Shield,
-    items: [
-      {
-        title: "Protecting Student Privacy",
-        organization: "U.S. Department of Education",
-        href: "https://studentprivacy.ed.gov/",
-        summary: "Primary federal source for student privacy guidance used when drafting the privacy and data-handling language.",
-      },
-      {
-        title: "FERPA Regulations",
-        organization: "U.S. Department of Education",
-        href: "https://studentprivacy.ed.gov/resources/family-educational-rights-and-privacy-act-regulations-ferpa",
-        summary: "Referenced for FERPA-aligned language and for clarifying that the platform should avoid collecting unnecessary student record data.",
-      },
-    ],
-  },
-  {
-    title: "Technical References",
-    icon: Code2,
-    items: [
-      {
-        title: "React Documentation",
-        organization: "React",
-        href: "https://react.dev/",
-        summary: "Used for component architecture, state management patterns, and accessibility-friendly React practices.",
-      },
-      {
-        title: "Vite Guide",
-        organization: "Vite",
-        href: "https://vite.dev/guide/",
-        summary: "Reference for the local development/build workflow and lightweight deployment structure.",
-      },
-      {
-        title: "TanStack Query React Overview",
-        organization: "TanStack",
-        href: "https://tanstack.com/query/latest/docs/framework/react/overview",
-        summary: "Reference for query caching, invalidation, and async UI state coordination.",
-      },
-      {
-        title: "Spring Boot Documentation",
-        organization: "Spring",
-        href: "https://docs.spring.io/spring-boot/index.html",
-        summary: "Reference for backend controller, service, validation, and application configuration patterns.",
-      },
-      {
-        title: "MongoDB Indexes",
-        organization: "MongoDB",
-        href: "https://www.mongodb.com/docs/manual/indexes/",
-        summary: "Reference for unique and compound index behavior used by recovery cases and custody events.",
-      },
-    ],
+    name: "Appwrite",
+    description: "Optional authentication backend providing user accounts and session management.",
+    href: "https://appwrite.io/",
   },
 ];
 
+function SectionHeading({ children }) {
+  return (
+    <h2 className="mb-4 text-xl font-bold tracking-tight text-foreground" style={{ letterSpacing: "-0.015em" }}>
+      {children}
+    </h2>
+  );
+}
+
+function TableWrapper({ children }) {
+  return (
+    <div className="overflow-x-auto rounded-xl border border-border">
+      <table className="w-full text-sm">
+        {children}
+      </table>
+    </div>
+  );
+}
+
+function Th({ children }) {
+  return (
+    <th className="border-b border-border bg-muted/50 px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.10em] text-muted-foreground">
+      {children}
+    </th>
+  );
+}
+
+function Td({ children, className = "" }) {
+  return (
+    <td className={`px-4 py-3 text-foreground ${className}`}>
+      {children}
+    </td>
+  );
+}
+
 export default function Sources() {
   return (
-    <div className="max-w-5xl mx-auto px-4 py-16">
-      <div className="text-center mb-12">
-        <Badge variant="outline" className="mb-3">Sources</Badge>
-        <h1 className="text-4xl font-bold text-slate-900 mb-4">Research and Citations</h1>
-        <p className="text-slate-500 max-w-3xl mx-auto leading-relaxed">
-          These official references informed the accessibility, privacy, and technical decisions in this project.
-          All links were reviewed on June 22, 2026.
+    <div className="page-shell max-w-4xl py-12">
+      <div className="page-header max-w-2xl">
+        <span className="page-kicker">Credits</span>
+        <h1 className="page-title">Sources &amp; Credits</h1>
+        <p className="page-subtitle">
+          Open-source libraries, fonts, images, APIs, and tools used in this project.
         </p>
       </div>
 
-      <div className="space-y-8">
-        {sourceGroups.map((group) => (
-          <section key={group.title}>
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center">
-                <group.icon className="w-5 h-5 text-[hsl(213,56%,24%)]" />
-              </div>
-              <div>
-                <h2 className="text-xl font-bold text-slate-900">{group.title}</h2>
-                <p className="text-sm text-slate-500">{group.items.length} official references</p>
-              </div>
-            </div>
+      {/* Libraries & Frameworks */}
+      <section className="mb-12">
+        <SectionHeading>Libraries &amp; Frameworks</SectionHeading>
+        <TableWrapper>
+          <thead>
+            <tr>
+              <Th>Name</Th>
+              <Th>License</Th>
+              <Th>Link</Th>
+            </tr>
+          </thead>
+          <tbody>
+            {LIBRARIES.map((lib, i) => (
+              <tr key={lib.name} className={i % 2 === 0 ? "" : "bg-muted/20"}>
+                <Td><span className="font-medium">{lib.name}</span></Td>
+                <Td>
+                  <span className="inline-flex items-center rounded-full border border-border bg-muted px-2.5 py-0.5 text-xs font-semibold text-muted-foreground">
+                    {lib.license}
+                  </span>
+                </Td>
+                <Td>
+                  <a
+                    href={lib.href}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1 text-primary hover:underline"
+                  >
+                    {lib.href.replace(/^https?:\/\//, "").replace(/\/$/, "")}
+                    <ExternalLink className="h-3 w-3" aria-hidden="true" />
+                  </a>
+                </Td>
+              </tr>
+            ))}
+          </tbody>
+        </TableWrapper>
+      </section>
 
-            <div className="grid gap-4">
-              {group.items.map((item) => (
-                <Card key={item.href} className="border-slate-200 shadow-sm">
-                  <CardContent className="p-5">
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                      <div className="space-y-1">
-                        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
-                          {item.organization}
-                        </p>
-                        <h3 className="text-lg font-semibold text-slate-900">{item.title}</h3>
-                        <p className="text-sm text-slate-600 leading-relaxed">{item.summary}</p>
-                      </div>
-                      <a
-                        href={item.href}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex items-center gap-2 text-sm font-semibold text-[hsl(213,56%,24%)] hover:text-[hsl(213,56%,18%)]"
-                      >
-                        Visit source
-                        <ExternalLink className="w-4 h-4" />
-                      </a>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+      {/* Fonts */}
+      <section className="mb-12">
+        <SectionHeading>Fonts</SectionHeading>
+        <div className="rounded-xl border border-border bg-card px-5 py-4 text-sm text-muted-foreground leading-relaxed">
+          This project uses the <strong className="text-foreground">Inter</strong> typeface loaded via the system font stack
+          (<code className="rounded bg-muted px-1.5 py-0.5 text-xs">ui-sans-serif, system-ui, sans-serif</code>).
+          No external font files are bundled or fetched at runtime. Inter is available under the{" "}
+          <strong className="text-foreground">SIL Open Font License 1.1</strong>.
+        </div>
+      </section>
+
+      {/* Images */}
+      <section className="mb-12">
+        <SectionHeading>Images</SectionHeading>
+        <div className="rounded-xl border border-border bg-card px-5 py-4 text-sm text-muted-foreground leading-relaxed">
+          All item images are placeholder SVGs generated programmatically. No third-party images used.
+          The school mark (<code className="rounded bg-muted px-1.5 py-0.5 text-xs">Spartan_Head.png</code>) is school property used for
+          educational/demonstration purposes only and is not part of the open-source distribution.
+        </div>
+      </section>
+
+      {/* APIs */}
+      <section className="mb-12">
+        <SectionHeading>APIs</SectionHeading>
+        <div className="space-y-3">
+          {APIS.map((api) => (
+            <div key={api.name} className="rounded-xl border border-border bg-card px-5 py-4">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="space-y-1">
+                  <p className="font-semibold text-foreground">{api.name}</p>
+                  <p className="text-sm text-muted-foreground leading-relaxed">{api.description}</p>
+                </div>
+                <a
+                  href={api.href}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
+                >
+                  Visit
+                  <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+                </a>
+              </div>
             </div>
-          </section>
-        ))}
-      </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Tools */}
+      <section className="mb-12">
+        <SectionHeading>Tools</SectionHeading>
+        <div className="rounded-xl border border-border bg-card px-5 py-4 text-sm text-muted-foreground leading-relaxed">
+          <p>
+            <strong className="text-foreground">Claude Code</strong> — AI coding assistant (Anthropic) used during development for
+            scaffolding pages, writing accessible component patterns, and iterating on UI/UX.
+            Claude Code does not appear in the production bundle; it is a development-time tool only.
+          </p>
+        </div>
+      </section>
     </div>
   );
 }

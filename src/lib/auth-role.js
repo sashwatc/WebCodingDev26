@@ -7,6 +7,14 @@ export function isAdminRole(user) {
   return String(user?.role || "").toLowerCase() === "admin";
 }
 
+export function isStaffRole(user) {
+  return String(user?.role || "").toLowerCase() === "staff";
+}
+
+export function isStudentRole(user) {
+  return String(user?.role || "").toLowerCase() === "student";
+}
+
 export function stripLegacyAdminModeFromUiSettings(storage = typeof window !== "undefined" ? window.localStorage : null) {
   if (!storage) {
     return;

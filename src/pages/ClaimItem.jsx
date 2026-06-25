@@ -1,357 +1,499 @@
-/**
- * FindBack AI - Claim Item Page
- * Secure claim form with verification fields, proof upload,
- * and AI risk scoring on submission.
- */
-
-import React, { useEffect, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
-import { useTranslation } from "react-i18next";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
-import { useToast } from "@/components/ui/use-toast";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import React, { useEffect, useMemo, useState } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { useQuery } from "@tanstack/react-query";
 import { appClient } from "@/api/appClient";
-import { scoreClaimRisk } from "@/lib/ai-services";
-import { ConsentCheckboxField } from "@/components/shared/ConsentCheckboxField";
-import ClaimOwnershipEvidenceSection from "@/components/claims/ClaimOwnershipEvidenceSection";
-import StatusBadge from "@/components/ui/StatusBadge";
 import { useAuth } from "@/lib/AuthContext";
-import { formatLocalizedDate, translateCategory, translateLocation } from "@/lib/i18n-helpers";
-import {
-  Loader2,
-  ArrowLeft,
-  Package,
-  FileCheck,
-  Search,
-  Clock3,
-  CheckCircle2,
-} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Textarea } from "@/components/ui/textarea";
+import PhotoUploader from "@/components/shared/PhotoUploader";
+import { ArrowLeft, FileCheck, Loader2, Package, Shield } from "lucide-react";
 
-const createInitialForm = (user) => ({
-  claimant_name: user?.full_name || "",
-  claimant_email: user?.email || "",
-  student_id: "",
-  reason: "",
-  identifying_details: "",
-  private_detail: "",
-  contents_detail: "",
-  evidence_checklist: [],
-  proof_photo_url: "",
-  pickup_availability: "",
-  truthful: false,
+// ── Schema ────────────────────────────────────────────────────────────────────
+
+const schema = z.object({
+  claimant_name:        z.string().min(1, "Full name is required"),
+  claimant_email:       z.string().email("Enter a valid email address"),
+  student_id:           z.string().default(""),
+  pickup_availability:  z.string().default(""),
+  reason:               z.string().min(10, "Please explain why you believe this is yours (at least 10 characters)"),
+  identifying_details:  z.string().min(10, "Please describe a unique feature (at least 10 characters)"),
+  proof_photo_url:      z.string().default(""),
 });
 
+const STEP_FIELDS = {
+  1: ["claimant_name", "claimant_email"],
+  2: ["reason", "identifying_details"],
+};
+
+const STEP_LABELS = ["Your Identity", "Ownership Proof", "Review + Submit"];
+
+// ── Sub-components ────────────────────────────────────────────────────────────
+
+function StepBar({ step }) {
+  return (
+    <div className="mb-8 flex items-center" role="list" aria-label="Form steps">
+      {STEP_LABELS.map((label, i) => {
+        const idx = i + 1;
+        const done   = step > idx;
+        const active = step === idx;
+        return (
+          <React.Fragment key={label}>
+            <div className="flex shrink-0 flex-col items-center" role="listitem">
+              <div
+                className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold transition-colors ${
+                  done   ? "bg-emerald-600 text-white" :
+                  active ? "bg-primary text-white ring-2 ring-primary/20" :
+                           "bg-slate-100 text-slate-400"
+                }`}
+                aria-current={active ? "step" : undefined}
+              >
+                {done ? "✓" : idx}
+              </div>
+              <span className={`mt-1 text-[11px] font-medium whitespace-nowrap ${
+                active ? "text-primary" : done ? "text-emerald-600" : "text-slate-400"
+              }`}>
+                {label}
+              </span>
+            </div>
+            {i < STEP_LABELS.length - 1 && (
+              <div
+                className={`mb-4 h-px flex-1 transition-colors ${done ? "bg-emerald-400" : "bg-border"}`}
+                aria-hidden="true"
+              />
+            )}
+          </React.Fragment>
+        );
+      })}
+    </div>
+  );
+}
+
+function ItemContextCard({ item }) {
+  if (!item) return null;
+  return (
+    <div className="mb-6 flex items-center gap-4 rounded-xl border border-border bg-card p-4">
+      <div className="h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-muted">
+        {item.photo_urls?.[0] ? (
+          <img src={item.photo_urls[0]} alt="" className="h-full w-full object-cover" />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center">
+            <Package className="h-6 w-6 text-muted-foreground/40" aria-hidden="true" />
+          </div>
+        )}
+      </div>
+      <div className="min-w-0">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.10em] text-muted-foreground">
+          Claiming
+        </p>
+        <p className="mt-0.5 truncate text-sm font-semibold text-foreground">
+          {item.title || "Untitled item"}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function FieldError({ message }) {
+  if (!message) return null;
+  return <p className="mt-1 text-xs text-destructive">{message}</p>;
+}
+
+function ReviewRow({ label, value }) {
+  if (!value) return null;
+  return (
+    <div className="grid grid-cols-[140px_1fr] gap-x-4 border-b border-border py-3 last:border-none">
+      <dt className="pt-0.5 text-xs font-semibold text-muted-foreground">{label}</dt>
+      <dd className="text-sm text-foreground">{value}</dd>
+    </div>
+  );
+}
+
+// ── Main component ────────────────────────────────────────────────────────────
+
 export default function ClaimItem() {
-  const { t } = useTranslation();
+  useEffect(() => { document.title = "Claim Item — Lost Then Found"; }, []);
   const navigate = useNavigate();
   const location = useLocation();
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
-  const { user } = useAuth();
-  const urlParams = new URLSearchParams(location.search);
-  const itemId = urlParams.get("id");
+  const { user }  = useAuth();
 
-  const [submitted, setSubmitted] = useState(false);
-  const [form, setForm] = useState(() => createInitialForm(user));
-  const [errors, setErrors] = useState({});
+  const found_item_id = new URLSearchParams(location.search).get("id");
+  const draftKey = `ltf-claim-draft-${found_item_id}`;
 
-  const { data: item, isLoading: itemLoading } = useQuery({
-    queryKey: ["claimItem", itemId],
-    queryFn: () => appClient.entities.FoundItem.filter({ id: itemId }),
-    enabled: !!itemId,
-    select: (data) => data?.[0],
+  const [step, setStep]             = useState(1);
+  const [isSubmitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState(null);
+  const [succeeded, setSucceeded]   = useState(false);
+
+  // ── Draft ────────────────────────────────────────────────────────────────
+
+  const initialValues = useMemo(() => {
+    try {
+      const raw = found_item_id && localStorage.getItem(draftKey);
+      if (raw) return JSON.parse(raw);
+    } catch { /* ignore */ }
+    return {
+      claimant_name:       user?.full_name || "",
+      claimant_email:      user?.email     || "",
+      student_id:          "",
+      pickup_availability: "",
+      reason:              "",
+      identifying_details: "",
+      proof_photo_url:     "",
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ── Form ─────────────────────────────────────────────────────────────────
+
+  const {
+    register,
+    trigger,
+    setValue,
+    getValues,
+    watch,
+    formState: { errors },
+  } = useForm({
+    resolver: zodResolver(schema),
+    defaultValues: initialValues,
+    mode: "onBlur",
   });
 
+  // Pre-fill from auth once loaded (handles async auth case)
   useEffect(() => {
     if (!user) return;
-    setForm((prev) => ({
-      ...prev,
-      claimant_name: prev.claimant_name || user.full_name || "",
-      claimant_email: prev.claimant_email || user.email || "",
-    }));
-  }, [user]);
+    const v = getValues();
+    if (!v.claimant_name)  setValue("claimant_name",  user.full_name || "");
+    if (!v.claimant_email) setValue("claimant_email", user.email     || "");
+  }, [user, getValues, setValue]);
 
-  const updateField = (field, value) => {
-    setForm((prev) => ({ ...prev, [field]: value }));
-    if (errors[field]) setErrors((prev) => ({ ...prev, [field]: null }));
-  };
+  // Autosave draft
+  useEffect(() => {
+    const sub = watch((values) => {
+      if (!found_item_id) return;
+      try { localStorage.setItem(draftKey, JSON.stringify(values)); } catch { /* ignore */ }
+    });
+    return () => sub.unsubscribe();
+  }, [watch, found_item_id, draftKey]);
 
-  const validate = () => {
-    const errs = {};
-    if (!form.claimant_name.trim()) errs.claimant_name = t("claim_item.name_required");
-    if (!form.claimant_email.trim()) errs.claimant_email = t("claim_item.email_required");
-    if (form.claimant_email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.claimant_email.trim())) {
-      errs.claimant_email = t("claim_item.email_invalid", "Enter a valid email address.");
-    }
-    if (!form.reason.trim()) errs.reason = t("claim_item.reason_required");
-    if (!form.truthful) errs.truthful = t("claim_item.truthful_required");
-    setErrors(errs);
-    return Object.keys(errs).length === 0;
-  };
+  // ── Item query ────────────────────────────────────────────────────────────
 
-  const submitMutation = useMutation({
-    mutationFn: async () => {
-      const riskResult = await scoreClaimRisk(form, item);
-
-      const claim = await appClient.entities.Claim.create({
-        found_item_id: item.id,
-        found_item_title: item.title,
-        claimant_name: form.claimant_name,
-        claimant_email: form.claimant_email,
-        student_id: form.student_id,
-        reason: form.reason,
-        identifying_details: form.identifying_details,
-        private_evidence_responses: {
-          hidden_detail: form.private_detail,
-          contents_or_condition: form.contents_detail,
-        },
-        evidence_checklist: form.evidence_checklist,
-        proof_photo_url: form.proof_photo_url,
-        pickup_availability: form.pickup_availability,
-        status: "submitted",
-        risk_score: riskResult.risk_score,
-        risk_flags: riskResult.risk_flags || [],
-      });
-
-      return claim;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["userClaims"] });
-      queryClient.invalidateQueries({ queryKey: ["adminClaims"] });
-      queryClient.invalidateQueries({ queryKey: ["itemDetails"] });
-      setSubmitted(true);
-      toast({
-        title: t("claim_item.submitted_title"),
-        description: t("claim_item.submitted_description"),
-      });
-    },
-    onError: (error) => {
-      toast({
-        title: t("claim_item.error"),
-        description: error.message || t("claim_item.submit_failed"),
-        variant: "destructive",
-      });
-    },
+  const { data: item, isLoading: itemLoading } = useQuery({
+    queryKey: ["claimItem", found_item_id],
+    queryFn: () => appClient.items.get(found_item_id),
+    enabled: !!found_item_id,
   });
 
-  const handleSubmit = async (event) => {
-    if (event && event.preventDefault) event.preventDefault();
-    if (submitMutation.isPending || submitMutation.isSuccess) return false;
-    if (!validate()) return false;
+  // ── Navigation ────────────────────────────────────────────────────────────
+
+  const handleNext = async () => {
+    const fields = STEP_FIELDS[step];
+    const valid  = fields ? await trigger(fields) : true;
+    if (valid) setStep((s) => s + 1);
+  };
+
+  const handleBack = () => setStep((s) => s - 1);
+
+  // ── Submit ────────────────────────────────────────────────────────────────
+
+  const handleSubmit = async () => {
+    const allFields = ["claimant_name", "claimant_email", "reason", "identifying_details"];
+    const valid = await trigger(allFields);
+    if (!valid) { setStep(1); return; }
+
+    setSubmitting(true);
+    setSubmitError(null);
     try {
-      await submitMutation.mutateAsync();
-      return true;
-    } catch {
-      return false;
+      const v = getValues();
+      await appClient.entities.Claim.create({
+        found_item_id,
+        claimant_name:       v.claimant_name,
+        claimant_email:      v.claimant_email,
+        student_id:          v.student_id          || "",
+        reason:              v.reason,
+        identifying_details: v.identifying_details,
+        proof_photo_url:     v.proof_photo_url      || "",
+        pickup_availability: v.pickup_availability  || "",
+        status:              "submitted",
+      });
+      try { localStorage.removeItem(draftKey); } catch { /* ignore */ }
+      setSucceeded(true);
+    } catch (err) {
+      setSubmitError(err?.message || "Something went wrong. Please try again.");
+    } finally {
+      setSubmitting(false);
     }
   };
 
-  if (submitted) {
+  // ── Derived ───────────────────────────────────────────────────────────────
+
+  const proofPhotos = watch("proof_photo_url")
+    ? [watch("proof_photo_url")]
+    : [];
+
+  // ── Render: loading ───────────────────────────────────────────────────────
+
+  if (!found_item_id || (!itemLoading && !item)) {
     return (
-      <div className="page-shell max-w-2xl py-20">
-        <div className="surface-card px-8 py-14 text-center">
-          <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-50">
-            <FileCheck className="h-8 w-8 text-emerald-700" />
-          </div>
-          <h1 className="text-2xl font-semibold text-slate-950">{t("claim_item.submitted_title")}</h1>
-          <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-slate-600">
-            {t("claim_item.submitted_description")}
-          </p>
-          <div className="mt-8 flex flex-wrap justify-center gap-3">
-            <Button onClick={() => navigate("/UserDashboard")}>{t("claim_item.view_my_claims")}</Button>
-            <Button variant="outline" onClick={() => navigate("/Search")}>{t("claim_item.back_to_search")}</Button>
-          </div>
-        </div>
+      <div className="page-shell max-w-lg py-20 text-center">
+        <Package className="mx-auto mb-4 h-12 w-12 text-muted-foreground" aria-hidden="true" />
+        <h1 className="mb-2 text-xl font-bold text-foreground">Item not found</h1>
+        <p className="mb-6 text-sm text-muted-foreground">This item may have been removed or the link is invalid.</p>
+        <Button onClick={() => navigate("/Search")}>Back to search</Button>
       </div>
     );
   }
 
   if (itemLoading) {
     return (
-      <div className="page-shell py-20">
-        <div className="flex items-center justify-center">
-          <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
+      <div className="page-shell max-w-2xl py-10">
+        <Skeleton className="mb-6 h-8 w-20" />
+        <Skeleton className="mb-8 h-20 w-full rounded-xl" />
+        <Skeleton className="mb-8 h-16 w-full" />
+        <div className="space-y-4">
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-10 w-full" />
         </div>
       </div>
     );
   }
 
-  if (!item) {
+  // ── Render: success ───────────────────────────────────────────────────────
+
+  if (succeeded) {
     return (
       <div className="page-shell max-w-2xl py-20">
         <div className="surface-card px-8 py-14 text-center">
-          <Package className="mx-auto mb-4 h-12 w-12 text-slate-300" />
-          <h2 className="text-xl font-semibold text-slate-950">{t("claim_item.item_not_found")}</h2>
-          <p className="mt-2 text-sm text-slate-500">{t("claim_item.item_not_found_description")}</p>
-          <Button className="mt-6" onClick={() => navigate("/Search")}>{t("claim_item.back_to_search")}</Button>
+          <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-50">
+            <FileCheck className="h-8 w-8 text-emerald-700" aria-hidden="true" />
+          </div>
+          <h1 className="text-2xl font-semibold text-foreground">Claim submitted</h1>
+          <p className="mx-auto mt-3 max-w-sm text-sm leading-6 text-muted-foreground">
+            Staff will review your claim within 1–2 school days and contact you at the email provided.
+          </p>
+          <div className="mt-8 flex flex-wrap justify-center gap-3">
+            <Button asChild>
+              <Link to="/UserDashboard">View my claims</Link>
+            </Button>
+            <Button variant="outline" onClick={() => navigate("/Search")}>
+              Back to search
+            </Button>
+          </div>
         </div>
       </div>
     );
   }
 
+  // ── Render: form ──────────────────────────────────────────────────────────
+
   return (
-    <div className="page-shell max-w-6xl py-10">
+    <div className="page-shell max-w-2xl py-10">
       <Button
+        type="button"
         variant="ghost"
         size="sm"
-        className="mb-5 gap-1 text-slate-500"
+        className="mb-6 gap-1 text-muted-foreground"
         onClick={() => navigate(-1)}
       >
-        <ArrowLeft className="h-4 w-4" />
-        {t("common.back")}
+        <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+        Back
       </Button>
 
       <div className="page-header mb-8">
-        <span className="page-kicker">{t("claim_item.kicker")}</span>
-        <h1 className="page-title">{t("claim_item.title")}</h1>
-        <p className="page-subtitle">{t("claim_item.subtitle")}</p>
+        <span className="page-kicker">Lost &amp; Found</span>
+        <h1 className="page-title">Claim this item</h1>
+        <p className="page-subtitle">
+          Complete the form to submit a claim. Staff review all submissions within 1–2 school days.
+        </p>
       </div>
 
-      <div className="grid gap-8 lg:grid-cols-[380px_1fr] items-start">
-        {/* Left Side: Sticky Details Card & Review Info */}
-        <div className="space-y-6 lg:sticky lg:top-24">
-          <div className="surface-card overflow-hidden">
-            <div className="aspect-[4/3] bg-slate-100 relative overflow-hidden">
-              {item.photo_urls?.[0] ? (
-                <img
-                  src={item.photo_urls[0]}
-                  alt={item.title}
-                  className="h-full w-full object-cover"
-                />
-              ) : (
-                <div className="flex h-full w-full items-center justify-center bg-slate-50">
-                  <Package className="h-10 w-10 text-slate-300" />
-                </div>
-              )}
-              <div className="absolute left-3 top-3">
-                <StatusBadge status={item.status} />
-              </div>
+      {/* Item context */}
+      <ItemContextCard item={item} />
+
+      {/* Progress */}
+      <StepBar step={step} />
+
+      {/* ── Step 1: Identity ──────────────────────────────────────────────── */}
+      {step === 1 && (
+        <div className="surface-card space-y-6 p-6">
+          <div>
+            <h2 className="text-lg font-semibold text-foreground">Your Identity</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Tell us who you are so staff can contact you if your claim is approved.
+            </p>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <Label htmlFor="cl-name">Full name *</Label>
+              <Input
+                id="cl-name"
+                {...register("claimant_name")}
+                className={`mt-1.5 min-h-[44px] ${errors.claimant_name ? "border-destructive" : ""}`}
+                placeholder="Your full name"
+                aria-required="true"
+              />
+              <FieldError message={errors.claimant_name?.message} />
             </div>
-
-            <div className="p-5 space-y-4">
-              <div>
-                <Badge variant="outline" className="text-xs mb-1.5">{translateCategory(t, item.category)}</Badge>
-                <h2 className="text-xl font-bold text-slate-900 leading-tight">{item.title}</h2>
-                <p className="mt-1.5 text-xs text-slate-500">
-                  {translateLocation(t, item.location_found) || t("common.unknown_location")} • {item.date_found ? formatLocalizedDate(item.date_found, "MMM d, yyyy") : t("common.date_unavailable")}
-                </p>
-              </div>
-
-              <div className="border-t pt-4">
-                <h3 className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400 mb-1">
-                  {t("common.description")}
-                </h3>
-                <p className="text-sm leading-relaxed text-slate-600">
-                  {item.ai_description || item.description}
-                </p>
-              </div>
+            <div>
+              <Label htmlFor="cl-email">Email address *</Label>
+              <Input
+                id="cl-email"
+                type="email"
+                {...register("claimant_email")}
+                className={`mt-1.5 min-h-[44px] ${errors.claimant_email ? "border-destructive" : ""}`}
+                placeholder="you@example.com"
+                aria-required="true"
+              />
+              <FieldError message={errors.claimant_email?.message} />
             </div>
           </div>
 
-          <div className="soft-panel p-5">
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">{t("claim_item.review_flow")}</p>
-            <div className="mt-4 space-y-3.5 text-sm text-slate-600">
-              <div className="flex items-start gap-3">
-                <Search className="mt-0.5 h-4 w-4 text-primary shrink-0" />
-                <span>{t("claim_item.review_compare")}</span>
-              </div>
-              <div className="flex items-start gap-3">
-                <Clock3 className="mt-0.5 h-4 w-4 text-primary shrink-0" />
-                <span>{t("claim_item.review_pickup")}</span>
-              </div>
-              <div className="flex items-start gap-3">
-                <CheckCircle2 className="mt-0.5 h-4 w-4 text-primary shrink-0" />
-                <span>{t("claim_item.review_close")}</span>
-              </div>
-            </div>
+          <div>
+            <Label htmlFor="cl-sid">Student ID <span className="text-muted-foreground font-normal">(optional)</span></Label>
+            <Input
+              id="cl-sid"
+              {...register("student_id")}
+              className="mt-1.5 min-h-[44px]"
+              placeholder="e.g. 123456"
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="cl-pickup">When can you pick this up?</Label>
+            <Input
+              id="cl-pickup"
+              {...register("pickup_availability")}
+              className="mt-1.5 min-h-[44px]"
+              placeholder="e.g. Weekdays after 3 PM"
+            />
           </div>
         </div>
+      )}
 
-        {/* Right Side: The Form */}
-        <form onSubmit={handleSubmit} noValidate>
-          <div className="form-shell">
-            <section className="space-y-5">
-              <div className="space-y-2">
-                <h2 className="text-lg font-semibold text-slate-950">{t("claim_item.your_information")}</h2>
-                <p className="text-sm text-slate-600">
-                  {t("claim_item.your_information_description")}
-                </p>
-              </div>
+      {/* ── Step 2: Ownership Proof ───────────────────────────────────────── */}
+      {step === 2 && (
+        <div className="surface-card space-y-6 p-6">
+          <div>
+            <h2 className="text-lg font-semibold text-foreground">Ownership Proof</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Help staff verify your ownership with specific details only the true owner would know.
+            </p>
+          </div>
 
-              {user && (
-                <div className="soft-panel flex flex-wrap items-center gap-2 px-4 py-3 text-sm text-slate-700">
-                  <Badge variant="secondary" className="bg-slate-200 text-slate-700">{t("claim_item.signed_in")}</Badge>
-                  {t("claim_item.submitting_as", { name: user.full_name, email: user.email })}
+          {/* Privacy callout */}
+          <div className="flex items-start gap-3 rounded-xl border border-border bg-muted/50 px-4 py-3">
+            <Shield className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+            <p id="privacy-note" className="text-xs leading-relaxed text-muted-foreground">
+              This information is <strong className="font-semibold text-foreground">private and only visible to PVHS Staff</strong>. It is never shared publicly.
+            </p>
+          </div>
+
+          <div>
+            <Label htmlFor="cl-reason">Why do you believe this is yours? *</Label>
+            <Textarea
+              id="cl-reason"
+              {...register("reason")}
+              rows={4}
+              className={`mt-1.5 min-h-[44px] resize-none ${errors.reason ? "border-destructive" : ""}`}
+              placeholder="Describe the circumstances — where you lost it, when, what was in/on it…"
+              aria-required="true"
+            />
+            <FieldError message={errors.reason?.message} />
+          </div>
+
+          <div>
+            <Label htmlFor="cl-details">Describe a unique feature only the owner would know *</Label>
+            <Textarea
+              id="cl-details"
+              {...register("identifying_details")}
+              rows={3}
+              className={`mt-1.5 min-h-[44px] resize-none ${errors.identifying_details ? "border-destructive" : ""}`}
+              placeholder="e.g. scratch on the back cover, initials written inside, sticker on the lid…"
+              aria-required="true"
+              aria-describedby="privacy-note"
+            />
+            <FieldError message={errors.identifying_details?.message} />
+          </div>
+
+          <PhotoUploader
+            label="Proof photo (optional)"
+            photos={proofPhotos}
+            maxPhotos={1}
+            isPrivate
+            onChange={(urls) => setValue("proof_photo_url", urls[0] || "", { shouldDirty: true })}
+          />
+        </div>
+      )}
+
+      {/* ── Step 3: Review ────────────────────────────────────────────────── */}
+      {step === 3 && (
+        <div className="space-y-6">
+          <div className="surface-card p-6">
+            <h2 className="mb-4 text-lg font-semibold text-foreground">Review your claim</h2>
+            <dl>
+              <ReviewRow label="Name"            value={watch("claimant_name")} />
+              <ReviewRow label="Email"           value={watch("claimant_email")} />
+              <ReviewRow label="Student ID"      value={watch("student_id")} />
+              <ReviewRow label="Pickup window"   value={watch("pickup_availability")} />
+              <ReviewRow label="Why it's yours"  value={watch("reason")} />
+              <ReviewRow label="Unique feature"  value={watch("identifying_details")} />
+              {watch("proof_photo_url") && (
+                <div className="border-b border-border py-3 last:border-none">
+                  <dt className="mb-2 text-xs font-semibold text-muted-foreground">Proof photo</dt>
+                  <dd>
+                    <img
+                      src={watch("proof_photo_url")}
+                      alt="Proof"
+                      className="h-24 w-24 rounded-lg object-cover"
+                    />
+                  </dd>
                 </div>
               )}
-
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <Label htmlFor="c_name">{t("claim_item.full_name")}</Label>
-                  <Input
-                    id="c_name"
-                    value={form.claimant_name}
-                    onChange={(event) => updateField("claimant_name", event.target.value)}
-                    className={errors.claimant_name ? "border-red-400" : ""}
-                  />
-                  {errors.claimant_name && <p className="mt-1 text-xs text-red-500">{errors.claimant_name}</p>}
-                </div>
-                <div>
-                  <Label htmlFor="c_email">{t("common.email")} *</Label>
-                  <Input
-                    id="c_email"
-                    type="email"
-                    value={form.claimant_email}
-                    onChange={(event) => updateField("claimant_email", event.target.value)}
-                    className={errors.claimant_email ? "border-red-400" : ""}
-                  />
-                  {errors.claimant_email && <p className="mt-1 text-xs text-red-500">{errors.claimant_email}</p>}
-                </div>
-              </div>
-
-              <div>
-                <Label htmlFor="c_sid">{t("claim_item.student_id")}</Label>
-                <Input
-                  id="c_sid"
-                  placeholder={t("claim_item.student_id_placeholder")}
-                  value={form.student_id}
-                  onChange={(event) => updateField("student_id", event.target.value)}
-                />
-              </div>
-            </section>
-
-            <section className="space-y-5">
-              <ClaimOwnershipEvidenceSection form={form} errors={errors} updateField={updateField} />
-            </section>
-
-            <section className="space-y-5">
-              <ConsentCheckboxField
-                id="truthful"
-                checked={form.truthful}
-                onCheckedChange={(value) => updateField("truthful", value)}
-                error={errors.truthful}
-                tone="amber">
-                {t("claim_item.truthful_text")}
-              </ConsentCheckboxField>
-              <div className="flex justify-center pt-2">
-                <Button
-                  type="button"
-                  onClick={() => handleSubmit()}
-                  disabled={submitMutation.isPending || submitMutation.isSuccess}
-                  className="w-full sm:w-auto min-w-[200px]"
-                >
-                  {submitMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  {submitMutation.isPending 
-                    ? t("common.loading", "Submitting...") 
-                    : t("claim_item.submit", "Submit Claim")}
-                </Button>
-              </div>
-            </section>
+            </dl>
           </div>
-        </form>
+
+          {/* Error state */}
+          {submitError && (
+            <div className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3">
+              <p className="text-sm font-medium text-destructive">{submitError}</p>
+            </div>
+          )}
+
+          <Button
+            type="button"
+            size="lg"
+            className="w-full gap-2"
+            disabled={isSubmitting}
+            onClick={handleSubmit}
+          >
+            {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
+            {isSubmitting ? "Submitting…" : "Submit Claim"}
+          </Button>
+        </div>
+      )}
+
+      {/* ── Nav buttons ──────────────────────────────────────────────────── */}
+      <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
+        {step > 1 ? (
+          <Button type="button" variant="outline" className="min-h-[44px] w-full sm:w-auto" onClick={handleBack}>
+            <ArrowLeft className="mr-2 h-4 w-4" aria-hidden="true" />
+            Back
+          </Button>
+        ) : (
+          <span className="hidden sm:block" />
+        )}
+
+        {step < 3 && (
+          <Button type="button" className="min-h-[44px] w-full sm:w-auto" onClick={handleNext}>
+            Next
+          </Button>
+        )}
       </div>
     </div>
   );

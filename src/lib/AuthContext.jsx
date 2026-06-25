@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { appClient } from "@/api/appClient";
 import { queryClientInstance } from "@/lib/query-client";
-import { clearClientAuthStorage, isAdminRole } from "@/lib/auth-session";
+import { clearClientAuthStorage, isAdminRole, isStaffRole, isStudentRole } from "@/lib/auth-session";
 import { stripLegacyAdminModeFromUiSettings } from "@/lib/auth-role";
 
 const AuthContext = createContext();
@@ -17,6 +17,8 @@ export const AuthProvider = ({ children }) => {
   const [isAdminAccessOpen, setIsAdminAccessOpen] = useState(false);
 
   const isAdmin = useMemo(() => isAdminRole(user), [user]);
+  const isStaff = useMemo(() => isStaffRole(user), [user]);
+  const isStudent = useMemo(() => isStudentRole(user), [user]);
 
   useEffect(() => {
     stripLegacyAdminModeFromUiSettings();
@@ -128,6 +130,8 @@ export const AuthProvider = ({ children }) => {
       value={{
         user,
         isAdmin,
+        isStaff,
+        isStudent,
         hasAdminAccess: isAdmin,
         isAuthenticated,
         isLoadingAuth,
