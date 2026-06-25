@@ -58,7 +58,7 @@ export default function ClaimEvidenceReview({ claimId, className = "" }) {
 
   if (error) {
     return (
-      <div className={`rounded-xl border border-amber-900/40 bg-amber-950/20 px-4 py-4 text-sm text-amber-200 ${className}`}>
+      <div className={`rounded-xl border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/20 dark:text-amber-200 ${className}`}>
         <p className="font-semibold">{t("claim_evidence.unavailable_title")}</p>
         <p className="mt-1">{t("claim_evidence.unavailable_description")}</p>
         <Button type="button" size="sm" variant="outline" className="mt-3" onClick={() => refetch()} disabled={isFetching}>
@@ -78,13 +78,13 @@ export default function ClaimEvidenceReview({ claimId, className = "" }) {
     <section className={`space-y-4 ${className}`} aria-labelledby="claim-evidence-heading">
       <div className="flex items-center gap-2">
         <ShieldAlert className="h-4 w-4 text-amber-400" aria-hidden="true" />
-        <h3 id="claim-evidence-heading" className="text-sm font-semibold text-slate-100">
+        <h3 id="claim-evidence-heading" className="text-sm font-semibold text-foreground">
           {t("claim_evidence.title")}
         </h3>
       </div>
 
-      <div className="rounded-xl border border-slate-800 bg-slate-950 px-4 py-3 text-sm text-slate-300">
-        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+      <div className="rounded-xl border border-border bg-background px-4 py-3 text-sm text-muted-foreground">
+        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
           {t("claim_evidence.claimant_submission")}
         </p>
         {evidence.identifying_details && (
@@ -94,7 +94,7 @@ export default function ClaimEvidenceReview({ claimId, className = "" }) {
           <dl className="mt-3 space-y-2">
             {privateResponses.map(([key, value]) => (
               <div key={key}>
-                <dt className="text-xs font-semibold text-slate-500">{key}</dt>
+                <dt className="text-xs font-semibold text-muted-foreground">{key}</dt>
                 <dd className="leading-6">{value}</dd>
               </div>
             ))}
@@ -103,7 +103,7 @@ export default function ClaimEvidenceReview({ claimId, className = "" }) {
         {evidence.evidence_checklist?.length > 0 && (
           <div className="mt-3 flex flex-wrap gap-2">
             {evidence.evidence_checklist.map((entry) => (
-              <Badge key={entry} variant="outline" className="border-slate-700 text-slate-300">
+              <Badge key={entry} variant="outline" className="border-border text-muted-foreground">
                 {entry}
               </Badge>
             ))}
@@ -111,17 +111,17 @@ export default function ClaimEvidenceReview({ claimId, className = "" }) {
         )}
         {evidence.proof_photo_url && (
           <div className="mt-3">
-            <p className="text-xs font-semibold text-slate-500">{t("admin_claims_queue.proof_photo")}</p>
+            <p className="text-xs font-semibold text-muted-foreground">{t("admin_claims_queue.proof_photo")}</p>
             <img
               src={evidence.proof_photo_url}
               alt={t("admin_claims_queue.proof_photo")}
-              className="mt-2 max-h-56 w-full rounded-lg border border-slate-800 object-contain bg-black"
+              className="mt-2 max-h-56 w-full rounded-lg border border-border object-contain bg-black"
             />
           </div>
         )}
       </div>
 
-      <div className="rounded-xl border border-amber-900/40 bg-amber-950/15 px-4 py-3 text-sm text-amber-100">
+      <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/15 dark:text-amber-100">
         <p className="text-xs font-semibold uppercase tracking-[0.14em] text-amber-300">
           {t("claim_evidence.sealed_clues_title")}
         </p>
@@ -135,22 +135,22 @@ export default function ClaimEvidenceReview({ claimId, className = "" }) {
         </ul>
       </div>
 
-      <div className="rounded-xl border border-slate-800 bg-slate-950 px-4 py-3">
+      <div className="rounded-xl border border-border bg-background px-4 py-3">
         <div className="flex flex-wrap items-center gap-2">
-          <p className="text-sm font-semibold text-slate-200">
+          <p className="text-sm font-semibold text-foreground">
             {t("claim_evidence.verification_score", { score: evidence.verification_score ?? "—" })}
           </p>
           {(evidence.verification_flags || []).map((flag) => (
-            <Badge key={flag} variant="outline" className="border-slate-700 text-slate-300">
+            <Badge key={flag} variant="outline" className="border-border text-muted-foreground">
               {flag}
             </Badge>
           ))}
         </div>
-        <p className="mt-2 text-sm leading-6 text-slate-400">
+        <p className="mt-2 text-sm leading-6 text-muted-foreground">
           {evidence.verification_summary || t("claim_evidence.no_summary")}
         </p>
         <div className="mt-3 space-y-2">
-          <label htmlFor={`evidence-summary-${claimId}`} className="text-xs font-semibold text-slate-500">
+          <label htmlFor={`evidence-summary-${claimId}`} className="text-xs font-semibold text-muted-foreground">
             {t("claim_evidence.staff_summary_label")}
           </label>
           <Textarea
@@ -158,7 +158,7 @@ export default function ClaimEvidenceReview({ claimId, className = "" }) {
             rows={3}
             value={summaryDraft || evidence.verification_summary || ""}
             onChange={(event) => setSummaryDraft(event.target.value)}
-            className="bg-slate-900 border-slate-800 text-slate-100"
+            className="bg-card border-border text-foreground"
           />
           <Button
             type="button"

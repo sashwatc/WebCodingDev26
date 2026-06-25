@@ -124,38 +124,38 @@ export default function AdminClaimsQueue({ claims, foundItems = [] }) {
   });
 
   const getRiskColor = (score) => {
-    if (score >= 70) return "border-red-900/50 bg-red-950/25 text-red-400";
-    if (score >= 40) return "border-amber-900/50 bg-amber-950/25 text-amber-400";
-    return "border-emerald-900/50 bg-emerald-950/25 text-emerald-400";
+    if (score >= 70) return "border-red-200 bg-red-50 text-red-700 dark:border-red-900/50 dark:bg-red-950/25 dark:text-red-400";
+    if (score >= 40) return "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/25 dark:text-amber-400";
+    return "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/50 dark:bg-emerald-950/25 dark:text-emerald-400";
   };
 
   return (
     <div className="space-y-4">
-      <div className="surface-card bg-slate-900 border-slate-800 p-4 sm:p-5">
+      <div className="surface-card p-4 sm:p-5">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             placeholder={t("admin_claims_queue.search_placeholder")}
             value={search}
             onChange={(event) => setSearch(event.target.value)}
-            className="pl-9 bg-slate-950 border-slate-800 text-slate-100 placeholder-slate-500"
+            className="pl-9 bg-background border-border text-foreground placeholder-muted-foreground"
           />
         </div>
       </div>
 
-      <p className="text-sm text-slate-400">{t("admin_claims_queue.count", { count: filtered.length })}</p>
+      <p className="text-sm text-muted-foreground">{t("admin_claims_queue.count", { count: filtered.length })}</p>
 
       {filtered.length === 0 ? (
-        <div className="surface-card bg-slate-900 border-slate-800 px-6 py-14 text-center">
-          <Shield className="mx-auto mb-3 h-10 w-10 text-slate-600" />
-          <p className="text-sm text-slate-500">{t("admin_claims_queue.no_claims")}</p>
+        <div className="surface-card px-6 py-14 text-center">
+          <Shield className="mx-auto mb-3 h-10 w-10 text-muted-foreground" />
+          <p className="text-sm text-muted-foreground">{t("admin_claims_queue.no_claims")}</p>
         </div>
       ) : (
         <div className="space-y-3">
           {filtered.map((claim) => (
             <Card
               key={claim.id}
-              className={`${claim.risk_score >= 70 ? "border-red-900/50 bg-red-950/10" : "border-slate-800 bg-slate-900/40"}`}
+              className={`${claim.risk_score >= 70 ? "border-red-200 bg-red-50 dark:border-red-900/50 dark:bg-red-950/10" : "border-border bg-card/40"}`}
             >
               <CardContent className="p-5">
                 <div className="flex flex-col gap-4 xl:flex-row xl:items-start">
@@ -168,7 +168,7 @@ export default function AdminClaimsQueue({ claims, foundItems = [] }) {
                   />
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <h3 className="text-base font-semibold text-slate-100">{claim.found_item_title || t("admin_claims_queue.unknown_item")}</h3>
+                      <h3 className="text-base font-semibold text-foreground">{claim.found_item_title || t("admin_claims_queue.unknown_item")}</h3>
                       <StatusBadge status={claim.status} />
                       {claim.risk_score != null && (
                         <Badge className={getRiskColor(claim.risk_score)}>
@@ -176,24 +176,24 @@ export default function AdminClaimsQueue({ claims, foundItems = [] }) {
                         </Badge>
                       )}
                       {claim.proof_photo_url && (
-                        <Badge variant="outline" className="border-slate-800 text-slate-300">{t("admin_claims_queue.proof_photo")}</Badge>
+                        <Badge variant="outline" className="border-border text-muted-foreground">{t("admin_claims_queue.proof_photo")}</Badge>
                       )}
                     </div>
 
-                    <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-sm text-slate-400">
+                    <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-sm text-muted-foreground">
                       <span>{claim.claimant_name} ({claim.claimant_email})</span>
                       <span>{claim.created_date ? formatLocalizedDate(claim.created_date, "MMM d") : ""}</span>
                     </div>
-                    <p className="mt-2 text-sm leading-6 text-slate-300">{claim.reason}</p>
+                    <p className="mt-2 text-sm leading-6 text-muted-foreground">{claim.reason}</p>
 
                     {claim.claimant_rating ? (
-                      <div className="mt-3 flex items-center gap-2 text-xs text-slate-400">
+                      <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
                         <div className="flex gap-0.5">
                           {Array.from({ length: 5 }).map((_, index) => (
                             <Star
                               key={index}
                               className={`h-3.5 w-3.5 ${
-                                index < claim.claimant_rating ? "fill-amber-450 text-amber-400" : "text-slate-700"
+                                index < claim.claimant_rating ? "fill-amber-450 text-amber-400" : "text-muted-foreground"
                               }`}
                             />
                           ))}
@@ -205,7 +205,7 @@ export default function AdminClaimsQueue({ claims, foundItems = [] }) {
                     {claim.risk_flags?.length > 0 && (
                       <div className="mt-3 flex flex-wrap gap-2">
                         {claim.risk_flags.slice(0, 3).map((flag, index) => (
-                          <Badge key={index} variant="outline" className="border-red-900 bg-red-950 text-red-400">
+                          <Badge key={index} variant="outline" className="border-red-200 bg-red-100 text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-400">
                             <AlertTriangle className="mr-1 h-3 w-3" />
                             {flag}
                           </Badge>
@@ -218,7 +218,7 @@ export default function AdminClaimsQueue({ claims, foundItems = [] }) {
                     <Button
                       variant="outline"
                       size="sm"
-                      className="border-slate-800 hover:bg-slate-800 text-slate-300 gap-1"
+                      className="border-border hover:bg-muted text-muted-foreground gap-1"
                       onClick={() => {
                         setDetailDialog(claim);
                         setAdminNotes(claim.admin_notes || "");
@@ -236,9 +236,9 @@ export default function AdminClaimsQueue({ claims, foundItems = [] }) {
       )}
 
       <Dialog open={!!detailDialog} onOpenChange={() => setDetailDialog(null)}>
-        <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto bg-slate-900 border-slate-800 text-slate-100">
+        <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto bg-card border-border text-foreground">
           <DialogHeader>
-            <DialogTitle className="text-white flex items-center gap-2 text-xl font-bold">
+            <DialogTitle className="text-foreground flex items-center gap-2 text-xl font-bold">
               <Shield className="w-5 h-5 text-indigo-400" />
               {t("admin_claims_queue.claim_details", "Review Claim")}
             </DialogTitle>
@@ -247,27 +247,27 @@ export default function AdminClaimsQueue({ claims, foundItems = [] }) {
           {detailDialog && (
             <div className="space-y-4 text-sm mt-2">
               <div className="grid gap-3 sm:grid-cols-2">
-                <div className="rounded-xl border border-slate-800 bg-slate-950 px-4 py-3">
-                  <p className="text-xs font-semibold text-slate-400">{t("admin_claims_queue.claimant")}</p>
-                  <p className="mt-1.5 font-semibold text-white">{detailDialog.claimant_name}</p>
-                  <p className="mt-0.5 text-slate-400">{detailDialog.claimant_email}</p>
+                <div className="rounded-xl border border-border bg-background px-4 py-3">
+                  <p className="text-xs font-semibold text-muted-foreground">{t("admin_claims_queue.claimant")}</p>
+                  <p className="mt-1.5 font-semibold text-foreground">{detailDialog.claimant_name}</p>
+                  <p className="mt-0.5 text-muted-foreground">{detailDialog.claimant_email}</p>
                 </div>
-                <div className="rounded-xl border border-slate-800 bg-slate-950 px-4 py-3">
-                  <p className="text-xs font-semibold text-slate-400">{t("admin_claims_queue.status")}</p>
+                <div className="rounded-xl border border-border bg-background px-4 py-3">
+                  <p className="text-xs font-semibold text-muted-foreground">{t("admin_claims_queue.status")}</p>
                   <div className="mt-1.5 flex flex-wrap items-center gap-2">
                     <StatusBadge status={detailDialog.status} />
-                    <span className="text-slate-300 text-xs">{t("claim_item.student_id")}: {detailDialog.student_id || t("common.not_available")}</span>
+                    <span className="text-muted-foreground text-xs">{t("claim_item.student_id")}: {detailDialog.student_id || t("common.not_available")}</span>
                   </div>
                 </div>
               </div>
 
-              <div className="rounded-xl border border-slate-800 bg-slate-950 px-4 py-3">
-                <p className="text-xs font-semibold text-slate-400">{t("admin_claims_queue.reason")}</p>
-                <p className="mt-1.5 leading-relaxed text-slate-200">{detailDialog.reason}</p>
+              <div className="rounded-xl border border-border bg-background px-4 py-3">
+                <p className="text-xs font-semibold text-muted-foreground">{t("admin_claims_queue.reason")}</p>
+                <p className="mt-1.5 leading-relaxed text-foreground">{detailDialog.reason}</p>
               </div>
 
               {detailDialog.received_confirmed_at && (
-                <div className="rounded-xl border border-emerald-900 bg-emerald-950/20 px-4 py-3 text-emerald-400">
+                <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/20 dark:text-emerald-400">
                   {t("admin_claims_queue.received_on", {
                     date: formatLocalizedDate(detailDialog.received_confirmed_at, "MMM d, yyyy"),
                   })}
@@ -290,8 +290,8 @@ export default function AdminClaimsQueue({ claims, foundItems = [] }) {
               <ClaimCaseMessageThread claim={detailDialog} viewerRole="admin" />
 
               {/* Status Update & Moderation action buttons */}
-              <div className="pt-4 border-t border-slate-800/80 space-y-3">
-                <p className="text-xs font-semibold text-slate-400">{t("admin_claims_queue.actions", "Claim Status Actions")}</p>
+              <div className="pt-4 border-t border-border/80 space-y-3">
+                <p className="text-xs font-semibold text-muted-foreground">{t("admin_claims_queue.actions", "Claim Status Actions")}</p>
                 <div className="flex flex-wrap gap-2">
                   {detailDialog.status === "submitted" && (
                     <>
@@ -306,7 +306,7 @@ export default function AdminClaimsQueue({ claims, foundItems = [] }) {
                       <Button
                         size="sm"
                         variant="outline"
-                        className="border-red-900 bg-red-950/20 text-red-400 hover:bg-red-950/40"
+                        className="border-red-200 bg-red-50 text-red-600 hover:bg-red-100 dark:border-red-900 dark:bg-red-950/20 dark:text-red-400 dark:hover:bg-red-950/40"
                         onClick={() => updateMutation.mutate({ claim: detailDialog, data: { status: "rejected" }, action: "Claim rejected" })}
                       >
                         <XCircle className="h-3.5 w-3.5 mr-1" />
@@ -318,7 +318,7 @@ export default function AdminClaimsQueue({ claims, foundItems = [] }) {
                     <Button
                       size="sm"
                       variant="outline"
-                      className="border-slate-800 bg-slate-950 text-slate-300 hover:bg-slate-850"
+                      className="border-border bg-background text-muted-foreground hover:bg-muted"
                       onClick={() => updateMutation.mutate({ claim: detailDialog, data: { status: "under_review" }, action: "Status → Under Review" })}
                     >
                       {t("admin_claims_queue.mark_under_review", "Mark Under Review")}
@@ -328,7 +328,7 @@ export default function AdminClaimsQueue({ claims, foundItems = [] }) {
                     <Button
                       size="sm"
                       variant="outline"
-                      className="border-slate-800 bg-slate-950 text-slate-300 hover:bg-slate-850"
+                      className="border-border bg-background text-muted-foreground hover:bg-muted"
                       onClick={() => updateMutation.mutate({
                         claim: detailDialog,
                         data: {
@@ -362,32 +362,32 @@ export default function AdminClaimsQueue({ claims, foundItems = [] }) {
 
               {/* Admin Notes */}
               <div className="space-y-1.5 pt-2">
-                <label className="text-xs font-semibold text-slate-400">{t("admin_claims_queue.admin_notes")}</label>
+                <label className="text-xs font-semibold text-muted-foreground">{t("admin_claims_queue.admin_notes")}</label>
                 <Textarea
                   value={adminNotes}
                   onChange={(event) => setAdminNotes(event.target.value)}
                   rows={2}
-                  className="bg-slate-950 border-slate-800 text-slate-100 placeholder-slate-650 focus-visible:ring-indigo-500"
+                  className="bg-background border-border text-foreground placeholder-muted-foreground focus-visible:ring-indigo-500"
                 />
               </div>
 
               {detailDialog.claimant_rating ? (
-                <div className="rounded-xl border border-slate-800 bg-slate-950 p-4">
-                  <p className="text-sm font-semibold text-slate-200">{t("admin_claims_queue.claimant_rating")}</p>
+                <div className="rounded-xl border border-border bg-background p-4">
+                  <p className="text-sm font-semibold text-foreground">{t("admin_claims_queue.claimant_rating")}</p>
                   <div className="mt-3 flex gap-0.5">
                     {Array.from({ length: 5 }).map((_, index) => (
                       <Star
                         key={index}
                         className={`h-4 w-4 ${
-                          index < detailDialog.claimant_rating ? "fill-amber-400 text-amber-400" : "text-slate-800"
+                          index < detailDialog.claimant_rating ? "fill-amber-400 text-amber-400" : "text-muted-foreground"
                         }`}
                       />
                     ))}
                   </div>
                   {detailDialog.claimant_review && (
-                    <p className="mt-3 text-sm leading-6 text-slate-300">{detailDialog.claimant_review}</p>
+                    <p className="mt-3 text-sm leading-6 text-muted-foreground">{detailDialog.claimant_review}</p>
                   )}
-                  <p className="mt-3 text-xs text-slate-500">
+                  <p className="mt-3 text-xs text-muted-foreground">
                     {t("admin_claims_queue.review_status", {
                       status: detailDialog.review_status
                         ? translateStatus(t, detailDialog.review_status)
@@ -418,7 +418,7 @@ export default function AdminClaimsQueue({ claims, foundItems = [] }) {
                   <Button
                     size="sm"
                     variant="outline"
-                    className="border-slate-850 hover:bg-slate-800 text-slate-300"
+                    className="border-border hover:bg-muted text-muted-foreground"
                     onClick={() =>
                       updateMutation.mutate({
                         claim: detailDialog,
@@ -437,10 +437,10 @@ export default function AdminClaimsQueue({ claims, foundItems = [] }) {
             </div>
           )}
 
-          <DialogFooter className="pt-2 border-t border-slate-800/50">
+          <DialogFooter className="pt-2 border-t border-border/50">
             <Button
               variant="outline"
-              className="border-slate-800 hover:bg-slate-800 text-slate-300"
+              className="border-border hover:bg-muted text-muted-foreground"
               onClick={() => setDetailDialog(null)}
             >
               {t("common.close")}

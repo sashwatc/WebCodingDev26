@@ -88,7 +88,7 @@ export default function IssueReturnPassPanel({ claim, existingPassId = "" }) {
                 id={`pickup-window-${claim.id}`}
                 value={pickupWindow}
                 onChange={(event) => setPickupWindow(event.target.value)}
-                className="border-indigo-900 bg-slate-950 text-slate-100"
+                className="border-border bg-background text-foreground"
               />
             </div>
             <div className="space-y-1.5">
@@ -99,7 +99,7 @@ export default function IssueReturnPassPanel({ claim, existingPassId = "" }) {
                 id={`pickup-location-${claim.id}`}
                 value={pickupLocation}
                 onChange={(event) => setPickupLocation(event.target.value)}
-                className="border-indigo-900 bg-slate-950 text-slate-100"
+                className="border-border bg-background text-foreground"
               />
             </div>
           </div>

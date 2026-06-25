@@ -92,11 +92,11 @@ export default function ClaimCaseMessageThread({
   };
 
   return (
-    <section className={`rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950 ${className}`} aria-labelledby="claim-thread-heading">
-      <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-4 py-3 dark:border-slate-800">
+    <section className={`rounded-xl border border-border bg-card ${className}`} aria-labelledby="claim-thread-heading">
+      <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
         <div className="flex items-center gap-2">
           <MessageSquare className="h-4 w-4 text-primary" aria-hidden="true" />
-          <h3 id="claim-thread-heading" className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+          <h3 id="claim-thread-heading" className="text-sm font-semibold text-foreground">
             {t("claim_messages.thread_title")}
           </h3>
         </div>
@@ -130,7 +130,7 @@ export default function ClaimCaseMessageThread({
             <p className="mt-1">{t("claim_messages.unavailable_description")}</p>
           </div>
         ) : messages.length === 0 ? (
-          <p className="text-sm text-slate-500">{t("claim_messages.empty")}</p>
+          <p className="text-sm text-muted-foreground">{t("claim_messages.empty")}</p>
         ) : (
           messages.map((message) => {
             const mine = isAdmin ? isStaffMessage(message) : !isStaffMessage(message);
@@ -139,12 +139,12 @@ export default function ClaimCaseMessageThread({
                 key={message.id}
                 className={`max-w-[92%] rounded-xl px-3 py-2 text-sm ${
                   mine
-                    ? "ml-auto bg-primary/10 text-slate-900 dark:text-slate-100"
-                    : "bg-slate-100 text-slate-800 dark:bg-slate-900 dark:text-slate-200"
+                    ? "ml-auto bg-primary/10 text-foreground"
+                    : "bg-muted text-foreground"
                 }`}
               >
-                <div className="mb-1 flex flex-wrap items-center gap-2 text-xs text-slate-500">
-                  <span className="font-semibold text-slate-700 dark:text-slate-300">
+                <div className="mb-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                  <span className="font-semibold text-foreground">
                     {message.sender_name || (isStaffMessage(message) ? t("claim_messages.staff_label") : t("claim_messages.claimant_label"))}
                   </span>
                   <span>{formatLocalizedDate(message.created_date, "MMM d, h:mm a")}</span>
@@ -156,9 +156,9 @@ export default function ClaimCaseMessageThread({
         )}
       </div>
 
-      <div className="border-t border-slate-200 px-4 py-4 dark:border-slate-800">
+      <div className="border-t border-border px-4 py-4">
         {!canReply && !canRequestMoreInfo ? (
-          <p className="text-sm text-slate-500">{t("claim_messages.reply_locked")}</p>
+          <p className="text-sm text-muted-foreground">{t("claim_messages.reply_locked")}</p>
         ) : (
           <div className="space-y-3">
             <label htmlFor={`claim-thread-input-${claimId}`} className="sr-only">
