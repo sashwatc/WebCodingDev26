@@ -19,6 +19,8 @@ import { CATEGORIES, COLORS, LOCATIONS } from "@/lib/constants";
 import { isPublicFoundItemStatus, isArchivedFoundItemStatus } from "@/lib/found-items";
 import { translateCategory, translateColor, translateLocation } from "@/lib/i18n-helpers";
 import { Grid3X3, List, Loader2, Search as SearchIcon, SlidersHorizontal, Sparkles, X } from "lucide-react";
+import { motion } from "framer-motion";
+import { staggerContainerProps } from "@/lib/motion";
 
 function isBackendUnavailable(health) {
   return health?.status === "unavailable" || health?.backend_required === true;
@@ -412,15 +414,15 @@ export default function Search({ recordTypeOverride = "found" }) {
         </div>
 
         {searchAssist ? (
-          <div className="soft-panel px-4 py-3 text-sm text-slate-700">
+          <div className="soft-panel px-4 py-3 text-sm text-foreground">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="font-semibold text-slate-900">Editable search suggestions:</span>
+              <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">Editable search suggestions</span>
               {searchAssist.category ? <Badge variant="secondary">{translateCategory(t, searchAssist.category)}</Badge> : null}
               {searchAssist.color ? <Badge variant="secondary">{translateColor(t, searchAssist.color)}</Badge> : null}
               {searchAssist.location ? <Badge variant="secondary">{translateLocation(t, searchAssist.location)}</Badge> : null}
               {searchAssist.date_hint ? <Badge variant="outline">{searchAssist.date_hint}</Badge> : null}
             </div>
-            <p className="mt-2 text-xs leading-5 text-slate-500">
+            <p className="mt-2 text-xs leading-5 text-muted-foreground">
               {searchAssist.explanation || "Suggestions are advisory only. Edit the search box or filters anytime."}
             </p>
           </div>
@@ -506,11 +508,14 @@ export default function Search({ recordTypeOverride = "found" }) {
       ) : null}
 
       {!healthLoading && !backendUnavailable && !isLoading && !error && filteredItems.length > 0 ? (
-        <div className={viewMode === "grid" ? "grid gap-3 sm:grid-cols-2 xl:grid-cols-3" : "space-y-3"}>
+        <motion.div
+          className={viewMode === "grid" ? "grid gap-3 sm:grid-cols-2 xl:grid-cols-3" : "space-y-3"}
+          {...staggerContainerProps}
+        >
           {filteredItems.map((item) => (
             <ItemCard key={item.id} item={item} viewMode={viewMode} compact={viewMode === "list"} />
           ))}
-        </div>
+        </motion.div>
       ) : null}
 
       {isLostItemsPage ? (

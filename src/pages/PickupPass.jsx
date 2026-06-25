@@ -38,7 +38,7 @@ function statusBadgeClass(status) {
 
 export default function PickupPass() {
   const { t } = useTranslation();
-  const { user, hasAdminAccess, navigateToLogin, isLoadingAuth } = useAuth();
+  const { user, isAdmin, navigateToLogin, isLoadingAuth } = useAuth();
   const location = useLocation();
   const passId = new URLSearchParams(location.search).get("id") || "";
 
@@ -62,7 +62,7 @@ export default function PickupPass() {
   const canViewPass = Boolean(
     user
     && pass
-    && (hasAdminAccess || String(user.email || "").toLowerCase() === String(pass.claimant_email || "").toLowerCase())
+    && (isAdmin || String(user.email || "").toLowerCase() === String(pass.claimant_email || "").toLowerCase())
   );
 
   if (isLoadingAuth) {

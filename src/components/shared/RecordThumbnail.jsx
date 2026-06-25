@@ -8,12 +8,12 @@ export default function RecordThumbnail({
   className = "",
 }) {
   return (
-    <div className={`${sizeClass} overflow-hidden rounded-xl bg-slate-100 flex-shrink-0 ${className}`.trim()}>
+    <div className={`${sizeClass} overflow-hidden rounded-xl bg-muted flex-shrink-0 ${className}`.trim()}>
       {src ? (
         <img src={src} alt={alt} className="h-full w-full object-cover" />
       ) : (
         <div className="flex h-full w-full items-center justify-center">
-          <Package className="h-6 w-6 text-slate-300" />
+          <Package className="h-6 w-6 text-muted-foreground" />
         </div>
       )}
     </div>

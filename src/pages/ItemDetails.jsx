@@ -16,7 +16,6 @@ import { useQuery } from "@tanstack/react-query";
 import { appClient } from "@/api/appClient";
 import StatusBadge from "@/components/ui/StatusBadge";
 import { useAuth } from "@/lib/AuthContext";
-import { useMode } from "@/lib/ModeContext";
 import {
   formatLocalizedDate,
   translateCategory,
@@ -29,6 +28,8 @@ import {
   Shield, Printer, Share2, CheckCircle2,
   Brain, ChevronLeft, ChevronRight, Star
 } from "lucide-react";
+import { motion } from "framer-motion";
+import { fadeUp } from "@/lib/motion";
 
 function normalizeLostReport(report = {}) {
   return {
@@ -59,8 +60,7 @@ export default function ItemDetails() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
-  const { hasAdminAccess } = useAuth();
-  const { isAdminMode } = useMode();
+  const { isAdmin, isLoadingAuth } = useAuth();
   const urlParams = new URLSearchParams(location.search);
   const itemId = urlParams.get("id");
   const itemTypeParam = urlParams.get("type");
@@ -85,7 +85,7 @@ export default function ItemDetails() {
     enabled: !!itemId,
   });
 
-  const isAdmin = hasAdminAccess && isAdminMode;
+  const isAdminView = !isLoadingAuth && isAdmin;
   const isLostReport = item?.record_type === "lost";
 
   const { data: itemClaims = [] } = useQuery({
@@ -103,11 +103,11 @@ export default function ItemDetails() {
         r.matched_items?.some(m => (typeof m === "string" ? m : m.found_item_id) === itemId)
       );
     },
-    enabled: !!itemId && isAdmin && !isLostReport,
+    enabled: !!itemId && isAdminView && !isLostReport,
   });
 
   const { data: custodyEvents = [] } = useQuery({
-    queryKey: ["custodyEvents", itemId, isAdmin],
+    queryKey: ["custodyEvents", itemId, isAdminView],
     queryFn: () => appClient.custody.events(itemId),
     enabled: !!itemId && !isLostReport,
   });
@@ -121,7 +121,7 @@ export default function ItemDetails() {
   const { data: proofVault } = useQuery({
     queryKey: ["proofVault", itemId],
     queryFn: () => appClient.proofVault.item(itemId),
-    enabled: !!itemId && isAdmin && !isLostReport,
+    enabled: !!itemId && isAdminView && !isLostReport,
     retry: false,
   });
 
@@ -149,10 +149,10 @@ export default function ItemDetails() {
 
   if (error) {
     return (
-      <div className="max-w-lg mx-auto px-4 py-20 text-center">
-        <Package className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-        <h2 className="text-xl font-bold text-slate-900 mb-2">{t("item_details.unable_to_load")}</h2>
-        <p className="text-slate-500 mb-4">{error.message}</p>
+      <div className="page-shell max-w-lg py-20 text-center">
+        <Package className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
+        <h2 className="mb-2 text-xl font-bold text-foreground">{t("item_details.unable_to_load")}</h2>
+        <p className="mb-4 text-muted-foreground">{error.message}</p>
         <Button onClick={() => navigate("/Search")}>{t("item_details.back_to_search")}</Button>
       </div>
     );
@@ -160,10 +160,10 @@ export default function ItemDetails() {
 
   if (!item) {
     return (
-      <div className="max-w-lg mx-auto px-4 py-20 text-center">
-        <Package className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-        <h2 className="text-xl font-bold text-slate-900 mb-2">{t("item_details.item_not_found")}</h2>
-        <p className="text-slate-500 mb-4">{t("item_details.item_not_found_description")}</p>
+      <div className="page-shell max-w-lg py-20 text-center">
+        <Package className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
+        <h2 className="mb-2 text-xl font-bold text-foreground">{t("item_details.item_not_found")}</h2>
+        <p className="mb-4 text-muted-foreground">{t("item_details.item_not_found_description")}</p>
         <Button onClick={() => navigate("/Search")}>{t("item_details.back_to_search")}</Button>
       </div>
     );
@@ -193,9 +193,7 @@ export default function ItemDetails() {
   const displayTitle = isLostReport && (!item.title || item.title === "Lost item report")
     ? t("item_details.lost_item_report")
     : item.title;
-  const typeBadgeClasses = isLostReport
-    ? "border-rose-200 bg-rose-100 text-rose-700"
-    : "border-sky-200 bg-sky-100 text-sky-700";
+  const typeBadgeClasses = isLostReport ? "evidence-chip-lost" : "evidence-chip-found";
   const locationLabel = isLostReport ? t("item_details.last_seen") : t("item_details.found_at");
   const dateLabel = isLostReport ? t("item_details.date_lost") : t("item_details.date_found");
   const privacyNote = isLostReport
@@ -203,40 +201,37 @@ export default function ItemDetails() {
     : t("item_details.privacy_note_found");
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-8">
-      {/* Breadcrumb */}
-      <Button variant="ghost" size="sm" className="mb-4 gap-1 text-slate-500" onClick={() => navigate(-1)}>
+    <motion.div className="page-shell max-w-5xl py-8" {...fadeUp}>
+      <Button variant="ghost" size="sm" className="mb-4 gap-1 text-muted-foreground" onClick={() => navigate(-1)}>
         <ArrowLeft className="w-4 h-4" /> {t("common.back")}
       </Button>
 
-      <div className="grid md:grid-cols-5 gap-8">
-        {/* Image gallery: 3 columns */}
+      <div className="grid gap-8 md:grid-cols-5">
         <div className="md:col-span-3">
-          <div className="relative aspect-[4/3] rounded-xl bg-slate-100 overflow-hidden mb-3">
+          <div className="case-file-gallery mb-3">
             {photos.length > 0 ? (
               <img
                 src={photos[currentPhotoIndex]}
                 alt={item.title}
-                className="w-full h-full object-contain bg-slate-50"
+                className="h-full w-full object-contain bg-muted/40"
               />
             ) : (
-              <div className="w-full h-full flex items-center justify-center">
-                <Package className="w-16 h-16 text-slate-200" />
+              <div className="flex h-full w-full items-center justify-center">
+                <Package className="h-16 w-16 text-muted-foreground/40" />
               </div>
             )}
-            {/* Photo Navigation */}
             {photos.length > 1 && (
               <>
                 <button
                   onClick={() => setCurrentPhotoIndex(i => (i - 1 + photos.length) % photos.length)}
-                  className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-white/90 rounded-full flex items-center justify-center shadow-md hover:bg-white"
+                  className="absolute left-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg border border-border bg-background/95 shadow-archive-sm hover:bg-muted"
                   aria-label={t("item_details.previous_photo")}
                 >
                   <ChevronLeft className="w-4 h-4" />
                 </button>
                 <button
                   onClick={() => setCurrentPhotoIndex(i => (i + 1) % photos.length)}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-white/90 rounded-full flex items-center justify-center shadow-md hover:bg-white"
+                  className="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg border border-border bg-background/95 shadow-archive-sm hover:bg-muted"
                   aria-label={t("item_details.next_photo")}
                 >
                   <ChevronRight className="w-4 h-4" />
@@ -244,51 +239,46 @@ export default function ItemDetails() {
               </>
             )}
           </div>
-          {/* Thumbnails */}
           {photos.length > 1 && (
-            <div className="flex gap-2">
+            <div className="flex gap-2 overflow-x-auto pb-1">
               {photos.map((url, i) => (
                 <button
                   key={i}
                   onClick={() => setCurrentPhotoIndex(i)}
-                  className={`w-16 h-16 rounded-lg overflow-hidden border-2 transition-colors ${
-                    i === currentPhotoIndex ? "border-[hsl(174,60%,40%)]" : "border-transparent"
-                  }`}
+                  className={`archive-thumb h-16 w-16 shrink-0 ${i === currentPhotoIndex ? "ring-2 ring-ring" : ""}`}
                 >
-                  <img src={url} alt="" className="w-full h-full object-cover" />
+                  <img src={url} alt="" className="h-full w-full object-cover" />
                 </button>
               ))}
             </div>
           )}
         </div>
 
-        {/* Item details: 2 columns */}
         <div className="md:col-span-2 space-y-5">
-          <div>
-            <div className="flex items-center gap-2 mb-2">
-              <Badge variant="secondary" className={typeBadgeClasses}>
+          <div className="case-file-header">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className={`evidence-chip ${typeBadgeClasses}`}>
                 {isLostReport ? t("common.lost") : t("common.found")}
-              </Badge>
+              </span>
               <StatusBadge status={item.status} />
               {item.item_code && (
-                <Badge variant="outline" className="font-mono text-xs">{item.item_code}</Badge>
+                <Badge variant="evidence" className="font-mono">{item.item_code}</Badge>
               )}
             </div>
-            <h1 className="text-2xl font-bold text-slate-900 mb-2">{displayTitle}</h1>
-            <p className="text-slate-500 leading-relaxed">
+            <h1 className="text-2xl font-bold tracking-tight text-foreground">{displayTitle}</h1>
+            <p className="leading-relaxed text-muted-foreground">
               {item.ai_description || item.description}
             </p>
             {item.ai_description && item.description !== item.ai_description && (
               <details className="mt-2">
-                <summary className="text-xs text-slate-400 cursor-pointer hover:text-slate-600">{t("item_details.view_original_description")}</summary>
-                <p className="text-sm text-slate-400 mt-1 italic">{item.description}</p>
+                <summary className="cursor-pointer text-xs text-muted-foreground hover:text-foreground">{t("item_details.view_original_description")}</summary>
+                <p className="mt-1 text-sm italic text-muted-foreground">{item.description}</p>
               </details>
             )}
           </div>
 
           <Separator />
 
-          {/* Metadata Grid */}
           <div className="grid grid-cols-2 gap-3">
             {[
               { icon: Tag, label: t("common.category"), value: translateCategory(t, item.category) },
@@ -296,40 +286,39 @@ export default function ItemDetails() {
               { icon: Calendar, label: dateLabel, value: item.date_found ? formatLocalizedDate(item.date_found, "MMM d, yyyy") : t("common.not_available") },
               { icon: Clock, label: t("common.time"), value: item.time_found || t("common.not_available") },
             ].map(({ icon: Icon, label, value }) => (
-              <div key={label} className="bg-slate-50 rounded-lg p-3">
-                <div className="flex items-center gap-1.5 mb-1">
-                  <Icon className="w-3.5 h-3.5 text-slate-400" />
-                  <span className="text-xs text-slate-400 font-medium">{label}</span>
+              <div key={label} className="case-file-meta-cell">
+                <div className="flex items-center gap-1.5">
+                  <Icon className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span className="case-file-meta-label">{label}</span>
                 </div>
-                <p className="text-sm font-medium text-slate-700">{value}</p>
+                <p className="case-file-meta-value">{value}</p>
               </div>
             ))}
           </div>
 
-          {/* Additional Details */}
           <div className="space-y-2">
             {item.color && (
               <div className="flex items-center gap-2 text-sm">
-                <span className="text-slate-500">{t("common.color")}:</span>
-                <span className="font-medium text-slate-700">{translateColor(t, item.color)}</span>
+                <span className="text-muted-foreground">{t("common.color")}:</span>
+                <span className="font-medium text-foreground">{translateColor(t, item.color)}</span>
               </div>
             )}
             {item.brand && (
               <div className="flex items-center gap-2 text-sm">
-                <span className="text-slate-500">{t("common.brand")}:</span>
-                <span className="font-medium text-slate-700">{item.brand}</span>
+                <span className="text-muted-foreground">{t("common.brand")}:</span>
+                <span className="font-medium text-foreground">{item.brand}</span>
               </div>
             )}
             {item.condition && (
               <div className="flex items-center gap-2 text-sm">
-                <span className="text-slate-500">{t("common.condition")}:</span>
-                <span className="font-medium text-slate-700 capitalize">{translateCondition(t, item.condition)}</span>
+                <span className="text-muted-foreground">{t("common.condition")}:</span>
+                <span className="font-medium capitalize text-foreground">{translateCondition(t, item.condition)}</span>
               </div>
             )}
             {item.distinguishing_features && (
               <div className="text-sm">
-                <span className="text-slate-500">{t("common.features")}: </span>
-                <span className="text-slate-700">{item.distinguishing_features}</span>
+                <span className="text-muted-foreground">{t("common.features")}: </span>
+                <span className="text-foreground">{item.distinguishing_features}</span>
               </div>
             )}
           </div>
@@ -390,7 +379,7 @@ export default function ItemDetails() {
           <Separator />
 
           {/* Admin-only: Storage Location */}
-          {isAdmin && !isLostReport && item.storage_location && (
+          {isAdminView && !isLostReport && item.storage_location && (
             <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
               <div className="flex items-center gap-1.5 mb-1">
                 <Shield className="w-4 h-4 text-amber-600" />
@@ -468,8 +457,8 @@ export default function ItemDetails() {
           )}
 
           {/* Privacy Note */}
-          <div className="bg-slate-50 rounded-lg p-3 text-xs text-slate-400">
-            <Shield className="w-3.5 h-3.5 inline mr-1" />
+          <div className="soft-panel p-3 text-xs text-muted-foreground">
+            <Shield className="mr-1 inline h-3.5 w-3.5" />
             {privacyNote}
           </div>
 
@@ -486,7 +475,7 @@ export default function ItemDetails() {
       </div>
 
       {/* Admin: Match Panel */}
-      {isAdmin && !isLostReport && matchingReports.length > 0 && (
+      {isAdminView && !isLostReport && matchingReports.length > 0 && (
         <Card className="mt-8 border-slate-200">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
@@ -521,6 +510,6 @@ export default function ItemDetails() {
           </CardContent>
         </Card>
       )}
-    </div>
+    </motion.div>
   );
 }

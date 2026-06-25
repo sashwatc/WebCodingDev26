@@ -23,6 +23,12 @@ import { useToast } from "@/components/ui/use-toast";
 import { getPrimaryRecordPhoto } from "@/lib/media";
 import { formatLocalizedDate, translateStatus } from "@/lib/i18n-helpers";
 import {
+  findReturnPassNotificationForClaim,
+  getPickupPassRoute,
+  getReturnPassIdFromNotification,
+  sanitizeNotificationMessage,
+} from "@/lib/return-pass";
+import {
   AlertTriangle, FileCheck, Bell, Eye,
   Brain, CheckCircle2, Loader2, Star,
   ShieldAlert, Clock, Sparkles, ArrowRight, Ticket

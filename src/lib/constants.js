@@ -3,6 +3,21 @@
  * Centralized configuration for branding, demo access, categories, and statuses.
  */
 
+const STATUS_DARK = {
+  emerald: "dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800",
+  blue: "dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800",
+  indigo: "dark:bg-indigo-950/40 dark:text-indigo-300 dark:border-indigo-800",
+  gray: "dark:bg-gray-900/50 dark:text-gray-300 dark:border-gray-700",
+  amber: "dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800",
+  slate: "dark:bg-slate-800/60 dark:text-slate-300 dark:border-slate-600",
+  red: "dark:bg-red-950/40 dark:text-red-300 dark:border-red-800",
+  green: "dark:bg-green-950/40 dark:text-green-300 dark:border-green-800",
+};
+
+function statusColor(light, tone) {
+  return `${light} ${STATUS_DARK[tone]}`;
+}
+
 export const BRAND_NAME = "Lost Then Found";
 export const BRAND_SHORT_NAME = "Lost Then Found";
 export const SCHOOL_NAME = "PVHS";
@@ -38,32 +53,32 @@ export const COLORS = [
 ];
 
 export const ITEM_STATUSES = {
-  FOUND: { label: "Available", color: "bg-emerald-100 text-emerald-800 border-emerald-200" },
-  CLAIM_PENDING: { label: "Claim Pending", color: "bg-blue-100 text-blue-800 border-blue-200" },
-  VERIFIED: { label: "Verified", color: "bg-indigo-100 text-indigo-800 border-indigo-200" },
-  ARCHIVED: { label: "Archived", color: "bg-gray-100 text-gray-800 border-gray-200" },
-  pending_review: { label: "Pending Review", color: "bg-amber-100 text-amber-800 border-amber-200" },
-  approved: { label: "Approved", color: "bg-emerald-100 text-emerald-800 border-emerald-200" },
-  claimed: { label: "Claimed", color: "bg-blue-100 text-blue-800 border-blue-200" },
-  returned: { label: "Returned", color: "bg-slate-100 text-slate-700 border-slate-200" },
-  archived: { label: "Archived", color: "bg-gray-100 text-gray-800 border-gray-200" },
+  FOUND: { label: "Available", color: statusColor("bg-emerald-100 text-emerald-800 border-emerald-200", "emerald") },
+  CLAIM_PENDING: { label: "Claim Pending", color: statusColor("bg-blue-100 text-blue-800 border-blue-200", "blue") },
+  VERIFIED: { label: "Verified", color: statusColor("bg-indigo-100 text-indigo-800 border-indigo-200", "indigo") },
+  ARCHIVED: { label: "Archived", color: statusColor("bg-gray-100 text-gray-800 border-gray-200", "gray") },
+  pending_review: { label: "Pending Review", color: statusColor("bg-amber-100 text-amber-800 border-amber-200", "amber") },
+  approved: { label: "Approved", color: statusColor("bg-emerald-100 text-emerald-800 border-emerald-200", "emerald") },
+  claimed: { label: "Claimed", color: statusColor("bg-blue-100 text-blue-800 border-blue-200", "blue") },
+  returned: { label: "Returned", color: statusColor("bg-slate-100 text-slate-700 border-slate-200", "slate") },
+  archived: { label: "Archived", color: statusColor("bg-gray-100 text-gray-800 border-gray-200", "gray") },
 };
 
 export const CLAIM_STATUSES = {
-  submitted: { label: "Submitted", color: "bg-blue-100 text-blue-800 border-blue-200" },
-  under_review: { label: "Under Review", color: "bg-amber-100 text-amber-800 border-amber-200" },
-  need_more_info: { label: "Need More Info", color: "bg-slate-100 text-slate-700 border-slate-200" },
-  approved: { label: "Approved", color: "bg-emerald-100 text-emerald-800 border-emerald-200" },
-  rejected: { label: "Rejected", color: "bg-red-100 text-red-800 border-red-200" },
-  completed: { label: "Completed", color: "bg-slate-100 text-slate-700 border-slate-200" },
+  submitted: { label: "Submitted", color: statusColor("bg-blue-100 text-blue-800 border-blue-200", "blue") },
+  under_review: { label: "Under Review", color: statusColor("bg-amber-100 text-amber-800 border-amber-200", "amber") },
+  need_more_info: { label: "Need More Info", color: statusColor("bg-slate-100 text-slate-700 border-slate-200", "slate") },
+  approved: { label: "Approved", color: statusColor("bg-emerald-100 text-emerald-800 border-emerald-200", "emerald") },
+  rejected: { label: "Rejected", color: statusColor("bg-red-100 text-red-800 border-red-200", "red") },
+  completed: { label: "Completed", color: statusColor("bg-slate-100 text-slate-700 border-slate-200", "slate") },
 };
 
 export const LOST_REPORT_STATUSES = {
-  open: { label: "Open", color: "bg-blue-100 text-blue-800 border-blue-200" },
-  matched: { label: "Matched", color: "bg-slate-100 text-slate-700 border-slate-200" },
-  in_review: { label: "In Review", color: "bg-amber-100 text-amber-800 border-amber-200" },
-  resolved: { label: "Resolved", color: "bg-green-100 text-green-800 border-green-200" },
-  closed: { label: "Closed", color: "bg-gray-100 text-gray-800 border-gray-200" },
+  open: { label: "Open", color: statusColor("bg-blue-100 text-blue-800 border-blue-200", "blue") },
+  matched: { label: "Matched", color: statusColor("bg-slate-100 text-slate-700 border-slate-200", "slate") },
+  in_review: { label: "In Review", color: statusColor("bg-amber-100 text-amber-800 border-amber-200", "amber") },
+  resolved: { label: "Resolved", color: statusColor("bg-green-100 text-green-800 border-green-200", "green") },
+  closed: { label: "Closed", color: statusColor("bg-gray-100 text-gray-800 border-gray-200", "gray") },
 };
 
 export const CONDITIONS = [
@@ -74,10 +89,10 @@ export const CONDITIONS = [
 ];
 
 export const URGENCY_LEVELS = [
-  { value: "low", label: "Low", color: "text-gray-600" },
-  { value: "medium", label: "Medium", color: "text-amber-600" },
-  { value: "high", label: "High", color: "text-orange-600" },
-  { value: "critical", label: "Critical", color: "text-red-600" },
+  { value: "low", label: "Low", color: "text-muted-foreground" },
+  { value: "medium", label: "Medium", color: "text-amber-600 dark:text-amber-300" },
+  { value: "high", label: "High", color: "text-orange-600 dark:text-orange-300" },
+  { value: "critical", label: "Critical", color: "text-destructive" },
 ];
 
 export const DEMO_ACCOUNTS = {

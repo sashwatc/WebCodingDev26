@@ -29,11 +29,19 @@ module.exports = {
   		boxShadow: {
   			"button-inset": "inset 0 1px 3px rgba(0, 0, 0, 0.1)",
   			"button-inset-dark": "inset 0 1px 3px rgba(0, 0, 0, 0.3)",
-  			"button": "0 2px 4px rgba(0, 0, 0, 0.1)"
+  			"button": "0 2px 4px rgba(0, 0, 0, 0.1)",
+  			"archive-sm": "0 1px 2px hsl(220 40% 12% / 0.05), 0 0 0 1px hsl(var(--border))",
+  			"archive-md": "0 4px 16px hsl(220 40% 12% / 0.07), 0 0 0 1px hsl(var(--border))",
+  			"archive-lift": "0 8px 24px hsl(220 40% 12% / 0.1), 0 0 0 1px hsl(var(--border))"
   		},
   		colors: {
   			background: 'hsl(var(--background))',
   			foreground: 'hsl(var(--foreground))',
+  			canvas: 'hsl(var(--canvas))',
+  			surface: {
+  				DEFAULT: 'hsl(var(--surface))',
+  				elevated: 'hsl(var(--surface-elevated))',
+  			},
   			card: {
   				DEFAULT: 'hsl(var(--card))',
   				foreground: 'hsl(var(--card-foreground))'
@@ -65,6 +73,15 @@ module.exports = {
   			border: 'hsl(var(--border))',
   			input: 'hsl(var(--input))',
   			ring: 'hsl(var(--ring))',
+  			overlay: 'hsl(var(--overlay))',
+  			status: {
+  				lost: 'hsl(var(--status-lost))',
+  				'lost-foreground': 'hsl(var(--status-lost-foreground))',
+  				found: 'hsl(var(--status-found))',
+  				'found-foreground': 'hsl(var(--status-found-foreground))',
+  				warning: 'hsl(var(--status-warning))',
+  				'warning-foreground': 'hsl(var(--status-warning-foreground))',
+  			},
   			chart: {
   				'1': 'hsl(var(--chart-1))',
   				'2': 'hsl(var(--chart-2))',

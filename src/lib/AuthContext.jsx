@@ -1,12 +1,10 @@
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { appClient } from "@/api/appClient";
 import { queryClientInstance } from "@/lib/query-client";
+import { clearClientAuthStorage, isAdminRole } from "@/lib/auth-session";
+import { stripLegacyAdminModeFromUiSettings } from "@/lib/auth-role";
 
 const AuthContext = createContext();
-
-function isBackendAdmin(user) {
-  return String(user?.role || "").toLowerCase() === "admin";
-}
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
@@ -17,9 +15,12 @@ export const AuthProvider = ({ children }) => {
   const [appPublicSettings, setAppPublicSettings] = useState(null);
   const [isSignInOpen, setIsSignInOpen] = useState(false);
   const [isAdminAccessOpen, setIsAdminAccessOpen] = useState(false);
-  const [hasAdminAccess, setHasAdminAccess] = useState(false);
+
+  const isAdmin = useMemo(() => isAdminRole(user), [user]);
 
   useEffect(() => {
+    stripLegacyAdminModeFromUiSettings();
+
     void (async () => {
       try {
         await appClient.auth.completeOAuthRedirect?.();
@@ -50,6 +51,11 @@ export const AuthProvider = ({ children }) => {
     };
   }, []);
 
+  const applyAuthUser = (currentUser) => {
+    setUser(currentUser);
+    setIsAuthenticated(Boolean(currentUser));
+  };
+
   const checkAppState = async () => {
     setIsLoadingPublicSettings(true);
     setIsLoadingAuth(true);
@@ -57,9 +63,7 @@ export const AuthProvider = ({ children }) => {
 
     try {
       const currentUser = await appClient.auth.me();
-      setUser(currentUser);
-      setIsAuthenticated(Boolean(currentUser));
-      setHasAdminAccess(isBackendAdmin(currentUser));
+      applyAuthUser(currentUser);
       setAppPublicSettings({
         id: "standalone",
         public_settings: {
@@ -67,9 +71,7 @@ export const AuthProvider = ({ children }) => {
         },
       });
     } catch (error) {
-      setUser(null);
-      setIsAuthenticated(false);
-      setHasAdminAccess(false);
+      applyAuthUser(null);
       setAuthError({
         type: "unknown",
         message: error.message || "Failed to load the app",
@@ -80,23 +82,24 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const logout = async () => {
-    setHasAdminAccess(false);
+  const logout = async (returnUrl = window.location.href) => {
     setIsAdminAccessOpen(false);
-    await appClient.auth.logout(window.location.href);
+    applyAuthUser(null);
+    clearClientAuthStorage();
+    await appClient.auth.logout(returnUrl);
+    queryClientInstance.clear();
   };
 
   const signIn = async (credentials) => {
     const nextUser = await appClient.auth.signIn(credentials);
-    setHasAdminAccess(isBackendAdmin(nextUser));
-    setIsAdminAccessOpen(false);
+    applyAuthUser(nextUser);
     setIsSignInOpen(false);
+    setIsAdminAccessOpen(false);
+    queryClientInstance.clear();
     return nextUser;
   };
 
-  const signInWithGoogle = async () => {
-    return appClient.auth.signInWithGoogle();
-  };
+  const signInWithGoogle = async () => appClient.auth.signInWithGoogle();
 
   const isAppwriteEnabled = Boolean(appClient.auth.isAppwriteEnabled?.());
 
@@ -111,40 +114,21 @@ export const AuthProvider = ({ children }) => {
       return false;
     }
 
-    if (!isBackendAdmin(user)) {
+    if (!isAdminRole(user)) {
       setIsAdminAccessOpen(true);
       return false;
     }
 
-    setHasAdminAccess(true);
     setIsAdminAccessOpen(false);
     return true;
-  };
-
-  const requestAdminAccess = async () => {
-    if (!user) {
-      throw new Error("Sign in before opening admin controls.");
-    }
-
-    if (!isBackendAdmin(user)) {
-      throw new Error("This account does not have admin access.");
-    }
-
-    setHasAdminAccess(true);
-    setIsAdminAccessOpen(false);
-    return true;
-  };
-
-  const revokeAdminAccess = () => {
-    setHasAdminAccess(false);
-    setIsAdminAccessOpen(false);
   };
 
   return (
     <AuthContext.Provider
       value={{
         user,
-        hasAdminAccess,
+        isAdmin,
+        hasAdminAccess: isAdmin,
         isAuthenticated,
         isLoadingAuth,
         isLoadingPublicSettings,
@@ -156,8 +140,6 @@ export const AuthProvider = ({ children }) => {
         isAppwriteEnabled,
         navigateToLogin,
         openAdminAccess,
-        requestAdminAccess,
-        revokeAdminAccess,
         checkAppState,
         isSignInOpen,
         setIsSignInOpen,

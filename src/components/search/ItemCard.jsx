@@ -1,15 +1,17 @@
 /**
  * Lost Then Found - Item Card Component
- * Compact public-safe listing for found items and lost reports.
+ * Archive catalog entry with evidence-style metadata labels.
  */
 
 import React from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import { motion } from "framer-motion";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Calendar, CheckCircle2, Eye, MapPin, Package } from "lucide-react";
 import StatusBadge from "@/components/ui/StatusBadge";
+import { cardLift, staggerChildVariants } from "@/lib/motion";
 import { formatLocalizedDate, translateCategory, translateColor, translateLocation } from "@/lib/i18n-helpers";
 
 export default function ItemCard({ item, viewMode = "list", compact = false }) {
@@ -19,20 +21,32 @@ export default function ItemCard({ item, viewMode = "list", compact = false }) {
   const isLostReport = item.record_type === "lost";
   const detailHref = isLostReport ? `/ItemDetails?type=lost&id=${item.id}` : `/ItemDetails?id=${item.id}`;
   const detailLabel = isLostReport ? t("common.view_report") : t("common.view_item");
-  const typeBadgeClasses = isLostReport
-    ? "border-rose-200 bg-rose-50 text-rose-800 dark:border-rose-800 dark:bg-rose-950/40 dark:text-rose-100"
-    : "border-sky-200 bg-sky-50 text-sky-800 dark:border-sky-800 dark:bg-sky-950/40 dark:text-sky-100";
+  const recordChipClass = isLostReport ? "evidence-chip-lost" : "evidence-chip-found";
 
   const metaRow = (
-    <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
       <span className="inline-flex items-center gap-1">
-        <MapPin className="h-3.5 w-3.5" aria-hidden="true" />
-        {translateLocation(t, item.location_found) || t("common.unknown_location")}
+        <MapPin className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+        <span className="truncate">{translateLocation(t, item.location_found) || t("common.unknown_location")}</span>
       </span>
       <span className="inline-flex items-center gap-1">
-        <Calendar className="h-3.5 w-3.5" aria-hidden="true" />
+        <Calendar className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
         {item.date_found ? formatLocalizedDate(item.date_found, "MMM d, yyyy") : t("common.not_available")}
       </span>
+    </div>
+  );
+
+  const evidenceRow = (
+    <div className="flex flex-wrap gap-1.5">
+      <span className={`evidence-chip ${recordChipClass}`}>
+        {isLostReport ? t("common.lost") : t("common.found")}
+      </span>
+      {item.category ? (
+        <Badge variant="evidence">{translateCategory(t, item.category)}</Badge>
+      ) : null}
+      {item.color ? (
+        <Badge variant="evidence">{translateColor(t, item.color)}</Badge>
+      ) : null}
     </div>
   );
 
@@ -48,7 +62,7 @@ export default function ItemCard({ item, viewMode = "list", compact = false }) {
   const foundThisButton = isLostReport ? (
     <Button
       size="sm"
-      variant="outline"
+      variant="secondary"
       onClick={(event) => {
         event.preventDefault();
         event.stopPropagation();
@@ -63,7 +77,7 @@ export default function ItemCard({ item, viewMode = "list", compact = false }) {
 
   if (viewMode === "list" || compact) {
     return (
-      <article className="item-card-compact">
+      <motion.article className="item-card-compact" variants={staggerChildVariants} {...cardLift}>
         <div className="flex flex-col gap-4 p-4 sm:flex-row sm:items-start">
           <div className="item-card-thumb shrink-0">
             {imageUrl ? (
@@ -75,25 +89,13 @@ export default function ItemCard({ item, viewMode = "list", compact = false }) {
             )}
           </div>
 
-          <div className="min-w-0 flex-1 space-y-2">
+          <div className="min-w-0 flex-1 space-y-2.5">
             <div className="flex flex-wrap items-center gap-2">
               <h3 className="text-base font-semibold text-foreground">{item.title}</h3>
-              <Badge variant="outline" className={typeBadgeClasses}>
-                {isLostReport ? t("common.lost") : t("common.found")}
-              </Badge>
               <StatusBadge status={item.status} />
-              {item.category ? (
-                <Badge variant="outline" className="text-xs">
-                  {translateCategory(t, item.category)}
-                </Badge>
-              ) : null}
-              {item.color ? (
-                <Badge variant="outline" className="text-xs">
-                  {translateColor(t, item.color)}
-                </Badge>
-              ) : null}
             </div>
 
+            {evidenceRow}
             {metaRow}
 
             <p className="line-clamp-2 text-sm leading-6 text-muted-foreground">
@@ -106,12 +108,12 @@ export default function ItemCard({ item, viewMode = "list", compact = false }) {
             </div>
           </div>
         </div>
-      </article>
+      </motion.article>
     );
   }
 
   return (
-    <article className="item-card-compact h-full overflow-hidden">
+    <motion.article className="item-card-compact h-full overflow-hidden" variants={staggerChildVariants} {...cardLift}>
       <Link to={detailHref} className="block h-full">
         <div className="item-card-grid-media">
           {imageUrl ? (
@@ -123,9 +125,9 @@ export default function ItemCard({ item, viewMode = "list", compact = false }) {
           )}
           <div className="absolute left-3 top-3 flex flex-col gap-1.5">
             <StatusBadge status={item.status} />
-            <Badge variant="outline" className={`w-fit text-[10px] font-semibold uppercase ${typeBadgeClasses}`}>
+            <span className={`evidence-chip w-fit ${recordChipClass}`}>
               {isLostReport ? t("common.lost") : t("common.found")}
-            </Badge>
+            </span>
           </div>
         </div>
 
@@ -139,18 +141,16 @@ export default function ItemCard({ item, viewMode = "list", compact = false }) {
           </p>
           <div className="flex items-center justify-between gap-3 border-t border-border pt-3">
             {item.category ? (
-              <Badge variant="outline" className="text-xs">
-                {translateCategory(t, item.category)}
-              </Badge>
+              <Badge variant="evidence">{translateCategory(t, item.category)}</Badge>
             ) : (
               <span />
             )}
-            <span className="text-xs font-medium text-foreground">{detailLabel}</span>
+            <span className="text-xs font-medium text-primary">{detailLabel}</span>
           </div>
         </div>
       </Link>
 
       {foundThisButton ? <div className="border-t border-border px-4 pb-4">{foundThisButton}</div> : null}
-    </article>
+    </motion.article>
   );
 }

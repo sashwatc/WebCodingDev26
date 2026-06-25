@@ -21,7 +21,7 @@ export default function Footer() {
         <div className="grid gap-8 md:grid-cols-3">
           <div className="space-y-3">
             <div className="flex items-center gap-3">
-              <div className="flex h-8 w-8 items-center justify-center rounded-md border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
+              <div className="flex h-8 w-8 items-center justify-center rounded-md border border-border bg-card">
                 <img src={schoolMark} alt="" className="h-5 w-5 object-contain" />
               </div>
               <h2 className="text-sm font-semibold text-foreground">{BRAND_NAME}</h2>

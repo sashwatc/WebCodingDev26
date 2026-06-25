@@ -127,23 +127,23 @@ export default function SignInDialog() {
             <button
               type="button"
               onClick={() => applyDemoAccount(DEMO_ACCOUNT)}
-              className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-left transition hover:border-slate-300 hover:bg-slate-100"
+              className="rounded-xl border border-border bg-muted px-4 py-3 text-left transition hover:border-border hover:bg-accent"
             >
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">{t("sign_in_dialog.student_demo")}</p>
-              <p className="mt-1 text-sm font-semibold text-slate-900">{DEMO_ACCOUNT.full_name}</p>
-              <p className="text-xs text-slate-500">{DEMO_ACCOUNT.email}</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">{t("sign_in_dialog.student_demo")}</p>
+              <p className="mt-1 text-sm font-semibold text-foreground">{DEMO_ACCOUNT.full_name}</p>
+              <p className="text-xs text-muted-foreground">{DEMO_ACCOUNT.email}</p>
             </button>
             <button
               type="button"
               onClick={() => applyDemoAccount(ADMIN_DEMO_ACCOUNT)}
-              className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-left transition hover:border-slate-300 hover:bg-slate-100"
+              className="rounded-xl border border-border bg-muted px-4 py-3 text-left transition hover:border-border hover:bg-accent"
             >
               <div className="flex items-center gap-2">
-                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">{t("sign_in_dialog.admin_demo")}</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">{t("sign_in_dialog.admin_demo")}</p>
                 <Shield className="h-3.5 w-3.5 text-primary" />
               </div>
-              <p className="mt-1 text-sm font-semibold text-slate-900">{ADMIN_DEMO_ACCOUNT.full_name}</p>
-              <p className="text-xs text-slate-500">{ADMIN_DEMO_ACCOUNT.email}</p>
+              <p className="mt-1 text-sm font-semibold text-foreground">{ADMIN_DEMO_ACCOUNT.full_name}</p>
+              <p className="text-xs text-muted-foreground">{ADMIN_DEMO_ACCOUNT.email}</p>
             </button>
           </div>
         )}
@@ -153,7 +153,7 @@ export default function SignInDialog() {
             <div className="space-y-1.5">
               <Label htmlFor="sign-in-name">{t("sign_in_dialog.full_name")}</Label>
               <div className="relative">
-                <User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   id="sign-in-name"
                   value={form.full_name}
@@ -169,7 +169,7 @@ export default function SignInDialog() {
           <div className="space-y-1.5">
             <Label htmlFor="sign-in-email">{t("sign_in_dialog.email")}</Label>
             <div className="relative">
-              <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 id="sign-in-email"
                 type="email"
@@ -186,7 +186,7 @@ export default function SignInDialog() {
             <div className="space-y-1.5">
               <Label htmlFor="sign-in-password">{t("sign_in_dialog.password")}</Label>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   id="sign-in-password"
                   type="password"
@@ -231,7 +231,7 @@ export default function SignInDialog() {
           )}
 
           {!isAppwriteEnabled && (
-            <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-500">
+            <div className="rounded-lg border border-border bg-muted px-3 py-2 text-xs text-muted-foreground">
               {t("sign_in_dialog.demo_help")}
             </div>
           )}

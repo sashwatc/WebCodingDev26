@@ -1,21 +1,45 @@
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
 
-const ModeContext = createContext();
+const ModeContext = createContext(null);
 const SETTINGS_STORAGE_KEY = "findback-ui-settings";
 
 function getDefaultSettings() {
   return {
-    isAdminMode: false,
     theme: "light",
     readingMode: "default",
     contrastMode: "default",
   };
 }
 
+function stripLegacyAdminModeFromUiSettings() {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  try {
+    const raw = window.localStorage.getItem(SETTINGS_STORAGE_KEY);
+    if (!raw) {
+      return;
+    }
+
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object" || !("isAdminMode" in parsed)) {
+      return;
+    }
+
+    const { isAdminMode: _removed, ...rest } = parsed;
+    window.localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(rest));
+  } catch {
+    // Ignore corrupt UI settings.
+  }
+}
+
 function readStoredSettings() {
   if (typeof window === "undefined") {
     return getDefaultSettings();
   }
+
+  stripLegacyAdminModeFromUiSettings();
 
   try {
     const raw = window.localStorage.getItem(SETTINGS_STORAGE_KEY);
@@ -25,7 +49,6 @@ function readStoredSettings() {
 
     const parsed = JSON.parse(raw);
     return {
-      isAdminMode: Boolean(parsed.isAdminMode),
       theme: parsed.theme === "dark" ? "dark" : "light",
       readingMode: parsed.readingMode === "dyslexic" ? "dyslexic" : "default",
       contrastMode: parsed.contrastMode === "high" ? "high" : "default",
@@ -60,21 +83,6 @@ export function ModeProvider({ children }) {
     root.dataset.readingMode = settings.readingMode;
     root.dataset.contrastMode = settings.contrastMode;
   }, [settings.theme, settings.readingMode, settings.contrastMode]);
-
-  const setIsAdminMode = (value) => {
-    setSettings((current) => {
-      const nextIsAdminMode = typeof value === "function" ? value(current.isAdminMode) : value;
-
-      if (current.isAdminMode === nextIsAdminMode) {
-        return current;
-      }
-
-      return {
-        ...current,
-        isAdminMode: nextIsAdminMode,
-      };
-    });
-  };
 
   const setTheme = (value) => {
     setSettings((current) => {
@@ -118,24 +126,29 @@ export function ModeProvider({ children }) {
     });
   };
 
+  const value = useMemo(
+    () => ({
+      theme: settings.theme,
+      setTheme,
+      readingMode: settings.readingMode,
+      setReadingMode,
+      contrastMode: settings.contrastMode,
+      setContrastMode,
+    }),
+    [settings.theme, settings.readingMode, settings.contrastMode],
+  );
+
   return (
-    <ModeContext.Provider
-      value={{
-        isAdminMode: settings.isAdminMode,
-        setIsAdminMode,
-        theme: settings.theme,
-        setTheme,
-        readingMode: settings.readingMode,
-        setReadingMode,
-        contrastMode: settings.contrastMode,
-        setContrastMode,
-      }}
-    >
+    <ModeContext.Provider value={value}>
       {children}
     </ModeContext.Provider>
   );
 }
 
 export function useMode() {
-  return useContext(ModeContext);
+  const context = useContext(ModeContext);
+  if (!context) {
+    throw new Error("useMode must be used within a ModeProvider");
+  }
+  return context;
 }

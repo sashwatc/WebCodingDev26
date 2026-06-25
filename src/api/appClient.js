@@ -12,9 +12,14 @@ import {
   registerWithEmailPassword as appwriteRegisterEmailPassword,
   startGoogleOAuth,
 } from "@/lib/appwriteAuth";
+import {
+  AUTH_STORAGE_KEY,
+  clearClientAuthStorage,
+  isAdminRole,
+  shouldAttachDemoUserHeader,
+} from "@/lib/auth-session";
 
 const STORAGE_KEY = "findback-app-db-v2";
-const AUTH_STORAGE_KEY = "findback-auth-user";
 const API_BASE_URL = String(import.meta.env.VITE_API_URL || "").replace(/\/$/, "");
 const FOUND_ITEMS_API_URL = `${API_BASE_URL}/api/items`;
 const ADMIN_FOUND_ITEMS_API_URL = `${API_BASE_URL}/api/admin/items`;
@@ -1676,6 +1681,10 @@ async function requestAuthApi(path = "", options = {}) {
 }
 
 function demoUserHeaders() {
+  if (!shouldAttachDemoUserHeader()) {
+    return {};
+  }
+
   const user = readAuthUser();
   return user?.email ? { "X-Demo-User-Email": user.email } : {};
 }
@@ -1686,7 +1695,7 @@ function appwriteAuthHeaders() {
 }
 
 function isAdminUser(user = readAuthUser()) {
-  return String(user?.role || "").toLowerCase() === "admin";
+  return isAdminRole(user);
 }
 
 async function requestRecoveryMeshApi(path = "", options = {}) {
@@ -3632,9 +3641,8 @@ async function getCurrentAuthUser() {
       return clone(normalizedUser);
     }
   } catch {
-    if (currentUser?.role) {
-      return clone(currentUser);
-    }
+    writeAuthUser(null);
+    return null;
   }
 
   return null;
@@ -3763,8 +3771,7 @@ function createAppClient() {
         if (isAppwriteConfigured()) {
           await appwriteDeleteSession().catch(() => {});
         }
-        clearStoredAppwriteJwt();
-        writeAuthUser(null);
+        clearClientAuthStorage();
         emitAuthChange("SIGNED_OUT", null);
         return null;
       },

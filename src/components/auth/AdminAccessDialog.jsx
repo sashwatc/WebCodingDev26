@@ -44,12 +44,12 @@ export default function AdminAccessDialog() {
             </p>
           </div>
 
-          <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-slate-600 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-300">
-            <p className="font-semibold text-slate-900 dark:text-white">{user?.full_name || t("admin_access_dialog.signed_in_user")}</p>
-            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{user?.email}</p>
+          <div className="rounded-lg border border-border bg-muted px-4 py-3 text-muted-foreground">
+            <p className="font-semibold text-foreground">{user?.full_name || t("admin_access_dialog.signed_in_user")}</p>
+            <p className="mt-1 text-xs text-muted-foreground">{user?.email}</p>
           </div>
 
-          <p className="text-xs text-slate-500 dark:text-slate-400">
+          <p className="text-xs text-muted-foreground">
             {t("admin_access_dialog.password_help")}
             {" "}
             <a className="font-medium underline underline-offset-2" href={`mailto:${SUPPORT_EMAIL}`}>

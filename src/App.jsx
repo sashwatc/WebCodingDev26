@@ -13,7 +13,6 @@ import { MotionConfig } from "framer-motion";
 import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
-import { ModeProvider } from '@/lib/ModeContext';
 import AdminRouteGuard from '@/components/auth/AdminRouteGuard';
 import SignInDialog from '@/components/auth/SignInDialog';
 import AdminAccessDialog from '@/components/auth/AdminAccessDialog';
@@ -53,10 +52,10 @@ const AuthenticatedApp = () => {
 
   if (isLoadingPublicSettings || isLoadingAuth) {
     return (
-      <div className="fixed inset-0 flex items-center justify-center bg-[hsl(210,20%,98%)]">
+      <div className="fixed inset-0 flex items-center justify-center bg-background">
         <div className="text-center">
-          <div className="w-10 h-10 border-4 border-slate-200 border-t-[hsl(174,60%,40%)] rounded-full animate-spin mx-auto mb-3"></div>
-          <p className="text-sm text-slate-400">{t("common.loading")} {BRAND_NAME}</p>
+          <div className="mx-auto mb-3 h-10 w-10 animate-spin rounded-full border-4 border-muted border-t-primary"></div>
+          <p className="text-sm text-muted-foreground">{t("common.loading")} {BRAND_NAME}</p>
         </div>
       </div>
     );
@@ -127,20 +126,18 @@ const AuthenticatedApp = () => {
 
 function App() {
   return (
-    <ModeProvider>
-      <AuthProvider>
-        <QueryClientProvider client={queryClientInstance}>
-          <MotionConfig reducedMotion="user">
-            <SignInDialog />
-            <AdminAccessDialog />
-            <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-              <AuthenticatedApp />
-            </Router>
-          </MotionConfig>
-          <Toaster />
-        </QueryClientProvider>
-      </AuthProvider>
-    </ModeProvider>
+    <AuthProvider>
+      <QueryClientProvider client={queryClientInstance}>
+        <MotionConfig reducedMotion="user">
+          <SignInDialog />
+          <AdminAccessDialog />
+          <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+            <AuthenticatedApp />
+          </Router>
+        </MotionConfig>
+        <Toaster />
+      </QueryClientProvider>
+    </AuthProvider>
   )
 }
 

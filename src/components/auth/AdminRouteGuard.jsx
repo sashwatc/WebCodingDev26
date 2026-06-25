@@ -1,32 +1,22 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Shield, LockKeyhole, UserRoundX } from "lucide-react";
 import { useAuth } from "@/lib/AuthContext";
-import { useMode } from "@/lib/ModeContext";
 import { useToast } from "@/components/ui/use-toast";
 
 export default function AdminRouteGuard({ children }) {
   const { t } = useTranslation();
   const {
     user,
-    hasAdminAccess,
+    isAdmin,
     isLoadingAuth,
     isLoadingPublicSettings,
     navigateToLogin,
   } = useAuth();
-  const { isAdminMode, setIsAdminMode } = useMode();
   const { toast } = useToast();
   const [openingLogin, setOpeningLogin] = useState(false);
-
-  useEffect(() => {
-    const nextAdminMode = Boolean(hasAdminAccess);
-
-    if (isAdminMode !== nextAdminMode) {
-      setIsAdminMode(nextAdminMode);
-    }
-  }, [hasAdminAccess, isAdminMode, setIsAdminMode]);
 
   const handleSignIn = async () => {
     setOpeningLogin(true);
@@ -83,7 +73,7 @@ export default function AdminRouteGuard({ children }) {
     );
   }
 
-  if (!hasAdminAccess) {
+  if (!isAdmin) {
     return (
       <div className="page-shell max-w-2xl py-20">
         <div className="surface-card px-8 py-14 text-center">

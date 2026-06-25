@@ -1,8 +1,3 @@
-/**
- * Lost Then Found - Main Navigation Bar
- * Keeps primary actions and account controls visible without decorative chrome.
- */
-
 import React, { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -49,18 +44,12 @@ export default function Navbar() {
   const { t } = useTranslation();
   const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
-  const {
-    isAdminMode,
-    setIsAdminMode,
-    theme,
-    setTheme,
-  } = useMode();
+  const { theme, setTheme } = useMode();
   const {
     user,
-    hasAdminAccess,
+    isAdmin,
+    isLoadingAuth,
     navigateToLogin,
-    openAdminAccess,
-    revokeAdminAccess,
     logout,
   } = useAuth();
   const { toast } = useToast();
@@ -68,12 +57,6 @@ export default function Navbar() {
   useEffect(() => {
     setMobileOpen(false);
   }, [location.pathname]);
-
-  useEffect(() => {
-    if (!hasAdminAccess && isAdminMode) {
-      setIsAdminMode(false);
-    }
-  }, [hasAdminAccess, isAdminMode, setIsAdminMode]);
 
   const { data: notifications = [] } = useQuery({
     queryKey: ["navNotifications", user?.email],
@@ -84,8 +67,8 @@ export default function Navbar() {
     enabled: !!user?.email,
   });
 
-  const isAdmin = hasAdminAccess && isAdminMode;
   const isActive = (path) => location.pathname === path;
+  const showAdminNav = !isLoadingAuth && user && isAdmin;
 
   const navLinks = [
     { to: "/Home", label: t("common.home"), icon: Home },
@@ -118,42 +101,15 @@ export default function Navbar() {
     }
   };
 
-  const handleAdminView = async () => {
-    if (isAdmin) {
-      return;
-    }
-
-    if (!user) {
-      await handleSignIn();
-      return;
-    }
-
-    if (hasAdminAccess) {
-      setIsAdminMode(true);
-      return;
-    }
-
-    await openAdminAccess();
-  };
-
-  const handleLockAdminAccess = () => {
-    setIsAdminMode(false);
-    revokeAdminAccess();
-    toast({
-      title: t("navbar.admin_access_locked"),
-      description: t("navbar.admin_access_locked_description"),
-    });
-  };
-
   return (
     <header
       role="banner"
-      className="fixed inset-x-0 top-0 z-50 border-b border-border bg-background"
+      className="fixed inset-x-0 top-0 z-50 border-b border-border bg-background/95 shadow-archive-sm backdrop-blur-md supports-[backdrop-filter]:bg-background/90"
     >
       <nav className="page-shell" aria-label={t("navbar.main_navigation")}>
         <div className="flex min-h-16 items-center gap-3 py-2">
           <Link to="/Home" className="flex shrink-0 items-center gap-3 transition-opacity hover:opacity-90" aria-label={t("navbar.brand_home", { brand: BRAND_NAME })}>
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-card">
               <img src={schoolMark} alt="" className="h-6 w-6 object-contain" />
             </div>
             <div className="min-w-0">
@@ -184,27 +140,6 @@ export default function Navbar() {
           </div>
 
           <div className="hidden xl:flex flex-1 items-center justify-end gap-2">
-            <div className="hidden md:flex items-center rounded-lg border border-border bg-muted p-1">
-              <button
-                onClick={() => setIsAdminMode(false)}
-                aria-pressed={!isAdmin}
-                className={`rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${
-                  !isAdmin ? "bg-background text-foreground" : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                {t("navbar.student")}
-              </button>
-              <button
-                onClick={handleAdminView}
-                aria-pressed={isAdmin}
-                className={`rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${
-                  isAdmin ? "bg-background text-foreground" : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                {t("navbar.admin")}
-              </button>
-            </div>
-
             <Link to="/ReportFound" className="hidden md:inline-flex">
               <Button size="sm" className="gap-2">
                 <PlusCircle className="h-4 w-4" />
@@ -219,7 +154,7 @@ export default function Navbar() {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-60">
-                <DropdownMenuLabel className="text-xs uppercase tracking-[0.14em] text-slate-500">
+                <DropdownMenuLabel className="text-xs uppercase tracking-[0.14em] text-muted-foreground">
                   {t("navbar.appearance")}
                 </DropdownMenuLabel>
                 <DropdownMenuRadioGroup value={theme} onValueChange={setTheme}>
@@ -233,7 +168,7 @@ export default function Navbar() {
                   </DropdownMenuRadioItem>
                 </DropdownMenuRadioGroup>
                 <DropdownMenuSeparator />
-                <DropdownMenuLabel className="text-xs uppercase tracking-[0.14em] text-slate-500">
+                <DropdownMenuLabel className="text-xs uppercase tracking-[0.14em] text-muted-foreground">
                   {t("navbar.language")}
                 </DropdownMenuLabel>
                 <div className="px-2 py-1.5">
@@ -242,11 +177,11 @@ export default function Navbar() {
               </DropdownMenuContent>
             </DropdownMenu>
 
-            {user && hasAdminAccess && !isAdmin && (
+            {showAdminNav && (
               <Link to="/AdminDashboard" className="hidden xl:inline-flex">
                 <Button size="sm" variant="outline" className="gap-2">
-                  <LayoutDashboard className="h-4 w-4" />
-                  {t("common.dashboard")}
+                  <Shield className="h-4 w-4" />
+                  {t("navbar.admin_panel")}
                 </Button>
               </Link>
             )}
@@ -276,8 +211,8 @@ export default function Navbar() {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-52">
-                  <DropdownMenuLabel className="text-xs uppercase tracking-[0.14em] text-slate-500">
-                    {hasAdminAccess ? t("navbar.admin_access_unlocked") : t("navbar.signed_in")}
+                  <DropdownMenuLabel className="text-xs uppercase tracking-[0.14em] text-muted-foreground">
+                    {isAdmin ? t("navbar.admin_access_unlocked") : t("navbar.signed_in")}
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem asChild>
@@ -286,7 +221,7 @@ export default function Navbar() {
                       {t("navbar.my_dashboard")}
                     </Link>
                   </DropdownMenuItem>
-                  {hasAdminAccess && (
+                  {showAdminNav && (
                     <DropdownMenuItem asChild>
                       <Link to="/AdminDashboard" className="flex items-center gap-2">
                         <Shield className="w-4 h-4" />
@@ -294,21 +229,15 @@ export default function Navbar() {
                       </Link>
                     </DropdownMenuItem>
                   )}
-                  {hasAdminAccess && (
-                    <DropdownMenuItem onClick={handleLockAdminAccess} className="flex items-center gap-2">
-                      <Shield className="w-4 h-4" />
-                      {t("navbar.lock_admin_access")}
-                    </DropdownMenuItem>
-                  )}
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={handleSignOut} className="text-red-600">
+                  <DropdownMenuItem onClick={handleSignOut} className="text-destructive focus:text-destructive">
                     {t("common.sign_out")}
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             )}
 
-            {!user && (
+            {!user && !isLoadingAuth && (
               <Button
                 size="sm"
                 variant="outline"
@@ -336,26 +265,6 @@ export default function Navbar() {
       {mobileOpen && (
         <div className="border-t bg-background xl:hidden">
           <div className="page-shell space-y-3 py-4">
-            <div className="flex items-center rounded-md border border-border bg-muted p-1">
-                <button
-                  onClick={() => setIsAdminMode(false)}
-                  aria-pressed={!isAdmin}
-                  className={`flex-1 rounded px-3 py-2 text-xs font-semibold ${
-                    !isAdmin ? "bg-background text-foreground" : "text-muted-foreground"
-                  }`}
-                >
-                  {t("navbar.student")}
-                </button>
-                <button
-                  onClick={handleAdminView}
-                  aria-pressed={isAdmin}
-                  className={`flex-1 rounded px-3 py-2 text-xs font-semibold ${
-                    isAdmin ? "bg-background text-foreground" : "text-muted-foreground"
-                  }`}
-                >
-                  {t("navbar.admin")}
-                </button>
-            </div>
             <div className="grid gap-1">
               {navLinks.map(({ to, label, icon: Icon }) => {
                 const active = isActive(to);
@@ -394,7 +303,7 @@ export default function Navbar() {
                 </Link>
               )}
 
-              {user && hasAdminAccess && (
+              {showAdminNav && (
                 <Link
                   to="/AdminDashboard"
                   className="flex items-center gap-3 rounded-md border border-border px-4 py-3 text-sm font-medium text-foreground"
@@ -436,17 +345,6 @@ export default function Navbar() {
                 </button>
               </div>
             </div>
-
-            {user && hasAdminAccess && (
-              <button
-                type="button"
-                onClick={handleLockAdminAccess}
-                className="flex w-full items-center gap-3 rounded-md border border-border px-4 py-3 text-left text-sm font-medium text-foreground"
-              >
-                <Shield className="h-4 w-4" />
-                {t("navbar.lock_admin_access")}
-              </button>
-            )}
 
             {user ? (
               <button
