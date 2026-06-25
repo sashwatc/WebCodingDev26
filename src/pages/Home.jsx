@@ -21,10 +21,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/lib/AuthContext";
 import { staggerChildVariants, staggerContainerProps } from "@/lib/motion";
-import gsap from "gsap";
-import { ScrollTrigger } from "gsap/ScrollTrigger";
-
-gsap.registerPlugin(ScrollTrigger);
 
 /* ─── Data ──────────────────────────────────────────────────────────────── */
 const SHOWCASE_ITEMS = [
@@ -54,9 +50,14 @@ const STORY_SCENES = [
 const VIDEO_SRC      = "/videos/cinematic.mp4";
 const SCROLL_PX      = `${STORY_SCENES.length * 100}vh`;
 const PARTICLE_COUNT = 46;
+const SCROLL_SMOOTHING = 0.14;
+const PROGRESS_EPSILON = 0.0002;
+const VIDEO_SEEK_EPSILON = 0.045;
 
 /* ─── Framer Motion (functional sections) ───────────────────────────────── */
 const spring = { type: "spring", stiffness: 380, damping: 22 };
+
+const clamp01 = (value) => Math.max(0, Math.min(1, value));
 
 /* ═══════════════════════════════ Page ══════════════════════════════════ */
 export default function Home() {
@@ -76,6 +77,7 @@ export default function Home() {
   const platformLightRef  = useRef(null);
   const platformDarkRef   = useRef(null);
   const progressRef       = useRef(0);
+  const reducedMotionRef  = useRef(false);
   const rafRef            = useRef(null);
   const dotRefs           = useRef([]);
   const sceneRefs         = useRef(
@@ -96,6 +98,17 @@ export default function Home() {
     const q = homeSearch.trim();
     navigate(q ? `/Search?q=${encodeURIComponent(q)}` : "/Search");
   };
+
+  useEffect(() => {
+    const query = window.matchMedia?.("(prefers-reduced-motion: reduce)");
+    const syncMotionPreference = () => {
+      reducedMotionRef.current = Boolean(query?.matches);
+    };
+
+    syncMotionPreference();
+    query?.addEventListener?.("change", syncMotionPreference);
+    return () => query?.removeEventListener?.("change", syncMotionPreference);
+  }, []);
 
   /* ── Canvas resize ─────────────────────────────────────────────────────── */
   useEffect(() => {
@@ -201,30 +214,35 @@ export default function Home() {
       const el = containerRef.current;
       if (el) {
         const rect     = el.getBoundingClientRect();
-        const total    = el.scrollHeight - window.innerHeight;
+        const total    = Math.max(1, el.scrollHeight - window.innerHeight);
         const scrolled = Math.max(0, -rect.top);
-        const p        = total > 0 ? Math.min(1, scrolled / total) : 0;
+        const targetP  = clamp01(scrolled / total);
+        const prefersReduced = reducedMotionRef.current;
+        const currentP = progressRef.current;
+        const easedP   = prefersReduced
+          ? targetP
+          : currentP + (targetP - currentP) * SCROLL_SMOOTHING;
+        const p        = Math.abs(targetP - easedP) < PROGRESS_EPSILON ? targetP : easedP;
 
-        if (Math.abs(p - progressRef.current) > 0.0003) {
+        if (Math.abs(p - currentP) > PROGRESS_EPSILON) {
           progressRef.current = p;
 
           if (video && video.duration) {
-            const target = p * video.duration;
-            if (Math.abs(video.currentTime - target) > 0.05) {
-              video.currentTime = target;
+            const targetTime = p * video.duration;
+            if (Math.abs(video.currentTime - targetTime) > VIDEO_SEEK_EPSILON) {
+              video.currentTime = targetTime;
             }
           }
 
-          drawVideoFrame();
           updateScenes(p);
 
           if (progressBarRef.current) {
-            progressBarRef.current.style.width = `${p * 100}%`;
+            progressBarRef.current.style.transform = `scaleX(${p})`;
           }
 
           /* Fade the whole cinematic to the page background near the end so it
              blends into Part 2 — dark navy in dark mode, cream/white in light. */
-          const exit = Math.max(0, Math.min(1, (p - 0.88) / 0.12));
+          const exit = clamp01((p - 0.88) / 0.12);
           if (exitFadeRef.current) {
             exitFadeRef.current.style.opacity = String(exit);
           }
@@ -379,7 +397,14 @@ export default function Home() {
           >
             <div
               ref={progressBarRef}
-              style={{ height: "100%", width: "0%", background: "linear-gradient(90deg, #34d399 0%, #60a5fa 100%)" }}
+              style={{
+                height: "100%",
+                width: "100%",
+                transform: "scaleX(0)",
+                transformOrigin: "left center",
+                background: "linear-gradient(90deg, #34d399 0%, #60a5fa 100%)",
+                willChange: "transform",
+              }}
             />
           </div>
 
@@ -804,7 +829,7 @@ function sceneStyle() {
     display: "flex", flexDirection: "column",
     alignItems: "center", justifyContent: "center",
     opacity: 0, pointerEvents: "none",
-    transition: "opacity 0.25s ease, transform 0.25s ease",
+    willChange: "opacity, transform",
   };
 }
 
