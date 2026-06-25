@@ -1,5 +1,17 @@
 import { BRAND_NAME } from "@/lib/constants";
 import { findMatches } from "@/lib/ai-services";
+import { canonicalFoundItemStatus, isPublicFoundItemStatus } from "@/lib/found-items";
+import {
+  OAUTH_RETURN_PARAM,
+  clearStoredAppwriteJwt,
+  deleteCurrentSession as appwriteDeleteSession,
+  getStoredAppwriteJwt,
+  isAppwriteConfigured,
+  loginWithEmailPassword as appwriteLoginEmailPassword,
+  refreshJwtFromSession,
+  registerWithEmailPassword as appwriteRegisterEmailPassword,
+  startGoogleOAuth,
+} from "@/lib/appwriteAuth";
 
 const STORAGE_KEY = "findback-app-db-v2";
 const AUTH_STORAGE_KEY = "findback-auth-user";
@@ -20,6 +32,7 @@ const USBC_CHARGER_PHOTO = "/items/usbc-charger.png";
 const VOLLEYBALL_KNEEPADS_PHOTO = "/items/volleyball-kneepads.png";
 const authListeners = new Set();
 let recoveryMeshUsesLocalData = false;
+const CORE_WORKFLOW_ENTITIES = new Set(["FoundItem", "LostReport", "Claim"]);
 
 const CATEGORY_LABELS = {
   electronics: "electronics",
@@ -909,7 +922,11 @@ function getRecordId(record = {}) {
   return record.id || record._id || "";
 }
 
-function shouldUseLocalFallback(error) {
+function shouldUseLocalFallback(error, { entityName } = {}) {
+  if (entityName && CORE_WORKFLOW_ENTITIES.has(entityName)) {
+    return false;
+  }
+
   return !error?.status || error.status === 404 || error.status >= 500;
 }
 
@@ -997,6 +1014,159 @@ function mergeMatchSuggestions(currentMatches = [], nextMatches = []) {
   return [...byFoundItemId.values()].sort((a, b) => b.confidence - a.confidence).slice(0, 8);
 }
 
+function normalizeLostReport(record = {}) {
+  const photoUrls = Array.isArray(record.photo_urls)
+    ? clone(record.photo_urls)
+    : record.photo_url
+      ? [record.photo_url]
+      : [];
+
+  return {
+    ...record,
+    id: record.id || record._id || "",
+    title: record.title || record.item_type || "",
+    item_type: record.item_type || record.title || "",
+    description: record.description || "",
+    category: record.category || "",
+    color: record.color || "",
+    brand: record.brand || "",
+    last_seen_location: record.last_seen_location || record.location_lost || "",
+    location_lost: record.location_lost || record.last_seen_location || "",
+    date_lost: record.date_lost || record.dateLost || "",
+    time_lost: record.time_lost || record.timeLost || "",
+    contact_name: record.contact_name || record.contactName || "",
+    contact_email: record.contact_email || record.contactEmail || "",
+    contact_phone: record.contact_phone || record.contactPhone || "",
+    student_id: record.student_id || record.studentId || "",
+    urgency: record.urgency || "medium",
+    status: record.status || "open",
+    extra_notes: record.extra_notes || record.extraNotes || "",
+    photo_url: record.photo_url || photoUrls[0] || "",
+    photo_urls: photoUrls,
+    event_hub_id: record.event_hub_id || record.eventHubId || "",
+    campus_zone_id: record.campus_zone_id || record.campusZoneId || "",
+    matched_items: Array.isArray(record.matched_items)
+      ? record.matched_items.map((match) => normalizeMatchSuggestion(match)).filter(Boolean)
+      : [],
+    created_date: record.created_date || record.createdAt || "",
+    updated_date: record.updated_date || record.updatedAt || "",
+  };
+}
+
+function normalizeClaim(record = {}) {
+  return {
+    ...record,
+    id: record.id || record._id || "",
+    found_item_id: record.found_item_id || record.foundItemId || "",
+    found_item_title: record.found_item_title || record.foundItemTitle || "",
+    claimant_name: record.claimant_name || record.claimantName || "",
+    claimant_email: record.claimant_email || record.claimantEmail || "",
+    student_id: record.student_id || record.studentId || "",
+    reason: record.reason || record.claim_reason || "",
+    claim_reason: record.claim_reason || record.reason || "",
+    identifying_details: record.identifying_details || record.identifyingDetails || "",
+    proof_photo_url: record.proof_photo_url || record.proofPhotoUrl || "",
+    pickup_availability: record.pickup_availability || record.pickupAvailability || "",
+    status: record.status || "submitted",
+    risk_score: record.risk_score ?? record.riskScore ?? null,
+    risk_flags: Array.isArray(record.risk_flags) ? clone(record.risk_flags) : Array.isArray(record.riskFlags) ? clone(record.riskFlags) : [],
+    admin_notes: record.admin_notes || record.adminNotes || "",
+    reviewed_by: record.reviewed_by || record.reviewedBy || "",
+    received_confirmed_at: record.received_confirmed_at || record.receivedConfirmedAt || "",
+    review_status: record.review_status || record.reviewStatus || "",
+    review_reviewed_at: record.review_reviewed_at || record.reviewReviewedAt || "",
+    claimant_rating: record.claimant_rating ?? record.claimantRating ?? null,
+    claimant_review: record.claimant_review || record.claimantReview || "",
+    created_date: record.created_date || record.createdAt || "",
+    updated_date: record.updated_date || record.updatedAt || "",
+  };
+}
+
+function normalizeEntityRecords(entityName, records = []) {
+  if (!Array.isArray(records)) {
+    return [];
+  }
+
+  if (entityName === "LostReport") {
+    return records.map((record) => normalizeLostReport(record));
+  }
+
+  if (entityName === "Claim") {
+    return records.map((record) => normalizeClaim(record));
+  }
+
+  return clone(records);
+}
+
+function serializeLostReport(record = {}) {
+  return Object.fromEntries(
+    Object.entries({
+      title: record.title || record.item_type,
+      item_type: record.item_type || record.title,
+      category: record.category,
+      description: record.description,
+      color: record.color,
+      brand: record.brand,
+      last_seen_location: record.last_seen_location || record.location_lost,
+      location_lost: record.location_lost || record.last_seen_location,
+      date_lost: record.date_lost,
+      time_lost: record.time_lost,
+      contact_name: record.contact_name,
+      contact_email: record.contact_email,
+      contact_phone: record.contact_phone,
+      student_id: record.student_id,
+      urgency: record.urgency,
+      status: record.status,
+      extra_notes: record.extra_notes,
+      photo_url: record.photo_url,
+      photo_urls: record.photo_urls,
+      event_hub_id: record.event_hub_id,
+      campus_zone_id: record.campus_zone_id,
+      matched_items: record.matched_items,
+    }).filter(([, value]) => value !== undefined)
+  );
+}
+
+function serializeClaim(record = {}) {
+  return Object.fromEntries(
+    Object.entries({
+      found_item_id: record.found_item_id,
+      found_item_title: record.found_item_title,
+      claimant_name: record.claimant_name,
+      claimant_email: record.claimant_email,
+      student_id: record.student_id,
+      reason: record.reason,
+      claim_reason: record.claim_reason || record.reason,
+      identifying_details: record.identifying_details,
+      proof_photo_url: record.proof_photo_url,
+      pickup_availability: record.pickup_availability,
+      status: record.status,
+      risk_score: record.risk_score,
+      risk_flags: record.risk_flags,
+      admin_notes: record.admin_notes,
+      review_status: record.review_status,
+      review_reviewed_at: record.review_reviewed_at,
+      claimant_rating: record.claimant_rating,
+      claimant_review: record.claimant_review,
+      received_confirmed_at: record.received_confirmed_at,
+      private_evidence_responses: record.private_evidence_responses,
+      evidence_checklist: record.evidence_checklist,
+    }).filter(([, value]) => value !== undefined)
+  );
+}
+
+async function fetchEntityRecords(entityName) {
+  if (entityName === "LostReport" && isAdminUser()) {
+    return requestFeatureApi("/admin/lost-reports");
+  }
+
+  if (entityName === "Claim" && isAdminUser()) {
+    return requestFeatureApi("/admin/claims");
+  }
+
+  return requestEntityApi(entityName);
+}
+
 async function validateClaimRecord(claim, previousClaim = null) {
   if (!claim?.found_item_id) {
     throw new Error("Select a Found Item before submitting a claim.");
@@ -1077,21 +1247,19 @@ async function syncMatchesForLostReport(report) {
     return report;
   }
 
-  const foundItems = await appClient.entities.FoundItem.list("-created_date", 500);
-  const aiMatches = await findMatches(report, foundItems);
-  const matched_items = mergeMatchSuggestions(report.matched_items || [], aiMatches);
-  const status = matched_items.length > 0 && !["resolved", "closed"].includes(report.status)
-    ? "matched"
-    : report.status || "open";
-
-  if (
-    JSON.stringify(matched_items) === JSON.stringify(report.matched_items || []) &&
-    status === report.status
-  ) {
-    return report;
+  const reportId = getRecordId(report);
+  try {
+    const records = normalizeEntityRecords("LostReport", await fetchEntityRecords("LostReport"));
+    const refreshed = records.find((entry) => entry.id === reportId);
+    if (refreshed) {
+      upsertCachedRecord("LostReport", refreshed);
+      return clone(refreshed);
+    }
+  } catch {
+    // Fall through to the create response.
   }
 
-  return appClient.entities.LostReport.update(getRecordId(report), { matched_items, status });
+  return normalizeLostReport(report);
 }
 
 async function syncMatchesForFoundItem(foundItem) {
@@ -1264,11 +1432,11 @@ function createEntityApi(entityName) {
   const api = {
     async list(sort, limit) {
       try {
-        const records = await requestEntityApi(entityName);
+        const records = normalizeEntityRecords(entityName, await fetchEntityRecords(entityName));
         replaceCachedCollection(entityName, records);
         return clone(limitRecords(sortRecords(records, sort), limit));
       } catch (error) {
-        if (!shouldUseLocalFallback(error)) {
+        if (!shouldUseLocalFallback(error, { entityName })) {
           throw error;
         }
 
@@ -1280,11 +1448,15 @@ function createEntityApi(entityName) {
 
     async filter(filters = {}, sort, limit) {
       try {
-        const records = await requestEntityApi(entityName);
+        const records = normalizeEntityRecords(entityName, await fetchEntityRecords(entityName));
         replaceCachedCollection(entityName, records);
         const filtered = records.filter((record) => matchRecord(record, filters));
         return clone(limitRecords(sortRecords(filtered, sort), limit));
-      } catch {
+      } catch (error) {
+        if (!shouldUseLocalFallback(error, { entityName })) {
+          throw error;
+        }
+
         const db = readDb();
         const records = (db[entityName] || []).filter((record) => matchRecord(record, filters));
         return clone(limitRecords(sortRecords(records, sort), limit));
@@ -1312,36 +1484,49 @@ function createEntityApi(entityName) {
 
       let record;
       let usedLocalFallback = false;
+      const payload =
+        entityName === "LostReport"
+          ? serializeLostReport(nextData)
+          : entityName === "Claim"
+            ? serializeClaim(nextData)
+            : nextData;
 
       try {
         record = await requestEntityApi(entityName, "", {
           method: "POST",
-          body: JSON.stringify(nextData),
+          body: JSON.stringify(payload),
         });
       } catch (error) {
-        if (!shouldUseLocalFallback(error)) {
+        if (!shouldUseLocalFallback(error, { entityName })) {
           throw error;
         }
 
-        record = createCachedRecord(entityName, nextData);
+        record = createCachedRecord(entityName, payload);
         usedLocalFallback = true;
       }
 
-      upsertCachedRecord(entityName, record);
+      const normalizedRecord =
+        entityName === "LostReport"
+          ? normalizeLostReport(record)
+          : entityName === "Claim"
+            ? normalizeClaim(record)
+            : record;
+      upsertCachedRecord(entityName, normalizedRecord);
 
       if (entityName === "LostReport") {
-        record = await syncMatchesForLostReport(record);
+        const refreshed = await syncMatchesForLostReport(normalizedRecord);
+        return clone(refreshed || normalizedRecord);
       }
 
       if (usedLocalFallback && entityName !== "LostReport") {
-        await applyEntitySideEffects(entityName, "create", record, null);
+        await applyEntitySideEffects(entityName, "create", normalizedRecord, null);
       }
 
       if (usedLocalFallback && entityName === "Claim") {
-        await applyClaimStatusSideEffects(record, null);
+        await applyClaimStatusSideEffects(normalizedRecord, null);
       }
 
-      return clone(record);
+      return clone(normalizedRecord);
     },
 
     async update(id, updates) {
@@ -1367,32 +1552,44 @@ function createEntityApi(entityName) {
 
       let nextRecord;
       let usedLocalFallback = false;
+      const payload =
+        entityName === "LostReport"
+          ? serializeLostReport(updates)
+          : entityName === "Claim"
+            ? serializeClaim(updates)
+            : updates;
 
       try {
         nextRecord = await requestEntityApi(entityName, `/${id}`, {
           method: "PATCH",
-          body: JSON.stringify(updates),
+          body: JSON.stringify(payload),
         });
       } catch (error) {
-        if (!shouldUseLocalFallback(error)) {
+        if (!shouldUseLocalFallback(error, { entityName })) {
           throw error;
         }
 
-        nextRecord = saveCachedRecord(entityName, id, updates);
+        nextRecord = saveCachedRecord(entityName, id, payload);
         usedLocalFallback = true;
       }
 
-      upsertCachedRecord(entityName, nextRecord);
+      const normalizedRecord =
+        entityName === "LostReport"
+          ? normalizeLostReport(nextRecord)
+          : entityName === "Claim"
+            ? normalizeClaim(nextRecord)
+            : nextRecord;
+      upsertCachedRecord(entityName, normalizedRecord);
 
       if (usedLocalFallback) {
-        await applyEntitySideEffects(entityName, "update", nextRecord, previousRecord);
+        await applyEntitySideEffects(entityName, "update", normalizedRecord, previousRecord);
       }
 
       if (usedLocalFallback && entityName === "Claim") {
-        await applyClaimStatusSideEffects(nextRecord, previousRecord);
+        await applyClaimStatusSideEffects(normalizedRecord, previousRecord);
       }
 
-      return clone(nextRecord);
+      return clone(normalizedRecord);
     },
 
     async delete(id) {
@@ -1426,6 +1623,8 @@ async function requestApi(url, options = {}) {
   const { headers = {}, body, ...fetchOptions } = options;
   const requestHeaders = {
     Accept: "application/json",
+    ...appwriteAuthHeaders(),
+    ...demoUserHeaders(),
     ...headers,
   };
 
@@ -1465,32 +1664,25 @@ async function requestFoundItemsApi(path = "", options = {}) {
 }
 
 async function requestAdminFoundItemsApi(path = "", options = {}) {
-  return requestApi(`${ADMIN_FOUND_ITEMS_API_URL}${path}`, {
-    ...options,
-    headers: {
-      ...adminHeaders(),
-      ...(options.headers || {}),
-    },
-  });
+  return requestApi(`${ADMIN_FOUND_ITEMS_API_URL}${path}`, options);
 }
 
 async function requestEntityApi(entityName, path = "", options = {}) {
-  return requestApi(`${ENTITY_API_BASE_URL}/${encodeURIComponent(entityName)}${path}`, {
-    ...options,
-    headers: {
-      ...adminHeaders(),
-      ...(options.headers || {}),
-    },
-  });
+  return requestApi(`${ENTITY_API_BASE_URL}/${encodeURIComponent(entityName)}${path}`, options);
 }
 
 async function requestAuthApi(path = "", options = {}) {
   return requestApi(`${AUTH_API_BASE_URL}${path}`, options);
 }
 
-function adminHeaders() {
+function demoUserHeaders() {
   const user = readAuthUser();
   return user?.email ? { "X-Demo-User-Email": user.email } : {};
+}
+
+function appwriteAuthHeaders() {
+  const jwt = getStoredAppwriteJwt();
+  return jwt ? { "X-Appwrite-JWT": jwt } : {};
 }
 
 function isAdminUser(user = readAuthUser()) {
@@ -1498,23 +1690,12 @@ function isAdminUser(user = readAuthUser()) {
 }
 
 async function requestRecoveryMeshApi(path = "", options = {}) {
-  return requestApi(`${API_ROOT_URL}${path}`, {
-    ...options,
-    headers: {
-      ...adminHeaders(),
-      ...(options.headers || {}),
-    },
-  });
+  return requestFeatureApi(path, options);
 }
 
 async function requestFeatureApi(path = "", options = {}) {
-  return requestApi(`${API_ROOT_URL}${path}`, {
-    ...options,
-    headers: {
-      ...adminHeaders(),
-      ...(options.headers || {}),
-    },
-  });
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+  return requestApi(`${API_ROOT_URL}${normalizedPath}`, options);
 }
 
 function backendOwnedArrayFallback(error) {
@@ -2039,16 +2220,62 @@ function createClaimApi(baseApi) {
     return baseApi.update(id, updates);
   };
 
+  const requireAdmin = () => {
+    if (!isAdminUser()) {
+      const error = new Error("Admin access is required.");
+      error.status = 403;
+      throw error;
+    }
+  };
+
   return {
     ...baseApi,
+    mine() {
+      return requestFeatureApi("/claims/mine").then((records) =>
+        Array.isArray(records) ? records.map(normalizeClaim) : []
+      );
+    },
     approve(claimOrId, data = {}) {
-      return updateClaim(claimOrId, { ...data, status: "approved" });
+      const id = typeof claimOrId === "string" ? claimOrId : getRecordId(claimOrId);
+      requireAdmin();
+      return requestFeatureApi(`/admin/claims/${encodeURIComponent(id)}/approve`, {
+        method: "POST",
+        body: JSON.stringify(data),
+      }).then((record) => normalizeClaim(record));
     },
     reject(claimOrId, data = {}) {
-      return updateClaim(claimOrId, { ...data, status: "rejected" });
+      const id = typeof claimOrId === "string" ? claimOrId : getRecordId(claimOrId);
+      requireAdmin();
+      return requestFeatureApi(`/admin/claims/${encodeURIComponent(id)}/deny`, {
+        method: "POST",
+        body: JSON.stringify(data),
+      }).then((record) => normalizeClaim(record));
     },
-    requestMoreInfo(claimOrId, data = {}) {
-      return updateClaim(claimOrId, { ...data, status: "need_more_info" });
+    async requestMoreInfo(claimOrId, data = {}) {
+      const id = typeof claimOrId === "string" ? claimOrId : getRecordId(claimOrId);
+      const message = String(data.message || data.body || data.admin_notes || "").trim();
+
+      if (message) {
+        try {
+          await requestFeatureApi(`/admin/claims/${encodeURIComponent(id)}/request-more-info`, {
+            method: "POST",
+            body: JSON.stringify({
+              message,
+              admin_notes: data.admin_notes || message,
+            }),
+          });
+        } catch (error) {
+          if (!shouldUseLocalFallback(error, { entityName: "Claim" })) {
+            throw error;
+          }
+        }
+      }
+
+      return updateClaim(claimOrId, {
+        ...data,
+        admin_notes: data.admin_notes || message || data.admin_notes,
+        status: "need_more_info",
+      });
     },
     markUnderReview(claimOrId, data = {}) {
       return updateClaim(claimOrId, { ...data, status: "under_review" });
@@ -2081,27 +2308,21 @@ function createClaimApi(baseApi) {
 }
 
 function createMatchApi() {
+  const normalizeMatches = (records = []) =>
+    Array.isArray(records) ? records.map((match) => normalizeMatchSuggestion(match)).filter(Boolean) : [];
+
   return {
     async forLostReport(id) {
-      try {
-        return await requestFeatureApi(`/matches/lost-reports/${encodeURIComponent(id)}`);
-      } catch (error) {
-        return backendOwnedArrayFallback(error);
-      }
+      const records = await requestFeatureApi(`/matches/lost-reports/${encodeURIComponent(id)}`);
+      return normalizeMatches(records);
     },
     async refreshLostReport(id) {
-      try {
-        return await requestFeatureApi(`/matches/lost-reports/${encodeURIComponent(id)}/refresh`, { method: "POST" });
-      } catch (error) {
-        return backendOwnedArrayFallback(error);
-      }
+      const records = await requestFeatureApi(`/matches/lost-reports/${encodeURIComponent(id)}/refresh`, { method: "POST" });
+      return normalizeMatches(records);
     },
     async refreshFoundItem(id) {
-      try {
-        return await requestFeatureApi(`/matches/found-items/${encodeURIComponent(id)}/refresh`, { method: "POST" });
-      } catch (error) {
-        return backendOwnedArrayFallback(error);
-      }
+      const records = await requestFeatureApi(`/matches/found-items/${encodeURIComponent(id)}/refresh`, { method: "POST" });
+      return normalizeMatches(records);
     },
   };
 }
@@ -2109,17 +2330,7 @@ function createMatchApi() {
 function createRecoveryCenterApi() {
   return {
     async summary() {
-      try {
-        return await requestFeatureApi("/admin/recovery-center");
-      } catch (error) {
-        return backendOwnedObjectFallback(error, {
-          backend_required: true,
-          recovery_cases: [],
-          missions: [],
-          alerts: [],
-          metrics: null,
-        });
-      }
+      return requestFeatureApi("/admin/recovery-center");
     },
   };
 }
@@ -2207,52 +2418,127 @@ function createRecoveryMissionApi() {
   };
 }
 
+function normalizeEvidenceReview(record = {}, { includeVaultClues = false } = {}) {
+  if (!record) {
+    return null;
+  }
+
+  return {
+    claim_id: record.claim_id || record.claimId || "",
+    found_item_id: record.found_item_id || record.foundItemId || "",
+    private_verification_clues: includeVaultClues
+      ? clone(Array.isArray(record.private_verification_clues) ? record.private_verification_clues : [])
+      : [],
+    evidence_checklist: clone(Array.isArray(record.evidence_checklist) ? record.evidence_checklist : []),
+    private_evidence_responses:
+      record.private_evidence_responses && typeof record.private_evidence_responses === "object"
+        ? clone(record.private_evidence_responses)
+        : {},
+    identifying_details: record.identifying_details || "",
+    proof_photo_url: record.proof_photo_url || "",
+    verification_score: record.verification_score ?? record.verificationScore ?? null,
+    verification_flags: clone(Array.isArray(record.verification_flags) ? record.verification_flags : []),
+    verification_summary: record.verification_summary || "",
+  };
+}
+
+function normalizeCaseMessage(record = {}) {
+  return {
+    id: record.id || record._id || record.message_id || "",
+    claim_id: record.claim_id || record.claimId || "",
+    sender_role: String(record.sender_role || record.senderRole || "claimant").toLowerCase(),
+    sender_email: record.sender_email || record.senderEmail || "",
+    sender_name: record.sender_name || record.senderName || "",
+    body: record.body || record.message || record.message_text || "",
+    message_type: record.message_type || record.messageType || "claimant_reply",
+    created_date: record.created_date || record.created_at || record.createdAt || "",
+    read_by_claimant: Boolean(record.read_by_claimant ?? record.readByClaimant),
+    read_by_admin: Boolean(record.read_by_admin ?? record.readByAdmin),
+  };
+}
+
 function createProofVaultApi() {
   return {
     async item(itemId) {
-      try {
-        return await requestFeatureApi(`/items/${encodeURIComponent(itemId)}/proof-vault`);
-      } catch (error) {
-        return backendOwnedNullFallback(error);
+      if (!isAdminUser()) {
+        const error = new Error("Proof Vault access is restricted to staff.");
+        error.status = 403;
+        throw error;
       }
+
+      return requestFeatureApi(`/items/${encodeURIComponent(itemId)}/proof-vault`);
     },
-    async evidenceReview(claimId) {
-      try {
-        return await requestFeatureApi(`/claims/${encodeURIComponent(claimId)}/evidence-review`);
-      } catch (error) {
-        return backendOwnedNullFallback(error);
-      }
+    async evidenceReview(claimId, { includeVaultClues = false } = {}) {
+      const record = await requestFeatureApi(`/claims/${encodeURIComponent(claimId)}/evidence-review`);
+      return normalizeEvidenceReview(record, { includeVaultClues: includeVaultClues && isAdminUser() });
     },
-    submitEvidenceReview(claimId, review = {}) {
-      return requestFeatureApi(`/claims/${encodeURIComponent(claimId)}/evidence-review`, {
+    async submitEvidenceReview(claimId, review = {}) {
+      const record = await requestFeatureApi(`/claims/${encodeURIComponent(claimId)}/evidence-review`, {
         method: "POST",
         body: JSON.stringify(review),
       });
+      return normalizeEvidenceReview(record, { includeVaultClues: true });
+    },
+  };
+}
+
+function createClaimCaseMessagesApi() {
+  return {
+    async list(claimId) {
+      const records = await requestFeatureApi(`/claims/${encodeURIComponent(claimId)}/case-messages`);
+      return Array.isArray(records) ? records.map((record) => normalizeCaseMessage(record)) : [];
+    },
+    async send(claimId, payload = {}) {
+      const body = {
+        body: payload.body || payload.message || "",
+        message_type: payload.message_type || payload.messageType,
+      };
+      const record = await requestFeatureApi(`/claims/${encodeURIComponent(claimId)}/case-messages`, {
+        method: "POST",
+        body: JSON.stringify(body),
+      });
+      return normalizeCaseMessage(record);
+    },
+    async requestMoreInfo(claimId, payload = {}) {
+      const record = await requestFeatureApi(`/admin/claims/${encodeURIComponent(claimId)}/request-more-info`, {
+        method: "POST",
+        body: JSON.stringify({
+          message: payload.message || payload.body || "",
+          admin_notes: payload.admin_notes || payload.message || payload.body || "",
+        }),
+      });
+      return normalizeCaseMessage(record);
     },
   };
 }
 
 function createReturnPassApi() {
   return {
-    create(claimId, data = {}) {
-      return requestFeatureApi(`/claims/${encodeURIComponent(claimId)}/return-pass`, {
+    async create(claimId, data = {}) {
+      const record = await requestFeatureApi(`/claims/${encodeURIComponent(claimId)}/return-pass`, {
         method: "POST",
-        body: JSON.stringify(data),
+        body: JSON.stringify({
+          pickup_window: data.pickup_window || data.pickupWindow,
+          pickup_location: data.pickup_location || data.pickupLocation,
+        }),
       });
+      return normalizeReturnPass(record);
     },
     async get(id) {
       try {
-        return await requestFeatureApi(`/return-passes/${encodeURIComponent(id)}`);
+        const record = await requestFeatureApi(`/return-passes/${encodeURIComponent(id)}`);
+        return normalizeReturnPass(record);
       } catch (error) {
         return backendOwnedNullFallback(error);
       }
     },
     async verify(oneTimeCode) {
       try {
-        return await requestFeatureApi("/return-passes/verify", {
+        const record = await requestFeatureApi("/return-passes/verify", {
           method: "POST",
           body: JSON.stringify({ one_time_code: oneTimeCode }),
         });
+        return normalizeReturnPassVerify(record);
       } catch (error) {
         return backendOwnedObjectFallback(error, {
           valid: false,
@@ -2261,16 +2547,18 @@ function createReturnPassApi() {
         });
       }
     },
-    redeem(id, oneTimeCode) {
-      return requestFeatureApi(`/return-passes/${encodeURIComponent(id)}/redeem`, {
+    async redeem(id, oneTimeCode) {
+      const record = await requestFeatureApi(`/return-passes/${encodeURIComponent(id)}/redeem`, {
         method: "POST",
         body: JSON.stringify({ one_time_code: oneTimeCode }),
       });
+      return normalizeReturnPass(record);
     },
-    reminder(id) {
-      return requestFeatureApi(`/return-passes/${encodeURIComponent(id)}/reminder`, {
+    async reminder(id) {
+      const record = await requestFeatureApi(`/return-passes/${encodeURIComponent(id)}/reminder`, {
         method: "POST",
       });
+      return normalizeReturnPass(record);
     },
   };
 }
@@ -2282,12 +2570,48 @@ const DEFAULT_NOTIFICATION_PREFERENCES = {
   categories: {},
 };
 
+function normalizeReturnPass(record = {}) {
+  return {
+    ...record,
+    id: record.id || record._id || "",
+    claim_id: record.claim_id || record.claimId || "",
+    found_item_id: record.found_item_id || record.foundItemId || "",
+    claimant_email: record.claimant_email || record.claimantEmail || "",
+    pickup_window: record.pickup_window || record.pickupWindow || "",
+    pickup_location: record.pickup_location || record.pickupLocation || "",
+    status: record.status || "unknown",
+    one_time_code: record.one_time_code || record.oneTimeCode || "",
+    expires_at: record.expires_at || record.expiresAt || "",
+    redeemed_at: record.redeemed_at || record.redeemedAt || "",
+    redeemed_by: record.redeemed_by || record.redeemedBy || "",
+    created_date: record.created_date || record.createdAt || "",
+    updated_date: record.updated_date || record.updatedAt || "",
+  };
+}
+
+function normalizeReturnPassVerify(record = {}) {
+  return {
+    valid: Boolean(record.valid),
+    return_pass_id: record.return_pass_id || record.returnPassId || "",
+    status: record.status || "",
+    found_item_id: record.found_item_id || record.foundItemId || "",
+    claim_id: record.claim_id || record.claimId || "",
+    message: record.message || "",
+    backend_required: Boolean(record.backend_required),
+  };
+}
+
 function normalizeNotificationRecord(record = {}) {
+  const message = record.message || record.body || record.safe_message_preview || record.preview || "";
+
   return {
     ...record,
     id: record.id || record._id || record.notification_id || "",
     title: record.title || record.event_title || record.event_type || "Notification",
-    message: record.message || record.body || record.safe_message_preview || record.preview || "",
+    message,
+    type: record.type || record.event_type || "",
+    link: record.link || record.action_link || "",
+    related_item_id: record.related_item_id || record.relatedItemId || "",
     is_read: Boolean(record.is_read ?? record.read),
     created_date: record.created_date || record.created_at || record.createdAt || "",
   };
@@ -2510,6 +2834,23 @@ function createEventHubApi() {
   };
 }
 
+function createDemoScenarioApi() {
+  return {
+    create(scenario, data = {}) {
+      return requestFeatureApi(`/admin/demo-scenarios/${encodeURIComponent(scenario)}`, {
+        method: "POST",
+        body: JSON.stringify(data),
+      });
+    },
+    cleanup(confirmation) {
+      return requestFeatureApi("/admin/demo-scenarios/cleanup", {
+        method: "POST",
+        body: JSON.stringify({ confirmation }),
+      });
+    },
+  };
+}
+
 function createAssetApi() {
   return {
     async lookup(tag) {
@@ -2592,7 +2933,7 @@ function normalizeFoundItem(record = {}) {
     photo_urls: photoUrls,
     imageUrl,
     photoUrls,
-    status: record.status || "pending_review",
+    status: canonicalFoundItemStatus(record.status || "FOUND"),
     record_type: record.record_type || record.item_type || record.itemType || "found",
     created_date: record.created_date || record.createdAt || "",
     updated_date: record.updated_date || record.updatedAt || "",
@@ -2623,8 +2964,7 @@ function normalizeFoundItem(record = {}) {
 }
 
 function isPublicFoundItem(record = {}) {
-  const status = String(record.status || "").toLowerCase();
-  return !record.restricted_visibility && status === "approved";
+  return !record.restricted_visibility && isPublicFoundItemStatus(record.status);
 }
 
 function hasAnyKey(record, keys) {
@@ -2774,6 +3114,46 @@ function serializeFoundItem(record = {}, { partial = false } = {}) {
 
 function createFoundItemApi() {
   return {
+    async get(id) {
+      const adminUser = isAdminUser();
+
+      try {
+        let record;
+        if (adminUser) {
+          const records = await requestAdminFoundItemsApi();
+          record = Array.isArray(records) ? records.find((entry) => entry.id === id) : null;
+        } else {
+          record = await requestFoundItemsApi(`/${encodeURIComponent(id)}`);
+        }
+
+        if (!record) {
+          return null;
+        }
+
+        const normalizedRecord = normalizeFoundItem(record);
+        if (!adminUser && !isPublicFoundItem(normalizedRecord)) {
+          return null;
+        }
+
+        upsertCachedRecord("FoundItem", normalizedRecord);
+        return clone(normalizedRecord);
+      } catch (error) {
+        if (error?.status === 404) {
+          return null;
+        }
+
+        if (!shouldUseLocalFallback(error, { entityName: "FoundItem" })) {
+          throw error;
+        }
+
+        const db = readDb();
+        const record = (db.FoundItem || [])
+          .map((entry) => normalizeFoundItem(entry))
+          .find((entry) => entry.id === id && (adminUser || isPublicFoundItem(entry)));
+        return record ? clone(record) : null;
+      }
+    },
+
     async list(sort, limit) {
       const adminUser = isAdminUser();
       try {
@@ -2783,7 +3163,7 @@ function createFoundItemApi() {
         const visibleRecords = adminUser ? normalizedRecords : normalizedRecords.filter(isPublicFoundItem);
         return clone(limitRecords(sortRecords(visibleRecords, sort), limit));
       } catch (error) {
-        if (!shouldUseLocalFallback(error)) {
+        if (!shouldUseLocalFallback(error, { entityName: "FoundItem" })) {
           throw error;
         }
 
@@ -2796,6 +3176,11 @@ function createFoundItemApi() {
 
     async filter(filters = {}, sort, limit) {
       const adminUser = isAdminUser();
+      if (filters?.id && !sort && !limit) {
+        const record = await this.get(filters.id);
+        return record ? [record] : [];
+      }
+
       try {
         const records = adminUser ? await requestAdminFoundItemsApi() : await requestFoundItemsApi();
         const normalizedRecords = records.map((record) => normalizeFoundItem(record));
@@ -2804,7 +3189,7 @@ function createFoundItemApi() {
         const filteredRecords = visibleRecords.filter((record) => matchRecord(record, filters));
         return clone(limitRecords(sortRecords(filteredRecords, sort), limit));
       } catch (error) {
-        if (!shouldUseLocalFallback(error)) {
+        if (!shouldUseLocalFallback(error, { entityName: "FoundItem" })) {
           throw error;
         }
 
@@ -2830,7 +3215,7 @@ function createFoundItemApi() {
           body: JSON.stringify(serializeFoundItem(payload)),
         });
       } catch (error) {
-        if (!shouldUseLocalFallback(error)) {
+        if (!shouldUseLocalFallback(error, { entityName: "FoundItem" })) {
           throw error;
         }
 
@@ -2839,7 +3224,11 @@ function createFoundItemApi() {
 
       const normalizedRecord = normalizeFoundItem({ ...payload, ...createdRecord });
       upsertCachedRecord("FoundItem", normalizedRecord);
-      await syncMatchesForFoundItem(normalizedRecord);
+      try {
+        await requestFeatureApi(`/matches/found-items/${encodeURIComponent(normalizedRecord.id)}/refresh`, { method: "POST" });
+      } catch {
+        // Match refresh is advisory; intake should still succeed.
+      }
       return clone(normalizedRecord);
     },
 
@@ -3092,6 +3481,28 @@ function simpleMatchResponse() {
   return { matches: [] };
 }
 
+function createAiAssistanceApi() {
+  return {
+    suggestFoundItemFields(payload = {}) {
+      return requestFeatureApi("/ai-assistance/found-item", {
+        method: "POST",
+        body: JSON.stringify({
+          title: payload.title || "",
+          description: payload.description || "",
+          file_name: payload.file_name || "",
+          photo_urls: Array.isArray(payload.photo_urls) ? payload.photo_urls.slice(0, 1) : [],
+        }),
+      });
+    },
+    parseSearchQuery(query = "") {
+      return requestFeatureApi("/ai-assistance/search", {
+        method: "POST",
+        body: JSON.stringify({ query }),
+      });
+    },
+  };
+}
+
 function createInvokeLlmResponse(prompt) {
   if (prompt.includes("Generate 3-6 descriptive search tags")) {
     return simpleTagResponse(prompt);
@@ -3153,9 +3564,9 @@ async function ensureLocalUserNotification(user) {
   });
 }
 
-function normalizeAuthUser({ full_name, email }) {
-  const normalizedEmail = String(email || "").trim().toLowerCase();
-  const normalizedName = String(full_name || "").trim();
+function normalizeAuthUser(user = {}) {
+  const normalizedEmail = String(user.email || "").trim().toLowerCase();
+  const normalizedName = String(user.full_name || user.fullName || "").trim();
 
   if (!normalizedName) {
     throw new Error("Full name is required.");
@@ -3166,9 +3577,39 @@ function normalizeAuthUser({ full_name, email }) {
   }
 
   return {
+    id: user.id || "",
     full_name: normalizedName,
     email: normalizedEmail,
+    role: String(user.role || "student").toLowerCase(),
+    phone_number: user.phone_number || user.phoneNumber || null,
+    email_notifications_enabled: user.email_notifications_enabled ?? user.emailNotificationsEnabled ?? true,
+    sms_opt_in: user.sms_opt_in ?? user.smsOptIn ?? false,
+    sms_notifications_enabled: user.sms_notifications_enabled ?? user.smsNotificationsEnabled ?? false,
+    webhook_notifications_enabled: user.webhook_notifications_enabled ?? user.webhookNotificationsEnabled ?? true,
+    notification_categories: user.notification_categories || user.notificationCategories || [],
   };
+}
+
+// Resolves the signed-in user from a verified Appwrite session via the backend.
+// The backend is the source of truth for identity and role.
+async function getVerifiedAuthUser() {
+  try {
+    const canonicalUser = await requestAuthApi("/me");
+    if (!canonicalUser) {
+      clearStoredAppwriteJwt();
+      writeAuthUser(null);
+      return null;
+    }
+    const normalizedUser = normalizeAuthUser(canonicalUser);
+    writeAuthUser(normalizedUser);
+    return clone(normalizedUser);
+  } catch (error) {
+    if (error?.status === 401 || error?.status === 403) {
+      clearStoredAppwriteJwt();
+      writeAuthUser(null);
+    }
+    return null;
+  }
 }
 
 async function getCurrentAuthUser() {
@@ -3186,14 +3627,17 @@ async function getCurrentAuthUser() {
     }
 
     if (canonicalUser) {
-      writeAuthUser(canonicalUser);
-      return clone(canonicalUser);
+      const normalizedUser = normalizeAuthUser(canonicalUser);
+      writeAuthUser(normalizedUser);
+      return clone(normalizedUser);
     }
   } catch {
-    // Fall back to the local session cache if the backend lookup fails.
+    if (currentUser?.role) {
+      return clone(currentUser);
+    }
   }
 
-  return clone(currentUser);
+  return null;
 }
 
 export function resetAppData() {
@@ -3219,32 +3663,107 @@ function createAppClient() {
     recoveryCases: createRecoveryCaseApi(),
     recoveryMissions: createRecoveryMissionApi(),
     proofVault: createProofVaultApi(),
+    claimCaseMessages: createClaimCaseMessagesApi(),
     returnPasses: createReturnPassApi(),
     recoveryPulse: createRecoveryPulseApi(),
     sentinel: createSentinelApi(),
     custody: createCustodyApi(),
     campusZones: createCampusZoneApi(),
     eventHubs: createEventHubApi(),
+    demoScenarios: createDemoScenarioApi(),
     assets: createAssetApi(),
     partnerRelay: createPartnerRelayApi(),
+    aiAssistance: createAiAssistanceApi(),
   };
 
   return {
     auth: {
+      isAppwriteEnabled() {
+        return isAppwriteConfigured();
+      },
       async me() {
+        if (isAppwriteConfigured() && getStoredAppwriteJwt()) {
+          return getVerifiedAuthUser();
+        }
         return getCurrentAuthUser();
       },
       async signIn(credentials) {
+        // Appwrite email/password path: authenticate with Appwrite, then let the
+        // backend resolve identity from the verified JWT. No password is sent to us.
+        if (isAppwriteConfigured() && credentials?.password) {
+          const email = String(credentials.email || "").trim().toLowerCase();
+          const password = String(credentials.password || "");
+          const fullName = String(credentials.full_name || credentials.fullName || "").trim();
+          if (credentials.register) {
+            await appwriteRegisterEmailPassword(email, password, fullName || email);
+          } else {
+            await appwriteLoginEmailPassword(email, password);
+          }
+          const verified = await getVerifiedAuthUser();
+          if (!verified) {
+            throw new Error("Signed in with Appwrite but the account could not be loaded.");
+          }
+          emitAuthChange("SIGNED_IN", verified);
+          return clone(verified);
+        }
+
+        // Local development fallback: name + email demo identity.
         const user = await requestAuthApi("/signin", {
           method: "POST",
-          body: JSON.stringify(normalizeAuthUser(credentials)),
+          body: JSON.stringify({
+            email: String(credentials.email || "").trim().toLowerCase(),
+            full_name: String(credentials.full_name || credentials.fullName || "").trim(),
+          }),
         });
-        writeAuthUser(user);
-        await ensureLocalUserNotification(user);
-        emitAuthChange("SIGNED_IN", user);
-        return clone(user);
+        const normalizedUser = normalizeAuthUser(user);
+        writeAuthUser(normalizedUser);
+        emitAuthChange("SIGNED_IN", normalizedUser);
+        return clone(normalizedUser);
+      },
+      async signInWithGoogle() {
+        if (!isAppwriteConfigured()) {
+          throw new Error("Google sign-in is not configured.");
+        }
+        startGoogleOAuth();
+        return null;
+      },
+      // Called on app load to finish a Google OAuth redirect, if one is in progress.
+      async completeOAuthRedirect() {
+        if (!isAppwriteConfigured() || typeof window === "undefined") {
+          return null;
+        }
+        const params = new URLSearchParams(window.location.search);
+        const marker = params.get(OAUTH_RETURN_PARAM);
+        if (!marker) {
+          return null;
+        }
+
+        params.delete(OAUTH_RETURN_PARAM);
+        const nextSearch = params.toString();
+        const cleanedUrl = window.location.pathname + (nextSearch ? `?${nextSearch}` : "") + window.location.hash;
+        window.history.replaceState({}, document.title, cleanedUrl);
+
+        if (marker !== "success") {
+          return null;
+        }
+
+        try {
+          await refreshJwtFromSession();
+          const verified = await getVerifiedAuthUser();
+          if (verified) {
+            emitAuthChange("SIGNED_IN", verified);
+          }
+          return verified;
+        } catch {
+          clearStoredAppwriteJwt();
+          return null;
+        }
       },
       async logout() {
+        if (isAppwriteConfigured()) {
+          await appwriteDeleteSession().catch(() => {});
+        }
+        clearStoredAppwriteJwt();
         writeAuthUser(null);
         emitAuthChange("SIGNED_OUT", null);
         return null;
@@ -3275,14 +3794,17 @@ function createAppClient() {
     recoveryCases: featureClients.recoveryCases,
     recoveryMissions: featureClients.recoveryMissions,
     proofVault: featureClients.proofVault,
+    claimCaseMessages: featureClients.claimCaseMessages,
     returnPasses: featureClients.returnPasses,
     recoveryPulse: featureClients.recoveryPulse,
     sentinel: featureClients.sentinel,
     custody: featureClients.custody,
     campusZones: featureClients.campusZones,
     eventHubs: featureClients.eventHubs,
+    demoScenarios: featureClients.demoScenarios,
     assets: featureClients.assets,
     partnerRelay: featureClients.partnerRelay,
+    aiAssistance: featureClients.aiAssistance,
     entities: {
       FoundItem: foundItemApi,
       LostReport: lostReportApi,

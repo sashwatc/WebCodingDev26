@@ -1,7 +1,7 @@
 /**
  * FindBack AI - User Dashboard
  * Students/staff can track submitted lost reports, claim history,
- * AI match suggestions, and notification updates.
+ * advisory match suggestions, and notification updates.
  */
 
 import React, { useMemo, useState } from "react";
@@ -17,6 +17,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { appClient } from "@/api/appClient";
 import StatusBadge from "@/components/ui/StatusBadge";
 import RecordThumbnail from "@/components/shared/RecordThumbnail";
+import ClaimCaseMessageThread from "@/components/claims/ClaimCaseMessageThread";
 import { useAuth } from "@/lib/AuthContext";
 import { useToast } from "@/components/ui/use-toast";
 import { getPrimaryRecordPhoto } from "@/lib/media";
@@ -24,7 +25,7 @@ import { formatLocalizedDate, translateStatus } from "@/lib/i18n-helpers";
 import {
   AlertTriangle, FileCheck, Bell, Eye,
   Brain, CheckCircle2, Loader2, Star,
-  ShieldAlert, Clock, Sparkles, ArrowRight
+  ShieldAlert, Clock, Sparkles, ArrowRight, Ticket
 } from "lucide-react";
 
 export default function UserDashboard() {
@@ -44,7 +45,7 @@ export default function UserDashboard() {
   // Fetch user's claims
   const { data: claims = [], isLoading: clLoading } = useQuery({
     queryKey: ["userClaims", user?.email],
-    queryFn: () => appClient.entities.Claim.filter({ claimant_email: user.email }),
+    queryFn: () => appClient.claims.mine(),
     enabled: !!user?.email,
   });
 
@@ -76,26 +77,6 @@ export default function UserDashboard() {
   const markReadMutation = useMutation({
     mutationFn: (id) => appClient.recoveryPulse.markNotificationRead(id),
     onSuccess: () => queryClient.invalidateQueries(),
-  });
-
-  const confirmReceivedMutation = useMutation({
-    mutationFn: async (claim) => {
-      await appClient.claims.complete(claim);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries();
-      toast({
-        title: t("user_dashboard.return_confirmed"),
-        description: t("user_dashboard.return_confirmed_message"),
-      });
-    },
-    onError: (error) => {
-      toast({
-        title: t("user_dashboard.unable_to_confirm"),
-        description: error.message || t("navbar.please_try_again"),
-        variant: "destructive",
-      });
-    },
   });
 
   const submitReviewMutation = useMutation({
@@ -270,7 +251,7 @@ export default function UserDashboard() {
 
       {/* Tabs */}
       <Tabs defaultValue="reports" className="w-full">
-        <TabsList className="bg-slate-100/80 p-1 rounded-xl mb-6 flex w-fit border border-slate-200/50">
+        <TabsList className="responsive-tabs bg-slate-100/80 rounded-xl border border-slate-200/50 p-1">
           <TabsTrigger
             value="reports"
             className="px-5 py-2.5 rounded-lg text-sm font-semibold transition-all data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm"
@@ -352,17 +333,17 @@ export default function UserDashboard() {
                       )}
                     </div>
 
-                    {/* AI Suggestions Accordion-style layout */}
+                    {/* Suggested matches from deterministic/advisory matching. */}
                     {report.matched_items?.length > 0 && (
                       <div className="mt-4 pt-4 border-t border-slate-100 bg-purple-50/20 -mx-5 -mb-5 px-5 py-4">
                         <div className="flex items-center gap-2 mb-2">
                           <Sparkles className="w-4 h-4 text-purple-600 shrink-0" />
                           <h4 className="text-xs font-bold text-purple-950 uppercase tracking-wider">
-                            {t("user_dashboard.ai_suggested_matches", "AI-Suggested Found Matches")}
+                            {t("user_dashboard.ai_suggested_matches", "Suggested Found Matches")}
                           </h4>
                         </div>
                         <p className="text-xs text-purple-800 mb-3">
-                          {t("user_dashboard.ai_suggested_matches_desc", "We found matching items reported around the same time or location. Select one to view or claim:")}
+                          {t("user_dashboard.ai_suggested_matches_desc", "These advisory matches share item details, timing, or location. Select one to view or claim:")}
                         </p>
                         <div className="flex flex-wrap gap-2">
                           {report.matched_items.map(match => {
@@ -496,6 +477,10 @@ export default function UserDashboard() {
                           </div>
                         )}
 
+                        {["need_more_info", "under_review", "submitted", "pending_review"].includes(claim.status) && (
+                          <ClaimCaseMessageThread claim={claim} viewerRole="claimant" className="mt-4" />
+                        )}
+
                         {/* Approved claims requiring pickup confirmation */}
                         {claim.status === "approved" && !claim.received_confirmed_at && (
                           <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50/30 p-4 space-y-3">
@@ -508,19 +493,29 @@ export default function UserDashboard() {
                                 {t("user_dashboard.received_description")}
                               </p>
                             </div>
-                            <Button
-                              size="sm"
-                              className="bg-emerald-600 hover:bg-emerald-700 text-white font-medium gap-1.5 px-4 rounded-lg shadow-sm"
-                              disabled={confirmReceivedMutation.isPending}
-                              onClick={() => confirmReceivedMutation.mutate(claim)}
-                            >
-                              {confirmReceivedMutation.isPending ? (
-                                <Loader2 className="w-4 h-4 animate-spin" />
-                              ) : (
-                                <CheckCircle2 className="w-4 h-4" />
-                              )}
-                              {t("user_dashboard.confirm_received")}
-                            </Button>
+                            {(() => {
+                              const passNotification = findReturnPassNotificationForClaim(notifications, claim);
+                              const passId = getReturnPassIdFromNotification(passNotification || {});
+                              if (!passId) {
+                                return null;
+                              }
+                              return (
+                                <Button
+                                  asChild
+                                  size="sm"
+                                  variant="outline"
+                                  className="border-emerald-300 bg-white text-emerald-900 hover:bg-emerald-50 gap-1.5"
+                                >
+                                  <Link to={getPickupPassRoute(passId)}>
+                                    <Ticket className="w-4 h-4" />
+                                    {t("pickup_pass.view_pass")}
+                                  </Link>
+                                </Button>
+                              );
+                            })()}
+                            <p className="rounded-lg border border-emerald-200 bg-white px-3 py-2 text-xs leading-5 text-emerald-900">
+                              Pickup completion is recorded by staff at the Pickup Station after they verify the Return Pass code.
+                            </p>
                           </div>
                         )}
 
@@ -690,15 +685,26 @@ export default function UserDashboard() {
             <EmptyState icon={Bell} message={t("user_dashboard.no_notifications")} />
           ) : (
             <div className="space-y-2">
-              {notifications.map(notif => (
+              {notifications.map(notif => {
+                const passId = getReturnPassIdFromNotification(notif);
+                const pickupRoute = passId ? getPickupPassRoute(passId) : "";
+                const safeMessage = sanitizeNotificationMessage(notif.message);
+
+                return (
                 <div
                   key={notif.id}
-                  className={`p-4 rounded-xl border transition-all cursor-pointer ${
+                  className={`p-4 rounded-xl border transition-all ${
+                    pickupRoute ? "cursor-pointer" : ""
+                  } ${
                     notif.is_read
                       ? "bg-white border-slate-100 hover:bg-slate-50/50"
                       : "bg-blue-50/30 border-blue-100 hover:bg-blue-50/50 shadow-sm"
                   }`}
-                  onClick={() => !notif.is_read && markReadMutation.mutate(notif.id)}
+                  onClick={() => {
+                    if (!notif.is_read) {
+                      markReadMutation.mutate(notif.id);
+                    }
+                  }}
                 >
                   <div className="flex items-start gap-3.5">
                     <div className={`p-2 rounded-lg shrink-0 ${notif.is_read ? "bg-slate-100 text-slate-400" : "bg-blue-100 text-blue-600"}`}>
@@ -706,14 +712,21 @@ export default function UserDashboard() {
                     </div>
                     <div className="flex-1">
                       <p className={`text-sm ${notif.is_read ? "text-slate-600" : "text-slate-900 font-bold"}`}>{notif.title}</p>
-                      <p className="text-xs text-slate-500 mt-1 leading-relaxed">{notif.message}</p>
+                      <p className="text-xs text-slate-500 mt-1 leading-relaxed">{safeMessage}</p>
+                      {pickupRoute && (
+                        <Button asChild size="sm" variant="link" className="mt-2 h-auto p-0 text-emerald-700">
+                          <Link to={pickupRoute} onClick={(event) => event.stopPropagation()}>
+                            {t("pickup_pass.open_secure_pass")}
+                          </Link>
+                        </Button>
+                      )}
                     </div>
                     <span className="text-[10px] text-slate-400 font-semibold shrink-0">
                       {notif.created_date ? formatLocalizedDate(notif.created_date, "MMM d") : ""}
                     </span>
                   </div>
                 </div>
-              ))}
+              )})}
             </div>
           )}
         </TabsContent>

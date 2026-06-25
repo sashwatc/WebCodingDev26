@@ -33,7 +33,7 @@ export default function EventHub() {
       </div>
 
       <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
-        Demo integration-ready event workflow. This does not claim connection to a live PVHS calendar.
+        Grounded event recovery demo. This event context is manually configured and does not claim live PVHS calendar integration.
       </div>
 
       <div className="flex flex-wrap gap-3">
@@ -71,7 +71,8 @@ export default function EventHub() {
       </div>
 
       <section>
-        <h2 className="text-lg font-bold text-slate-900">Event-safe found items</h2>
+        <h2 className="text-lg font-bold text-slate-900">Approved event-related found items</h2>
+        <p className="mt-1 text-sm text-slate-600">Public cards use redacted item fields only; storage and verification clues stay private.</p>
         <div className="mt-3 grid gap-3 md:grid-cols-2">
           {(feed?.found_items || []).map((item) => (
             <Link key={item.id} to={`/ItemDetails?id=${item.id}`} className="rounded-xl border border-slate-200 bg-white p-4 hover:border-primary">

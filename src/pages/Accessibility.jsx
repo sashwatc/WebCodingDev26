@@ -20,6 +20,7 @@ const implementedFeatures = [
   "Labels, helper copy, and validation feedback on key form fields",
   "Alt text on meaningful item images and descriptive button labels",
   "Reduced-motion support that respects user preferences",
+  "Optional dyslexic reading mode and optional high-contrast display mode",
   "Responsive layouts that remain usable when zoomed and on smaller screens",
   "Status labels that communicate meaning with text, not color alone",
 ];

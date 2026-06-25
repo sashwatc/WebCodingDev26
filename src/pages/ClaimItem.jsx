@@ -8,7 +8,6 @@ import React, { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -17,7 +16,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { appClient } from "@/api/appClient";
 import { scoreClaimRisk } from "@/lib/ai-services";
 import { ConsentCheckboxField } from "@/components/shared/ConsentCheckboxField";
-import PhotoUploader from "@/components/shared/PhotoUploader";
+import ClaimOwnershipEvidenceSection from "@/components/claims/ClaimOwnershipEvidenceSection";
 import StatusBadge from "@/components/ui/StatusBadge";
 import { useAuth } from "@/lib/AuthContext";
 import { formatLocalizedDate, translateCategory, translateLocation } from "@/lib/i18n-helpers";
@@ -120,7 +119,9 @@ export default function ClaimItem() {
       return claim;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries();
+      queryClient.invalidateQueries({ queryKey: ["userClaims"] });
+      queryClient.invalidateQueries({ queryKey: ["adminClaims"] });
+      queryClient.invalidateQueries({ queryKey: ["itemDetails"] });
       setSubmitted(true);
       toast({
         title: t("claim_item.submitted_title"),
@@ -323,98 +324,7 @@ export default function ClaimItem() {
             </section>
 
             <section className="space-y-5">
-              <div className="space-y-2">
-                <h2 className="text-lg font-semibold text-slate-950">Sealed Ownership Verification</h2>
-                <p className="text-sm text-slate-600">
-                  Tell staff something about this item that is not shown publicly. Hidden clues stay private and do not automatically approve a claim.
-                </p>
-              </div>
-
-              <div>
-                <Label htmlFor="c_reason">{t("claim_item.reason")}</Label>
-                <Textarea
-                  id="c_reason"
-                  rows={4}
-                  placeholder={t("claim_item.reason_placeholder")}
-                  value={form.reason}
-                  onChange={(event) => updateField("reason", event.target.value)}
-                  className={errors.reason ? "border-red-400" : ""}
-                />
-                {errors.reason && <p className="mt-1 text-xs text-red-500">{errors.reason}</p>}
-              </div>
-
-              <div>
-                <Label htmlFor="c_details">{t("claim_item.identifying_details")}</Label>
-                <Textarea
-                  id="c_details"
-                  rows={4}
-                  placeholder={t("claim_item.identifying_placeholder")}
-                  value={form.identifying_details}
-                  onChange={(event) => updateField("identifying_details", event.target.value)}
-                />
-              </div>
-
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <Label htmlFor="c_private">Private detail</Label>
-                  <Textarea
-                    id="c_private"
-                    rows={3}
-                    placeholder="Engraving, scratch location, hidden sticker, serial fragment"
-                    value={form.private_detail}
-                    onChange={(event) => updateField("private_detail", event.target.value)}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="c_contents">Contents or condition</Label>
-                  <Textarea
-                    id="c_contents"
-                    rows={3}
-                    placeholder="Interior color, item contents, case condition, cable tie"
-                    value={form.contents_detail}
-                    onChange={(event) => updateField("contents_detail", event.target.value)}
-                  />
-                </div>
-              </div>
-
-              <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-                <p className="text-sm font-semibold text-slate-900">Help staff verify ownership</p>
-                <div className="mt-3 grid gap-2 sm:grid-cols-3">
-                  {["hidden mark", "item contents", "proof photo"].map((label) => (
-                    <label key={label} className="flex items-center gap-2 rounded-md bg-white px-3 py-2 text-sm text-slate-700 border border-slate-200">
-                      <input
-                        type="checkbox"
-                        className="h-4 w-4 accent-primary"
-                        checked={form.evidence_checklist.includes(label)}
-                        onChange={(event) => {
-                          const next = event.target.checked
-                            ? [...form.evidence_checklist, label]
-                            : form.evidence_checklist.filter((entry) => entry !== label);
-                          updateField("evidence_checklist", next);
-                        }}
-                      />
-                      {label}
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              <PhotoUploader
-                photos={form.proof_photo_url ? [form.proof_photo_url] : []}
-                onChange={(urls) => updateField("proof_photo_url", urls[0] || "")}
-                maxPhotos={1}
-                label={t("claim_item.supporting_photo")}
-              />
-
-              <div>
-                <Label htmlFor="c_pickup">{t("claim_item.pickup_availability")}</Label>
-                <Input
-                  id="c_pickup"
-                  placeholder={t("claim_item.pickup_placeholder")}
-                  value={form.pickup_availability}
-                  onChange={(event) => updateField("pickup_availability", event.target.value)}
-                />
-              </div>
+              <ClaimOwnershipEvidenceSection form={form} errors={errors} updateField={updateField} />
             </section>
 
             <section className="space-y-5">

@@ -3,7 +3,7 @@
  * Students report lost belongings and receive suggested matches.
  */
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useLocation, useNavigate, Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -18,7 +18,6 @@ import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/components/ui/use-toast";
 import { appClient } from "@/api/appClient";
 import { CATEGORIES, LOCATIONS, COLORS, URGENCY_LEVELS } from "@/lib/constants";
-import { findMatches } from "@/lib/ai-services";
 import { translateCategory, translateColor, translateLocation, translateUrgency } from "@/lib/i18n-helpers";
 import { ConsentCheckboxField } from "@/components/shared/ConsentCheckboxField";
 import PhotoUploader from "@/components/shared/PhotoUploader";
@@ -29,6 +28,17 @@ import {
   Loader2,
   Sparkles,
 } from "lucide-react";
+
+function locationFromZoneLabel(label = "") {
+  const normalized = label.toLowerCase();
+  if (normalized.includes("gym") || normalized.includes("athletic")) return "Gymnasium";
+  if (normalized.includes("library")) return "Library";
+  if (normalized.includes("office")) return "Main Office";
+  if (normalized.includes("cafeteria")) return "Cafeteria";
+  if (normalized.includes("bus")) return "Bus Loop";
+  if (normalized.includes("auditorium")) return "Auditorium";
+  return "";
+}
 
 export default function ReportLost() {
   const { t } = useTranslation();
@@ -90,6 +100,23 @@ export default function ReportLost() {
     queryFn: () => appClient.entities.FoundItem.list("-created_date", 100),
   });
 
+  const { data: campusZones = [] } = useQuery({
+    queryKey: ["campusZones"],
+    queryFn: () => appClient.campusZones.list(),
+    enabled: Boolean(form.campus_zone_id),
+  });
+
+  useEffect(() => {
+    if (!form.campus_zone_id || form.last_seen_location) {
+      return;
+    }
+    const zone = campusZones.find((entry) => entry.id === form.campus_zone_id);
+    const nextLocation = locationFromZoneLabel(zone?.label || "");
+    if (nextLocation) {
+      setForm((current) => ({ ...current, last_seen_location: nextLocation }));
+    }
+  }, [campusZones, form.campus_zone_id, form.last_seen_location]);
+
   const updateField = (field, value) => {
     setForm((prev) => ({ ...prev, [field]: value }));
     if (errors[field]) {
@@ -113,25 +140,18 @@ export default function ReportLost() {
     mutationFn: async (data) => {
       const report = await appClient.entities.LostReport.create({
         ...data,
+        title: data.item_type,
         status: "open",
       });
-      await appClient.recoveryCases.refreshByLostReport(report.id);
 
-      setStep(2);
-      const aiMatches = await findMatches(data, foundItems);
-
-      if (aiMatches.length > 0) {
-        await appClient.entities.LostReport.update(report.id, {
-          matched_items: aiMatches,
-          status: "matched",
-        });
-      }
-
-      return { report, matches: aiMatches };
+      const matches = await appClient.matches.forLostReport(report.id);
+      return { report, matches };
     },
-    onSuccess: ({ matches: aiMatches }) => {
-      queryClient.invalidateQueries();
-      setMatches(aiMatches);
+    onSuccess: ({ matches: backendMatches }) => {
+      queryClient.invalidateQueries({ queryKey: ["searchRecords"] });
+      queryClient.invalidateQueries({ queryKey: ["homePreviewItems"] });
+      queryClient.invalidateQueries({ queryKey: ["userLostReports"] });
+      setMatches(backendMatches);
       setStep(3);
     },
     onError: () => {

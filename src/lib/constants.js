@@ -10,7 +10,6 @@ export const SCHOOL_FULL_NAME = "Pleasant Valley High School";
 export const SUPPORT_EMAIL = "lostthenfound@pvhs.edu";
 export const SUPPORT_PHONE = "(555) 123-4567";
 export const SUPPORT_LOCATION = "Main Office, Room 102";
-export const ADMIN_ACCESS_PASSWORD = "PVHS-Admin-2026";
 
 export const CATEGORIES = [
   { value: "electronics", label: "Electronics", icon: "Smartphone" },
@@ -39,6 +38,10 @@ export const COLORS = [
 ];
 
 export const ITEM_STATUSES = {
+  FOUND: { label: "Available", color: "bg-emerald-100 text-emerald-800 border-emerald-200" },
+  CLAIM_PENDING: { label: "Claim Pending", color: "bg-blue-100 text-blue-800 border-blue-200" },
+  VERIFIED: { label: "Verified", color: "bg-indigo-100 text-indigo-800 border-indigo-200" },
+  ARCHIVED: { label: "Archived", color: "bg-gray-100 text-gray-800 border-gray-200" },
   pending_review: { label: "Pending Review", color: "bg-amber-100 text-amber-800 border-amber-200" },
   approved: { label: "Approved", color: "bg-emerald-100 text-emerald-800 border-emerald-200" },
   claimed: { label: "Claimed", color: "bg-blue-100 text-blue-800 border-blue-200" },

@@ -15,12 +15,10 @@ export default function AdminRouteGuard({ children }) {
     isLoadingAuth,
     isLoadingPublicSettings,
     navigateToLogin,
-    openAdminAccess,
   } = useAuth();
   const { isAdminMode, setIsAdminMode } = useMode();
   const { toast } = useToast();
   const [openingLogin, setOpeningLogin] = useState(false);
-  const [openingUnlock, setOpeningUnlock] = useState(false);
 
   useEffect(() => {
     const nextAdminMode = Boolean(hasAdminAccess);
@@ -42,21 +40,6 @@ export default function AdminRouteGuard({ children }) {
       });
     } finally {
       setOpeningLogin(false);
-    }
-  };
-
-  const handleUnlock = async () => {
-    setOpeningUnlock(true);
-    try {
-      await openAdminAccess();
-    } catch (error) {
-      toast({
-        title: t("admin_route_guard.unlock_unavailable"),
-        description: error.message || t("admin_route_guard.unlock_unavailable_description"),
-        variant: "destructive",
-      });
-    } finally {
-      setOpeningUnlock(false);
     }
   };
 
@@ -111,14 +94,9 @@ export default function AdminRouteGuard({ children }) {
           <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-slate-600">
             {t("admin_route_guard.access_locked_description")}
           </p>
-          <div className="mt-8 flex flex-wrap justify-center gap-3">
-            <Button onClick={handleUnlock} disabled={openingUnlock}>
-              {openingUnlock ? t("admin_route_guard.opening_unlock") : t("admin_access_dialog.unlock_admin")}
-            </Button>
-            <Link to="/Home">
-              <Button variant="outline">{t("admin_route_guard.back_home")}</Button>
-            </Link>
-          </div>
+          <p className="mx-auto mt-2 max-w-xl text-xs text-slate-500">
+            {user?.email}
+          </p>
         </div>
       </div>
     );

@@ -12,11 +12,24 @@ const ALL_STATUSES = { ...ITEM_STATUSES, ...CLAIM_STATUSES, ...LOST_REPORT_STATU
 export default function StatusBadge({ status, className = "" }) {
   const { t } = useTranslation();
   const config = ALL_STATUSES[status];
-  if (!config) return <Badge variant="outline">{translateStatus(t, status)}</Badge>;
+  const label = translateStatus(t, status);
+
+  if (!config) {
+    return (
+      <Badge variant="outline" className={className} role="status" aria-label={t("statuses.badge_label", { status: label })}>
+        {label}
+      </Badge>
+    );
+  }
 
   return (
-    <Badge className={`${config.color} border font-medium text-xs ${className}`} variant="secondary">
-      {translateStatus(t, status)}
+    <Badge
+      className={`${config.color} border font-medium text-xs ${className}`}
+      variant="secondary"
+      role="status"
+      aria-label={t("statuses.badge_label", { status: label })}
+    >
+      {label}
     </Badge>
   );
 }

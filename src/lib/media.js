@@ -1,11 +1,10 @@
-export function getRecordPhotoUrls(record = {}, fallbackRecord = null) {
+export function getRecordPhotoUrls(record = {}, fallbackRecord = null, { includeProofPhotos = false } = {}) {
   const directUrls = [
     ...(Array.isArray(record.photo_urls) ? record.photo_urls : []),
     ...(Array.isArray(record.photoUrls) ? record.photoUrls : []),
     record.photo_url,
     record.photoUrl,
-    record.proof_photo_url,
-    record.proofPhotoUrl,
+    ...(includeProofPhotos ? [record.proof_photo_url, record.proofPhotoUrl] : []),
   ].filter(Boolean);
 
   if (directUrls.length > 0) {
@@ -16,9 +15,9 @@ export function getRecordPhotoUrls(record = {}, fallbackRecord = null) {
     return [];
   }
 
-  return getRecordPhotoUrls(fallbackRecord);
+  return getRecordPhotoUrls(fallbackRecord, null, { includeProofPhotos });
 }
 
-export function getPrimaryRecordPhoto(record = {}, fallbackRecord = null) {
-  return getRecordPhotoUrls(record, fallbackRecord)[0] || "";
+export function getPrimaryRecordPhoto(record = {}, fallbackRecord = null, options = {}) {
+  return getRecordPhotoUrls(record, fallbackRecord, options)[0] || "";
 }

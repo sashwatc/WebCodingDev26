@@ -22,6 +22,9 @@ import { appClient } from "@/api/appClient";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import StatusBadge from "@/components/ui/StatusBadge";
 import RecordThumbnail from "@/components/shared/RecordThumbnail";
+import ClaimEvidenceReview from "@/components/admin/ClaimEvidenceReview";
+import IssueReturnPassPanel from "@/components/admin/IssueReturnPassPanel";
+import ClaimCaseMessageThread from "@/components/claims/ClaimCaseMessageThread";
 import { getPrimaryRecordPhoto } from "@/lib/media";
 import { formatLocalizedDate, translateStatus } from "@/lib/i18n-helpers";
 import {
@@ -95,8 +98,10 @@ export default function AdminClaimsQueue({ claims, foundItems = [] }) {
       });
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["adminClaims"] });
+      queryClient.invalidateQueries({ queryKey: ["adminFoundItems"] });
+      queryClient.invalidateQueries({ queryKey: ["userClaims"] });
       setDetailDialog(null);
-      queryClient.invalidateQueries();
       toast({ title: t("admin_claims_queue.claim_updated") });
     },
     onError: (error) => {
@@ -231,7 +236,7 @@ export default function AdminClaimsQueue({ claims, foundItems = [] }) {
       )}
 
       <Dialog open={!!detailDialog} onOpenChange={() => setDetailDialog(null)}>
-        <DialogContent className="max-w-2xl bg-slate-900 border-slate-800 text-slate-100">
+        <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto bg-slate-900 border-slate-800 text-slate-100">
           <DialogHeader>
             <DialogTitle className="text-white flex items-center gap-2 text-xl font-bold">
               <Shield className="w-5 h-5 text-indigo-400" />
@@ -261,29 +266,11 @@ export default function AdminClaimsQueue({ claims, foundItems = [] }) {
                 <p className="mt-1.5 leading-relaxed text-slate-200">{detailDialog.reason}</p>
               </div>
 
-              {detailDialog.identifying_details && (
-                <div className="rounded-xl border border-slate-800 bg-slate-950 px-4 py-3">
-                  <p className="text-xs font-semibold text-slate-400">{t("admin_claims_queue.identifying_details")}</p>
-                  <p className="mt-1.5 leading-relaxed text-slate-200">{detailDialog.identifying_details}</p>
-                </div>
-              )}
-
               {detailDialog.received_confirmed_at && (
                 <div className="rounded-xl border border-emerald-900 bg-emerald-950/20 px-4 py-3 text-emerald-400">
                   {t("admin_claims_queue.received_on", {
                     date: formatLocalizedDate(detailDialog.received_confirmed_at, "MMM d, yyyy"),
                   })}
-                </div>
-              )}
-
-              {detailDialog.proof_photo_url && (
-                <div className="space-y-1.5">
-                  <p className="text-xs font-semibold text-slate-400">{t("admin_claims_queue.proof_photo")}</p>
-                  <img
-                    src={detailDialog.proof_photo_url}
-                    alt={t("admin_claims_queue.proof_photo")}
-                    className="w-full max-h-60 rounded-xl border border-slate-800 object-contain bg-slate-950"
-                  />
                 </div>
               )}
 
@@ -295,6 +282,12 @@ export default function AdminClaimsQueue({ claims, foundItems = [] }) {
                   ))}
                 </div>
               )}
+
+              <ClaimEvidenceReview claimId={detailDialog.id} />
+
+              <IssueReturnPassPanel claim={detailDialog} />
+
+              <ClaimCaseMessageThread claim={detailDialog} viewerRole="admin" />
 
               {/* Status Update & Moderation action buttons */}
               <div className="pt-4 border-t border-slate-800/80 space-y-3">
@@ -336,7 +329,14 @@ export default function AdminClaimsQueue({ claims, foundItems = [] }) {
                       size="sm"
                       variant="outline"
                       className="border-slate-800 bg-slate-950 text-slate-300 hover:bg-slate-850"
-                      onClick={() => updateMutation.mutate({ claim: detailDialog, data: { status: "need_more_info" }, action: "Status → Need More Info" })}
+                      onClick={() => updateMutation.mutate({
+                        claim: detailDialog,
+                        data: {
+                          status: "need_more_info",
+                          admin_notes: adminNotes.trim() || detailDialog.admin_notes || "",
+                        },
+                        action: "Status → Need More Info",
+                      })}
                     >
                       {t("admin_claims_queue.request_more_info", "Request More Info")}
                     </Button>
