@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { Input } from "@/components/ui/input";
+import { useToast } from "@/components/ui/use-toast";
 
 // ── Simple toggle row ─────────────────────────────────────────────────────────
 function ToggleRow({ id, label, description, checked, onCheckedChange, disabled }) {
@@ -29,19 +31,30 @@ export default function Settings() {
 
   // ── Notification prefs ──────────────────────────────────────────────────────
   const queryClient = useQueryClient();
-  const { data: prefs } = useQuery({
+  const { data: prefs, isLoading: prefsLoading } = useQuery({
     queryKey: ["notifPrefs"],
     queryFn: () => appClient.recoveryPulse.preferences(),
     enabled: !!user?.email,
   });
+  const { toast } = useToast();
+  const [savingPref, setSavingPref] = useState(false);
 
   const updatePref = async (patch) => {
+    setSavingPref(true);
     try {
       await appClient.recoveryPulse.updatePreferences(patch);
       // Refetch so the toggles reflect the persisted state instead of snapping back.
       queryClient.invalidateQueries({ queryKey: ["notifPrefs"] });
-    } catch { /* silent */ }
+    } catch (error) {
+      toast({ variant: "destructive", title: "Could not save preference", description: error?.message || "Please try again." });
+    } finally {
+      setSavingPref(false);
+    }
   };
+
+  // Editable phone number for SMS notifications (seeded from saved prefs).
+  const [phoneDraft, setPhoneDraft] = useState("");
+  useEffect(() => { setPhoneDraft(prefs?.phone_number || ""); }, [prefs?.phone_number]);
 
   // ── Appearance ──────────────────────────────────────────────────────────────
   const getTheme = () => localStorage.getItem("ltf-theme") || "system";
@@ -120,15 +133,39 @@ export default function Settings() {
             label="Email notifications"
             checked={prefs?.email_notifications_enabled ?? true}
             onCheckedChange={(v) => updatePref({ email_notifications_enabled: v })}
+            disabled={prefsLoading || savingPref}
           />
           <ToggleRow
             id="notif-sms"
             label="SMS notifications"
-            description={!user?.phone_number ? "Requires phone number in profile" : undefined}
+            description={!prefs?.phone_number ? "Add a phone number below to enable" : undefined}
             checked={prefs?.sms_notifications_enabled ?? false}
-            onCheckedChange={(v) => updatePref({ sms_notifications_enabled: v })}
-            disabled={!user?.phone_number}
+            onCheckedChange={(v) => updatePref({ sms_notifications_enabled: v, sms_opt_in: v })}
+            disabled={prefsLoading || savingPref || !prefs?.phone_number}
           />
+          <div className="flex items-end justify-between gap-4 py-3">
+            <div className="min-w-0 flex-1">
+              <Label htmlFor="phone-number" className="text-sm font-medium text-foreground">Phone number</Label>
+              <p className="mt-0.5 text-xs text-muted-foreground">Used for SMS alerts — international format, e.g. +15550123456</p>
+              <Input
+                id="phone-number"
+                type="tel"
+                inputMode="tel"
+                placeholder="+15550123456"
+                value={phoneDraft}
+                onChange={(event) => setPhoneDraft(event.target.value)}
+                className="mt-2 max-w-xs"
+              />
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={savingPref || phoneDraft.trim() === (prefs?.phone_number || "")}
+              onClick={() => updatePref({ phone_number: phoneDraft.trim() })}
+            >
+              Save
+            </Button>
+          </div>
           <ToggleRow
             id="notif-inapp"
             label="In-app notifications"

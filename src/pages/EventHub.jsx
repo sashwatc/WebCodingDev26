@@ -17,10 +17,11 @@ export default function EventHub() {
     queryKey: ["eventHub", eventId],
     queryFn: () => appClient.eventHubs.get(eventId),
   });
-  const { data: feed } = useQuery({
+  const { data: feed, isLoading: feedLoading, isError: feedError } = useQuery({
     queryKey: ["eventHubFeed", eventId],
     queryFn: () => appClient.eventHubs.displayFeed(eventId),
   });
+  const feedUnavailable = feedError || feed?.backend_required;
 
   const hubLink = `${window.location.origin}${window.location.pathname}#/EventHub?id=${eventId}`;
 
@@ -35,6 +36,13 @@ export default function EventHub() {
       <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
         Grounded event recovery demo. This event context is manually configured and does not claim live PVHS calendar integration.
       </div>
+
+      {feedUnavailable && (
+        <div className="search-state-panel text-sm">
+          <Monitor className="mx-auto mb-3 h-8 w-8 text-muted-foreground/40" />
+          The event feed is unavailable right now. Please try again shortly.
+        </div>
+      )}
 
       <div className="flex flex-wrap gap-3">
         <Link to={`/ReportLost?event=${eventId}`}><Button>Report Lost</Button></Link>
@@ -86,7 +94,12 @@ export default function EventHub() {
               </div>
             </Link>
           ))}
-          {(feed?.found_items || []).length === 0 && (
+          {feedLoading && (
+            <div className="search-state-panel text-sm">
+              Loading event items…
+            </div>
+          )}
+          {!feedLoading && !feedUnavailable && (feed?.found_items || []).length === 0 && (
             <div className="search-state-panel text-sm">
               <Package className="mx-auto mb-3 h-8 w-8 text-muted-foreground/40" />
               No public event items are listed yet.
