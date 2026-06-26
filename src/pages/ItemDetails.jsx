@@ -31,7 +31,7 @@ function normalizeLostReport(report = {}) {
     location_found: report.last_seen_location || "",
     date_found: report.date_lost || "",
     time_found: "",
-    photo_urls: report.photo_url ? [report.photo_url] : [],
+    photo_urls: report.photo_urls?.length ? report.photo_urls : report.photo_url ? [report.photo_url] : [],
     status: report.status || "open",
     record_type: "lost",
     tags: [report.color, report.brand].filter(Boolean),

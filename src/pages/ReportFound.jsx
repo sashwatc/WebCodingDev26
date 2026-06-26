@@ -6,6 +6,7 @@
 
 import React, { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import FloatingItemsCanvas from "@/components/shared/FloatingItemsCanvas";
 import { useTranslation } from "react-i18next";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -361,7 +362,9 @@ export default function ReportFound() {
   const isSubmitting = submitMutation.isPending;
 
   return (
-    <div className="page-shell max-w-5xl py-10">
+    <div style={{ position: "relative", overflow: "hidden", minHeight: "100vh" }}>
+      <FloatingItemsCanvas />
+    <div className="page-shell max-w-5xl py-10" style={{ position: "relative", zIndex: 1 }}>
       <div className="page-header">
         <span className="page-kicker">{t("report_found.kicker")}</span>
         <h1 className="page-title">{t("report_found.title")}</h1>
@@ -832,6 +835,7 @@ export default function ReportFound() {
           )}
         </div>
       </form>
+    </div>
     </div>
   );
 }

@@ -21,6 +21,7 @@ import { useAuth } from "@/lib/AuthContext";
 import { useToast } from "@/components/ui/use-toast";
 import { getPrimaryRecordPhoto } from "@/lib/media";
 import { formatLocalizedDate, translateStatus } from "@/lib/i18n-helpers";
+import ConstellationCanvas from "@/components/shared/ConstellationCanvas";
 import {
   findReturnPassNotificationForClaim,
   getPickupPassRoute,
@@ -31,7 +32,7 @@ import {
   AlertTriangle, FileCheck, Bell, Eye,
   Brain, CheckCircle2, Loader2, Star,
   ShieldAlert, Clock, Sparkles, ArrowRight, Ticket,
-  Bookmark, Trash2, Search as SearchIcon
+  Bookmark, Trash2, Search as SearchIcon, MessageSquare
 } from "lucide-react";
 
 export default function UserDashboard() {
@@ -214,25 +215,28 @@ export default function UserDashboard() {
   return (
     <div className="page-shell max-w-6xl py-10 space-y-8">
       {/* Page Header */}
-      <div className="page-header flex flex-col md:flex-row md:items-center md:justify-between gap-4 pb-4 border-b border-border">
-        <div>
-          <span className="page-kicker">{t("user_dashboard.kicker", "Personal Command Center")}</span>
-          <h1 className="page-title text-4xl font-extrabold tracking-tight text-foreground mt-1">
-            {t("user_dashboard.title", "My Account Dashboard")}
-          </h1>
-          <p className="page-subtitle mt-2 max-w-2xl text-muted-foreground">
-            {t("user_dashboard.welcome", {
-              suffix: user?.full_name ? `, ${user.full_name.split(" ")[0]}` : "",
-            })}
-          </p>
-        </div>
-        <div className="flex gap-3">
-          <Link to="/Search">
-            <Button variant="default" className="gap-2 transition-all hover:scale-[1.02]">
-              <Eye className="w-4 h-4" />
-              {t("user_dashboard.browse_items", "Browse Lost & Found")}
-            </Button>
-          </Link>
+      <div style={{ position: "relative", overflow: "hidden", minHeight: 180, borderBottom: "1px solid hsl(var(--border))" }}>
+        <ConstellationCanvas />
+        <div className="page-header flex flex-col md:flex-row md:items-center md:justify-between gap-4 pb-4" style={{ position: "relative", zIndex: 2 }}>
+          <div>
+            <span className="page-kicker">{t("user_dashboard.kicker", "Personal Command Center")}</span>
+            <h1 className="page-title text-4xl font-extrabold tracking-tight text-foreground mt-1">
+              {t("user_dashboard.title", "My Account Dashboard")}
+            </h1>
+            <p className="page-subtitle mt-2 max-w-2xl text-muted-foreground">
+              {t("user_dashboard.welcome", {
+                suffix: user?.full_name ? `, ${user.full_name.split(" ")[0]}` : "",
+              })}
+            </p>
+          </div>
+          <div className="flex gap-3">
+            <Link to="/Search">
+              <Button variant="default" className="gap-2 transition-all hover:scale-[1.02]">
+                <Eye className="w-4 h-4" />
+                {t("user_dashboard.browse_items", "Browse Lost & Found")}
+              </Button>
+            </Link>
+          </div>
         </div>
       </div>
 
@@ -320,6 +324,12 @@ export default function UserDashboard() {
             className="px-5 py-2.5 rounded-lg text-sm font-semibold transition-all data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-sm"
           >
             <Bookmark className="h-4 w-4 mr-1.5" />Saved
+          </TabsTrigger>
+          <TabsTrigger
+            value="messages"
+            className="px-5 py-2.5 rounded-lg text-sm font-semibold transition-all data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-sm"
+          >
+            <MessageSquare className="h-4 w-4 mr-1.5" />Messages
           </TabsTrigger>
         </TabsList>
 
@@ -879,6 +889,50 @@ export default function UserDashboard() {
             )}
           </div>
         </TabsContent>
+        {/* Messages Tab */}
+        <TabsContent value="messages" className="space-y-4">
+          {clLoading ? (
+            <div className="space-y-4">
+              {Array(3).fill(0).map((_, i) => (
+                <Skeleton key={i} className="h-32 w-full rounded-xl" />
+              ))}
+            </div>
+          ) : claims.length === 0 ? (
+            <EmptyState icon={MessageSquare} message="No case messages yet. Messages appear here when you have an active claim." />
+          ) : (
+            <div className="space-y-5">
+              <p className="text-sm text-muted-foreground">
+                Messages between you and staff about your active claims. Staff may request more information or share updates here.
+              </p>
+              {claims.map((claim) => (
+                <div key={claim.id} className="archive-card overflow-hidden">
+                  <div className="flex items-center gap-3 border-b border-border px-5 py-3.5 bg-muted/40">
+                    <div className="relative shrink-0 h-9 w-9 rounded-lg overflow-hidden border border-border bg-muted">
+                      <img
+                        src={getPrimaryRecordPhoto(claim, foundItemsById[claim.found_item_id])}
+                        alt={claim.found_item_title || "Claim"}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold text-foreground truncate">
+                        {claim.found_item_title || t("common.claim")}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Claim submitted {claim.created_date ? formatLocalizedDate(claim.created_date, "MMM d, yyyy") : ""}
+                      </p>
+                    </div>
+                    <StatusBadge status={claim.status} />
+                  </div>
+                  <div className="px-5 py-4">
+                    <ClaimCaseMessageThread claim={claim} viewerRole="claimant" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </TabsContent>
+
       </Tabs>
     </div>
   );

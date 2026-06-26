@@ -20,7 +20,7 @@ import {
 export default function PhotoUploader({
   photos = [],
   onChange,
-  maxPhotos = 3,
+  maxPhotos = 5,
   label,
   aspectRatio = 4 / 3,
   isPrivate = false,
@@ -266,6 +266,7 @@ export default function PhotoUploader({
             <div className="space-y-1">
               <p className="text-sm font-semibold text-foreground">{t("photo_uploader.drag_drop")}</p>
               <p className="text-xs text-muted-foreground">{t("photo_uploader.max_photos", { count: maxPhotos })}</p>
+              <p className="text-xs text-muted-foreground">First image is shown on item cards</p>
             </div>
             <Button
               type="button"
@@ -318,6 +319,11 @@ export default function PhotoUploader({
                           >
                             <GripVertical className="h-4 w-4" aria-hidden="true" />
                           </div>
+                          {index === 0 && (
+                            <span className="absolute top-1.5 right-1.5 z-10 rounded-full bg-emerald-500 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
+                              Cover
+                            </span>
+                          )}
                           <img
                             src={url}
                             alt={
@@ -340,6 +346,18 @@ export default function PhotoUploader({
                             <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
                             {t("photo_uploader.replace")}
                           </Button>
+                          {index > 0 && (
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              className="min-h-10 flex-1 gap-1.5 text-emerald-700"
+                              onClick={() => onChange([photos[index], ...photos.filter((_, i) => i !== index)])}
+                              aria-label={`Set photo ${index + 1} as cover`}
+                            >
+                              Set as cover
+                            </Button>
+                          )}
                           <Button
                             type="button"
                             size="sm"

@@ -5,6 +5,7 @@
 
 import React, { useEffect, useState } from "react";
 import { useLocation, useNavigate, Link } from "react-router-dom";
+import FloatingItemsCanvas from "@/components/shared/FloatingItemsCanvas";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
@@ -67,7 +68,7 @@ export default function ReportLost() {
     brand: "",
     last_seen_location: "",
     date_lost: "",
-    photo_url: "",
+    photo_urls: [],
     contact_name: "",
     contact_email: "",
     student_id: "",
@@ -289,7 +290,9 @@ export default function ReportLost() {
   }
 
   return (
-    <div className="page-shell max-w-4xl py-10">
+    <div style={{ position: "relative", overflow: "hidden", minHeight: "100vh" }}>
+      <FloatingItemsCanvas />
+    <div className="page-shell max-w-4xl py-10" style={{ position: "relative", zIndex: 1 }}>
       <div className="page-header">
         <span className="page-kicker">{t("report_lost.kicker")}</span>
         <h1 className="page-title">{t("report_lost.title")}</h1>
@@ -399,7 +402,7 @@ export default function ReportLost() {
                 </div>
               </div>
 
-              <PhotoUploader photos={form.photo_url ? [form.photo_url] : []} onChange={(urls) => updateField("photo_url", urls[0] || "")} maxPhotos={1} label={t("report_lost.reference_photo")} />
+              <PhotoUploader photos={form.photo_urls} onChange={(urls) => updateField("photo_urls", urls)} maxPhotos={5} label={t("report_lost.reference_photo", "Reference Photos")} />
 
               <div className="flex justify-end pt-4">
                 <Button type="button" size="lg" onClick={handleNextStep} className="px-8">
@@ -514,6 +517,7 @@ export default function ReportLost() {
           )}
         </div>
       </form>
+    </div>
     </div>
   );
 }

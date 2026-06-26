@@ -5,6 +5,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { useSearchParams, Link } from "react-router-dom";
+import RadarPulseCanvas from "@/components/shared/RadarPulseCanvas";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { appClient } from "@/api/appClient";
@@ -37,6 +38,9 @@ export default function Search({ recordTypeOverride = "found" }) {
   const { toast } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
   const queryFromUrl = searchParams.get("q") || "";
+  /* type=all comes from the global navbar search — show both found and lost */
+  const typeParam = searchParams.get("type");
+  const isAllMode = typeParam === "all";
   const recordType = recordTypeOverride || "found";
   const isLostItemsPage = recordType === "lost";
   const [searchQuery, setSearchQuery] = useState(queryFromUrl);
@@ -136,8 +140,9 @@ export default function Search({ recordTypeOverride = "found" }) {
   );
 
   const searchableRecords = useMemo(() => {
+    if (isAllMode) return [...publicFoundItems, ...publicLostReports];
     return isLostItemsPage ? publicLostReports : publicFoundItems;
-  }, [isLostItemsPage, publicFoundItems, publicLostReports]);
+  }, [isAllMode, isLostItemsPage, publicFoundItems, publicLostReports]);
 
   const filteredItems = useMemo(() => {
     let items = [...searchableRecords];
@@ -335,18 +340,21 @@ export default function Search({ recordTypeOverride = "found" }) {
         className="relative mb-0 overflow-hidden"
         style={{ background: heroBg, minHeight: "220px" }}
       >
-        <div className="mx-auto flex max-w-7xl items-center px-4 py-12 sm:px-6 lg:px-8" style={{ paddingRight: "clamp(2rem, 38%, 520px)" }}>
+        <RadarPulseCanvas />
+        <div className="mx-auto flex max-w-7xl items-center px-4 py-12 sm:px-6 lg:px-8" style={{ paddingRight: "clamp(2rem, 38%, 520px)", position: "relative", zIndex: 2 }}>
           <div>
             <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-500">
-              {isLostItemsPage ? t("lost_items.kicker", "Lost reports") : t("search.kicker")}
+              {isAllMode ? "All items" : isLostItemsPage ? t("lost_items.kicker", "Lost reports") : t("search.kicker")}
             </span>
             <h1 className="mt-2 text-4xl font-black text-white sm:text-5xl">
-              {isLostItemsPage ? t("lost_items.title", "Lost Items") : t("search.found_title", "Found Items")}
+              {isAllMode ? "Search Results" : isLostItemsPage ? t("lost_items.title", "Lost Items") : t("search.found_title", "Found Items")}
             </h1>
             <p className="mt-3 max-w-xl text-sm leading-relaxed text-gray-400">
-              {isLostItemsPage
-                ? t("lost_items.subtitle", "Browse items students and staff are looking for and see whether staff have already matched one to you.")
-                : t("search.found_subtitle", "Search the verified found-item inventory. Claimed, returned, and archived records stay out of public results; request a claim when something matches.")}
+              {isAllMode
+                ? "Searching across both found items and lost reports."
+                : isLostItemsPage
+                  ? t("lost_items.subtitle", "Browse items students and staff are looking for and see whether staff have already matched one to you.")
+                  : t("search.found_subtitle", "Search the verified found-item inventory. Claimed, returned, and archived records stay out of public results; request a claim when something matches.")}
             </p>
           </div>
         </div>

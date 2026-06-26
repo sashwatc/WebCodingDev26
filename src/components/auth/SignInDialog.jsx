@@ -20,6 +20,7 @@ import { Briefcase, ChevronLeft, Mail, Shield, User, User2, Lock } from "lucide-
 
 const DEMO_ACCOUNT = DEMO_ACCOUNTS.student;
 const ADMIN_DEMO_ACCOUNT = DEMO_ACCOUNTS.admin;
+const STAFF_DEMO_ACCOUNT = DEMO_ACCOUNTS.staff;
 
 const STRENGTH_BAR_CLASSES = [
   "bg-red-500",
@@ -174,27 +175,39 @@ export default function SignInDialog() {
             )}
 
             {!isAppwriteEnabled && !registerMode && (
-              <div className="grid gap-2 sm:grid-cols-2">
+              <div className="grid gap-2 grid-cols-1 sm:grid-cols-3">
                 <button
                   type="button"
                   onClick={() => applyDemoAccount(DEMO_ACCOUNT)}
-                  className="rounded-xl border border-border bg-muted px-4 py-3 text-left transition hover:border-border hover:bg-accent"
+                  className="rounded-xl border border-border bg-muted px-4 py-3 text-left transition hover:border-primary/40 hover:bg-accent"
                 >
                   <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">{t("sign_in_dialog.student_demo")}</p>
                   <p className="mt-1 text-sm font-semibold text-foreground">{DEMO_ACCOUNT.full_name}</p>
-                  <p className="text-xs text-muted-foreground">{DEMO_ACCOUNT.email}</p>
+                  <p className="text-xs text-muted-foreground truncate">{DEMO_ACCOUNT.email}</p>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => applyDemoAccount(STAFF_DEMO_ACCOUNT)}
+                  className="rounded-xl border border-border bg-muted px-4 py-3 text-left transition hover:border-primary/40 hover:bg-accent"
+                >
+                  <div className="flex items-center gap-1.5">
+                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Staff Demo</p>
+                    <Briefcase className="h-3 w-3 text-muted-foreground" />
+                  </div>
+                  <p className="mt-1 text-sm font-semibold text-foreground">{STAFF_DEMO_ACCOUNT.full_name}</p>
+                  <p className="text-xs text-muted-foreground truncate">{STAFF_DEMO_ACCOUNT.email}</p>
                 </button>
                 <button
                   type="button"
                   onClick={() => applyDemoAccount(ADMIN_DEMO_ACCOUNT)}
-                  className="rounded-xl border border-border bg-muted px-4 py-3 text-left transition hover:border-border hover:bg-accent"
+                  className="rounded-xl border border-border bg-muted px-4 py-3 text-left transition hover:border-primary/40 hover:bg-accent"
                 >
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5">
                     <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">{t("sign_in_dialog.admin_demo")}</p>
-                    <Shield className="h-3.5 w-3.5 text-primary" />
+                    <Shield className="h-3 w-3 text-primary" />
                   </div>
                   <p className="mt-1 text-sm font-semibold text-foreground">{ADMIN_DEMO_ACCOUNT.full_name}</p>
-                  <p className="text-xs text-muted-foreground">{ADMIN_DEMO_ACCOUNT.email}</p>
+                  <p className="text-xs text-muted-foreground truncate">{ADMIN_DEMO_ACCOUNT.email}</p>
                 </button>
               </div>
             )}

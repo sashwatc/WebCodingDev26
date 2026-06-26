@@ -108,6 +108,12 @@ export const DEMO_ACCOUNTS = {
     role: "admin",
     label: "Admin Demo",
   },
+  staff: {
+    full_name: "Morgan Lee",
+    email: "morgan.lee@pleasantvalley.edu",
+    role: "staff",
+    label: "Staff Demo",
+  },
 };
 
 const DEMO_ROLE_BY_EMAIL = Object.values(DEMO_ACCOUNTS).reduce((roles, account) => {

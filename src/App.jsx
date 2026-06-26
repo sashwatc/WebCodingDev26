@@ -48,6 +48,7 @@ import Display from '@/pages/Display';
 import PickupPass from '@/pages/PickupPass';
 import PickupStation from '@/pages/PickupStation';
 import Support from '@/pages/Support';
+import Settings from '@/pages/Settings';
 
 const AuthenticatedApp = () => {
   const { t } = useTranslation();
@@ -119,6 +120,7 @@ const AuthenticatedApp = () => {
           <Route path="/Display" element={<Display />} />
           <Route path="/PickupPass" element={<AuthRouteGuard><PickupPass /></AuthRouteGuard>} />
           <Route path="/Support" element={<Support />} />
+          <Route path="/Settings" element={<AuthRouteGuard><Settings /></AuthRouteGuard>} />
           <Route
             path="/PickupStation"
             element={(

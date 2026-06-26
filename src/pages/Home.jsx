@@ -15,10 +15,9 @@ import { motion } from "framer-motion";
 import { AnimatePresence } from "framer-motion";
 import {
   AlertTriangle, ArrowRight, Bell, Clock,
-  FileText, MapPin, PlusCircle, Search, Shield,
+  FileText, MapPin, Package, PlusCircle, Search, Shield,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { useAuth } from "@/lib/AuthContext";
 import { staggerChildVariants, staggerContainerProps } from "@/lib/motion";
 
@@ -91,7 +90,6 @@ export default function Home() {
   const [homeSearch,    setHomeSearch]    = useState("");
   const [searchFocused, setSearchFocused] = useState(false);
 
-  const isAdminWorkspace = !isLoadingAuth && isAdmin;
   const titleParts = t("home.title").split(". ");
   const hasTwoLines = titleParts.length === 2;
 
@@ -577,46 +575,140 @@ export default function Home() {
           </div>
 
           {/* 5 · Platform reveal — two stacked layers cross-dissolve from white
-              (over the video) to theme-foreground (over the settled background). */}
+              (over the video) to theme-foreground (over the settled background).
+              Search form lives here so it's visually adjacent to the title. */}
           <div ref={sceneRefs.current.platform} style={sceneStyle()}>
-            <div className="relative text-center" style={{ maxWidth: 720, padding: "0 24px" }}>
-              {/* White layer — readable over the dark video during the animation */}
-              <div ref={platformLightRef}>
-                <p className="mb-5 text-[10px] font-bold uppercase tracking-[0.15em]" style={{ color: "rgba(255,255,255,0.35)" }}>
-                  The platform
-                </p>
-                <h2 className="mb-4 font-bold text-white" style={{ fontSize: "clamp(34px, 5vw, 62px)", letterSpacing: "-0.04em", lineHeight: 1.06, textShadow: "0 2px 40px rgba(0,0,0,0.8)" }}>
-                  {hasTwoLines ? (<>{titleParts[0]}.<br />{titleParts[1]}</>) : t("home.title")}
-                </h2>
-                <p className="text-base leading-relaxed" style={{ color: "rgba(255,255,255,0.58)", maxWidth: 420, margin: "0 auto" }}>
-                  {t("home.subtitle")}
-                </p>
-                <p className="mt-10 text-[11px] font-medium uppercase tracking-[0.12em]" style={{ color: "rgba(255,255,255,0.32)" }}>
-                  Continue ↓
-                </p>
+            <div style={{ width: "100%", display: "flex", flexDirection: "column", alignItems: "center" }}>
+            <div className="text-center w-full" style={{ maxWidth: 600, padding: "0 24px" }}>
+
+              {/* Title block: the two cross-dissolve layers are constrained here */}
+              <div className="relative" style={{ marginBottom: 32 }}>
+                {/* White layer — readable over dark video */}
+                <div ref={platformLightRef}>
+                  <p className="mb-5 text-[10px] font-bold uppercase tracking-[0.15em]" style={{ color: "rgba(255,255,255,0.35)" }}>
+                    The platform
+                  </p>
+                  <h2 className="mb-4 font-bold text-white" style={{ fontSize: "clamp(34px, 5vw, 62px)", letterSpacing: "-0.04em", lineHeight: 1.06, textShadow: "0 2px 40px rgba(0,0,0,0.8)" }}>
+                    {hasTwoLines ? (<>{titleParts[0]}.<br />{titleParts[1]}</>) : t("home.title")}
+                  </h2>
+                  <p className="text-base leading-relaxed" style={{ color: "rgba(255,255,255,0.58)", maxWidth: 420, margin: "0 auto" }}>
+                    {t("home.subtitle")}
+                  </p>
+                </div>
+                {/* Foreground layer — fades in as screen settles to page bg */}
+                <div
+                  ref={platformDarkRef}
+                  aria-hidden="true"
+                  className="absolute inset-0"
+                  style={{ opacity: 0, pointerEvents: "none" }}
+                >
+                  <p className="mb-5 text-[10px] font-bold uppercase tracking-[0.15em] text-muted-foreground">
+                    The platform
+                  </p>
+                  <h2 className="mb-4 font-bold text-foreground" style={{ fontSize: "clamp(34px, 5vw, 62px)", letterSpacing: "-0.04em", lineHeight: 1.06 }}>
+                    {hasTwoLines ? (<>{titleParts[0]}.<br />{titleParts[1]}</>) : t("home.title")}
+                  </h2>
+                  <p className="text-base leading-relaxed text-muted-foreground" style={{ maxWidth: 420, margin: "0 auto" }}>
+                    {t("home.subtitle")}
+                  </p>
+                </div>
               </div>
 
-              {/* Foreground layer — fades in as the screen settles (black in light) */}
-              <div
-                ref={platformDarkRef}
-                aria-hidden="true"
-                className="absolute inset-0"
-                style={{ opacity: 0 }}
+              {/* Search form — right below the title */}
+              <form
+                onSubmit={handleHomeSearch}
+                className="relative mx-auto"
+                style={{ maxWidth: 520 }}
+                role="search"
+                aria-label={t("home.search_aria", "Search the found item inventory")}
               >
-                <p className="mb-5 text-[10px] font-bold uppercase tracking-[0.15em] text-muted-foreground">
-                  The platform
-                </p>
-                <h2 className="mb-4 font-bold text-foreground" style={{ fontSize: "clamp(34px, 5vw, 62px)", letterSpacing: "-0.04em", lineHeight: 1.06 }}>
-                  {hasTwoLines ? (<>{titleParts[0]}.<br />{titleParts[1]}</>) : t("home.title")}
-                </h2>
-                <p className="text-base leading-relaxed text-muted-foreground" style={{ maxWidth: 420, margin: "0 auto" }}>
-                  {t("home.subtitle")}
-                </p>
-                <p className="mt-10 text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
-                  Continue ↓
-                </p>
+                <motion.div
+                  animate={{ boxShadow: searchFocused ? "0 0 0 3px hsl(var(--ring) / 0.30), 0 4px 22px rgba(0,0,0,0.18)" : "0 4px 20px rgba(0,0,0,0.18)" }}
+                  transition={{ duration: 0.15 }}
+                  className={`flex items-center overflow-hidden rounded-[13px] border-[1.5px] bg-card transition-colors ${searchFocused ? "border-ring" : "border-border"}`}
+                >
+                  <Search className="ml-[18px] mr-[10px] h-[17px] w-[17px] shrink-0 text-muted-foreground" aria-hidden="true" />
+                  <input
+                    value={homeSearch}
+                    onChange={(e) => setHomeSearch(e.target.value)}
+                    onFocus={() => setSearchFocused(true)}
+                    onBlur={() => setSearchFocused(false)}
+                    placeholder={t("home.search_placeholder", "AirPods, water bottle, library…")}
+                    aria-label={t("home.search_aria", "Search the found item inventory")}
+                    className="h-auto flex-1 border-none bg-transparent py-[15px] text-[15.5px] font-medium text-foreground outline-none placeholder:text-muted-foreground"
+                  />
+                  <button type="submit" className="m-[5px] shrink-0 rounded-[9px] bg-primary px-[22px] py-[11px] text-[13.5px] font-bold text-primary-foreground transition-opacity hover:opacity-90 active:opacity-80">
+                    {t("home.search_button", "Search")} →
+                  </button>
+                </motion.div>
+              </form>
+              <p className="mt-2.5 text-[12.5px] font-medium text-muted-foreground">
+                {t("home.search_help", "Try item type, brand, color, or where it was found")}
+              </p>
+              <div className="mt-4 flex flex-wrap items-center justify-center gap-2.5">
+                <Link to="/ReportLost" className="flex items-center gap-[7px] rounded-[9px] border border-border bg-card px-[18px] py-[9px] text-[13.5px] font-semibold text-foreground transition-colors hover:bg-muted">
+                  <AlertTriangle className="h-3.5 w-3.5 text-amber-500" aria-hidden="true" />
+                  {t("home.cant_find_it", "I lost something")}
+                </Link>
+                <span className="h-1 w-1 rounded-full bg-border" aria-hidden="true" />
+                <Link to="/ReportFound" className="flex items-center gap-[7px] rounded-[9px] border border-border bg-card px-[18px] py-[9px] text-[13.5px] font-semibold text-foreground transition-colors hover:bg-muted">
+                  <PlusCircle className="h-3.5 w-3.5 text-emerald-500" aria-hidden="true" />
+                  {t("home.found_something", "I found something")}
+                </Link>
               </div>
-            </div>
+
+            </div>{/* /600px block */}
+
+            {/* ── Recently found marquee — full-width, directly below the buttons ── */}
+            {user && (
+              <div style={{ width: "100%", marginTop: 28, background: "#0b1628", borderTop: "1px solid rgba(255,255,255,0.05)", borderBottom: "1px solid rgba(255,255,255,0.05)", paddingTop: 20, paddingBottom: 20, overflow: "hidden" }}>
+                {/* Header */}
+                <div className="page-shell mb-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h2 className="text-sm font-bold" style={{ color: "#fff", letterSpacing: "-0.02em" }}>Recently found nearby</h2>
+                      <p className="mt-0.5 text-xs" style={{ color: "rgba(255,255,255,0.38)" }}>Items logged and waiting to be claimed</p>
+                    </div>
+                    <Link to="/Search" style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12.5, fontWeight: 600, color: "rgba(255,255,255,0.45)", textDecoration: "none" }}
+                      onMouseEnter={(e) => { e.currentTarget.style.color = "rgba(255,255,255,0.85)"; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.color = "rgba(255,255,255,0.45)"; }}
+                    >
+                      View all <ArrowRight style={{ width: 12, height: 12 }} aria-hidden="true" />
+                    </Link>
+                  </div>
+                </div>
+                {/* Marquee track */}
+                <div style={{ overflow: "hidden", position: "relative" }}>
+                  <div style={{ position: "absolute", inset: 0, pointerEvents: "none", zIndex: 1, background: "linear-gradient(to right, #0b1628 0%, transparent 8%, transparent 92%, #0b1628 100%)" }} aria-hidden="true" />
+                  <div className="marquee-track" style={{ display: "flex", gap: 12, width: "max-content" }}>
+                    {Array(4).fill(null).flatMap(() => SHOWCASE_ITEMS).map((item, i) => (
+                      <Link key={i} to={`/Search?q=${encodeURIComponent(item.label)}`} aria-label={`Search for ${item.label}, found at ${item.location}`}
+                        style={{ display: "flex", flexDirection: "column", width: 160, borderRadius: 11, overflow: "hidden", background: "#111e30", border: "1px solid rgba(255,255,255,0.07)", flexShrink: 0, textDecoration: "none", transition: "border-color 0.15s" }}
+                        onMouseEnter={(e) => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.18)"; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.07)"; }}
+                      >
+                        <div style={{ width: 160, height: 120, background: "linear-gradient(135deg, #0f1f35 0%, #1a2f4a 100%)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                          <Package style={{ width: 28, height: 28, color: "rgba(255,255,255,0.12)" }} aria-hidden="true" />
+                        </div>
+                        <div style={{ padding: "10px 12px" }}>
+                          <p style={{ fontSize: 12.5, fontWeight: 600, color: "#fff", marginBottom: 5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{item.label}</p>
+                          <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 2 }}>
+                            <MapPin style={{ width: 10, height: 10, color: "rgba(255,255,255,0.32)", flexShrink: 0 }} aria-hidden="true" />
+                            <span style={{ fontSize: 11, color: "rgba(255,255,255,0.32)" }}>{item.location}</span>
+                          </div>
+                          <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                            <Clock style={{ width: 10, height: 10, color: "rgba(255,255,255,0.32)", flexShrink: 0 }} aria-hidden="true" />
+                            <span style={{ fontSize: 11, color: "rgba(255,255,255,0.32)" }}>{item.daysAgo === 1 ? "Yesterday" : `${item.daysAgo}d ago`}</span>
+                          </div>
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            </div>{/* /full-width column */}
           </div>
 
           {/* Bottom fade into the functional homepage */}
@@ -628,146 +720,58 @@ export default function Home() {
       </div>
 
       {/* ════════════════ PART 2 · FUNCTIONAL HOMEPAGE ════════════════ */}
-      <div className="home-section pb-16 sm:pb-24">
-        <div className="space-y-20 pt-16 sm:space-y-24 sm:pt-20">
+      <div>
 
-          {/* ── Search bar + lost/found actions ───────────── */}
-          <motion.section
-            aria-labelledby="search-title"
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-            viewport={{ once: true, margin: "-60px" }}
-            className="text-center"
-          >
-            <h2
-              id="search-title"
-              className="font-bold tracking-tight text-foreground"
-              style={{ fontSize: "clamp(26px, 3.5vw, 40px)", letterSpacing: "-0.03em" }}
+        {/* marquee moved into the cinematic platform scene */}
+
+        {/* ── How it works + Docs ──────────────────────────────────── */}
+        <div className="home-section pb-20">
+          <div className="space-y-14 pt-10">
+
+            {/* ── How it works */}
+            <motion.section
+              aria-labelledby="how-title"
+              {...staggerContainerProps}
+              whileInView="visible"
+              viewport={{ once: true, margin: "-60px" }}
             >
-              {hasTwoLines ? (<>{titleParts[0]}. {titleParts[1]}</>) : t("home.title")}
-            </h2>
-            <p className="mx-auto mt-3 max-w-[440px] text-base text-muted-foreground">
-              {t("home.subtitle")}
-            </p>
+              <div className="mb-8">
+                <h2 id="how-title" className="text-xl font-bold tracking-tight text-foreground" style={{ letterSpacing: "-0.02em" }}>
+                  How it works
+                </h2>
+                <p className="mt-1 text-sm text-muted-foreground">Three steps to reuniting you with your belongings</p>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-3">
+                {HOW_IT_WORKS.map(({ step, icon: Icon, title, desc }) => (
+                  <motion.div
+                    key={step}
+                    variants={staggerChildVariants}
+                    whileHover={{ y: -4 }}
+                    transition={spring}
+                    className="archive-card p-6"
+                  >
+                    <div className="mb-5 flex items-start justify-between">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-muted">
+                        <Icon className="h-4 w-4 text-foreground" aria-hidden="true" />
+                      </div>
+                      <span className="font-black tracking-tighter text-border select-none" style={{ fontSize: "2rem", lineHeight: 1 }} aria-hidden="true">
+                        {step}
+                      </span>
+                    </div>
+                    <h3 className="text-sm font-semibold text-foreground">{title}</h3>
+                    <p className="mt-2 text-sm leading-6 text-muted-foreground">{desc}</p>
+                  </motion.div>
+                ))}
+              </div>
+            </motion.section>
 
-            {/* Search form — all original logic preserved */}
-            <form
-              onSubmit={handleHomeSearch}
-              className="relative mx-auto mt-8 max-w-[560px]"
-              role="search"
-              aria-label={t("home.search_aria", "Search the found item inventory")}
+            {/* ── Dashboard / project documentation */}
+            <motion.section
+              initial={{ opacity: 0, y: 16 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+              viewport={{ once: true, margin: "-40px" }}
             >
-              <motion.div
-                animate={{
-                  boxShadow: searchFocused
-                    ? "0 0 0 3px hsl(var(--ring) / 0.30), 0 4px 22px rgba(0,0,0,0.10)"
-                    : "0 4px 22px rgba(0,0,0,0.10), 0 1px 3px rgba(0,0,0,0.05)",
-                }}
-                transition={{ duration: 0.15 }}
-                className={`flex items-center overflow-hidden rounded-[13px] border-[1.5px] bg-card transition-colors ${searchFocused ? "border-ring" : "border-border"}`}
-              >
-                <Search className="ml-[18px] mr-[10px] h-[17px] w-[17px] shrink-0 text-muted-foreground" aria-hidden="true" />
-                <Input
-                  value={homeSearch}
-                  onChange={(e) => setHomeSearch(e.target.value)}
-                  onFocus={() => setSearchFocused(true)}
-                  onBlur={() => setSearchFocused(false)}
-                  className="h-auto flex-1 border-none bg-transparent py-[15px] text-[15.5px] font-medium text-foreground shadow-none placeholder:text-muted-foreground focus-visible:ring-0"
-                  placeholder={t("home.search_placeholder", "AirPods, water bottle, library…")}
-                  aria-label={t("home.search_aria", "Search the found item inventory")}
-                />
-                <button
-                  type="submit"
-                  className="m-[5px] shrink-0 rounded-[9px] bg-primary px-[22px] py-[11px] text-[13.5px] font-bold tracking-[0.01em] text-primary-foreground transition-opacity hover:opacity-90 active:opacity-80"
-                >
-                  {t("home.search_button", "Search")} →
-                </button>
-              </motion.div>
-            </form>
-
-            <p className="mt-[10px] text-[12.5px] font-medium text-muted-foreground">
-              {t("home.search_help", "Try item type, brand, color, or where it was found")}
-            </p>
-
-            {/* Lost something / Found something */}
-            <div className="mt-7 flex flex-wrap items-center justify-center gap-2.5">
-              <motion.div whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }} transition={spring}>
-                <Link
-                  to="/ReportLost"
-                  className="flex items-center gap-[7px] rounded-[9px] border border-border bg-card px-[18px] py-[9px] text-[13.5px] font-semibold text-foreground transition-colors hover:bg-muted"
-                >
-                  <AlertTriangle className="h-3.5 w-3.5 text-amber-500" aria-hidden="true" />
-                  {t("home.cant_find_it", "I lost something")}
-                </Link>
-              </motion.div>
-
-              <span className="h-1 w-1 rounded-full bg-border" aria-hidden="true" />
-
-              <motion.div whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }} transition={spring}>
-                <Link
-                  to="/ReportFound"
-                  className="flex items-center gap-[7px] rounded-[9px] border border-border bg-card px-[18px] py-[9px] text-[13.5px] font-semibold text-foreground transition-colors hover:bg-muted"
-                >
-                  <PlusCircle className="h-3.5 w-3.5 text-emerald-500" aria-hidden="true" />
-                  {t("home.found_something", "I found something")}
-                </Link>
-              </motion.div>
-            </div>
-          </motion.section>
-
-          {/* Hairline divider */}
-          <div className="h-px bg-border" aria-hidden="true" />
-
-          {/* ── Report cards (File a report) ─────────────── */}
-          <motion.section
-            aria-labelledby="home-report-title"
-            {...staggerContainerProps}
-            whileInView="visible"
-            viewport={{ once: true, margin: "-40px" }}
-          >
-            <div className="mb-7">
-              <p className="mb-[7px] text-[10.5px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
-                File a report
-              </p>
-              <h2 id="home-report-title" className="text-xl font-bold text-foreground" style={{ letterSpacing: "-0.02em" }}>
-                {t("home.next_step_title", "Need to file a report?")}
-              </h2>
-              <p className="mt-[5px] text-sm leading-relaxed text-muted-foreground">
-                {t("home.next_step_helper", "Use these only when the public list does not already have the item.")}
-              </p>
-            </div>
-
-            <div className="grid gap-3.5 md:grid-cols-2">
-              <ReportCard
-                to="/ReportLost"
-                icon={AlertTriangle}
-                title={t("home.cant_find_it", "I lost something")}
-                description={t("home.lost_description", "Submit a lost-item report, keep the case active, and review suggested matches as new items come in.")}
-                cta={t("home.submit_report", "Submit report")}
-                tone="lost"
-              />
-              <ReportCard
-                to="/ReportFound"
-                icon={PlusCircle}
-                title={t("home.found_something", "I found something")}
-                description={t("home.found_description", "Create a moderated item record with photos and details so the owner can recognize it quickly.")}
-                cta={t("home.submit_report", "Submit report")}
-                tone="found"
-              />
-            </div>
-          </motion.section>
-
-          {/* ── Dashboard / project documentation ────────── */}
-          <motion.section
-            initial={{ opacity: 0, y: 16 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
-            viewport={{ once: true, margin: "-40px" }}
-          >
-            {isAdminWorkspace ? (
-              <AdminWorkspacePanel />
-            ) : (
               <div className="archive-card overflow-hidden">
                 <div className="flex flex-col gap-6 p-6 sm:flex-row sm:items-center sm:justify-between sm:p-8">
                   <div className="flex items-start gap-4">
@@ -798,101 +802,11 @@ export default function Home() {
                   </Button>
                 </div>
               </div>
-            )}
-          </motion.section>
+            </motion.section>
 
-          {/* ── Lost items showcase ───────────────────────── */}
-          <motion.section
-            aria-labelledby="showcase-title"
-            {...staggerContainerProps}
-            whileInView="visible"
-            viewport={{ once: true, margin: "-60px" }}
-          >
-            <div className="mb-6 flex items-end justify-between">
-              <div>
-                <h2 id="showcase-title" className="text-xl font-bold tracking-tight text-foreground" style={{ letterSpacing: "-0.02em" }}>
-                  Recently found nearby
-                </h2>
-                <p className="mt-1 text-sm text-muted-foreground">Items logged and waiting to be claimed</p>
-              </div>
-              <Link to="/Search" className="inline-flex shrink-0 items-center gap-1 text-sm font-semibold text-primary hover:underline">
-                View all <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
-              </Link>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-              {SHOWCASE_ITEMS.map((item) => (
-                <motion.div key={item.label} variants={staggerChildVariants}>
-                  <motion.div whileHover={{ y: -4 }} transition={spring}>
-                    <Link
-                      to={`/Search?q=${encodeURIComponent(item.label)}`}
-                      className="archive-card group flex flex-col overflow-hidden"
-                      aria-label={`Search for ${item.label}, found at ${item.location}`}
-                    >
-                      <div className="archive-card-media aspect-square bg-muted">
-                        <img
-                          src={item.src}
-                          alt={item.label}
-                          className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                          loading="lazy"
-                        />
-                      </div>
-                      <div className="p-3">
-                        <p className="truncate text-xs font-semibold text-foreground">{item.label}</p>
-                        <div className="mt-1.5 flex items-center gap-1 text-[10px] text-muted-foreground">
-                          <MapPin className="h-2.5 w-2.5 shrink-0" aria-hidden="true" />
-                          <span className="truncate">{item.location}</span>
-                        </div>
-                        <div className="mt-0.5 flex items-center gap-1 text-[10px] text-muted-foreground">
-                          <Clock className="h-2.5 w-2.5 shrink-0" aria-hidden="true" />
-                          <span>{item.daysAgo === 1 ? "Yesterday" : `${item.daysAgo}d ago`}</span>
-                        </div>
-                      </div>
-                    </Link>
-                  </motion.div>
-                </motion.div>
-              ))}
-            </div>
-          </motion.section>
-
-          {/* ── How it works ─────────────────────────────── */}
-          <motion.section
-            aria-labelledby="how-title"
-            {...staggerContainerProps}
-            whileInView="visible"
-            viewport={{ once: true, margin: "-60px" }}
-          >
-            <div className="mb-8">
-              <h2 id="how-title" className="text-xl font-bold tracking-tight text-foreground" style={{ letterSpacing: "-0.02em" }}>
-                How it works
-              </h2>
-              <p className="mt-1 text-sm text-muted-foreground">Three steps to reuniting you with your belongings</p>
-            </div>
-            <div className="grid gap-4 sm:grid-cols-3">
-              {HOW_IT_WORKS.map(({ step, icon: Icon, title, desc }) => (
-                <motion.div
-                  key={step}
-                  variants={staggerChildVariants}
-                  whileHover={{ y: -4 }}
-                  transition={spring}
-                  className="archive-card p-6"
-                >
-                  <div className="mb-5 flex items-start justify-between">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-muted">
-                      <Icon className="h-4 w-4 text-foreground" aria-hidden="true" />
-                    </div>
-                    <span className="font-black tracking-tighter text-border select-none" style={{ fontSize: "2rem", lineHeight: 1 }} aria-hidden="true">
-                      {step}
-                    </span>
-                  </div>
-                  <h3 className="text-sm font-semibold text-foreground">{title}</h3>
-                  <p className="mt-2 text-sm leading-6 text-muted-foreground">{desc}</p>
-                </motion.div>
-              ))}
-            </div>
-          </motion.section>
-
+          </div>
         </div>
+
       </div>
     </div>
   );
@@ -909,93 +823,3 @@ function sceneStyle() {
   };
 }
 
-/* ═══════════════════ Sub-components ═══════════════════ */
-
-function ReportCard({ to, icon: Icon, title, description, cta, tone = "found" }) {
-  const isLost = tone === "lost";
-
-  return (
-    <motion.div variants={staggerChildVariants}>
-      <motion.div
-        whileHover={{ y: -4, boxShadow: "0 10px 28px rgba(0,0,0,0.09)" }}
-        transition={spring}
-        className="h-full"
-      >
-        <Link
-          to={to}
-          className={`flex h-full flex-col rounded-2xl border-[1.5px] p-7 transition-colors ${
-            isLost
-              ? "border-amber-200 bg-amber-50 dark:border-amber-900/50 dark:bg-amber-950/20"
-              : "border-emerald-200 bg-emerald-50 dark:border-emerald-900/50 dark:bg-emerald-950/20"
-          }`}
-        >
-          <div
-            className={`mb-[18px] flex h-11 w-11 items-center justify-center rounded-xl ${
-              isLost ? "bg-amber-100 dark:bg-amber-900/30" : "bg-emerald-100 dark:bg-emerald-900/30"
-            }`}
-          >
-            <Icon
-              className={isLost ? "text-amber-600 dark:text-amber-400" : "text-emerald-600 dark:text-emerald-400"}
-              style={{ width: 22, height: 22, strokeWidth: 1.5 }}
-              aria-hidden="true"
-            />
-          </div>
-          <h3 className="mb-2 text-[15.5px] font-bold text-foreground" style={{ letterSpacing: "-0.01em" }}>
-            {title}
-          </h3>
-          <p className="mb-[22px] flex-1 text-[13px] leading-[1.6] text-muted-foreground">
-            {description}
-          </p>
-          <span
-            className={`flex items-center gap-[5px] text-[13px] font-bold ${
-              isLost ? "text-amber-600 dark:text-amber-400" : "text-emerald-600 dark:text-emerald-400"
-            }`}
-          >
-            {cta}
-            <ArrowRight style={{ width: 13, height: 13 }} aria-hidden="true" />
-          </span>
-        </Link>
-      </motion.div>
-    </motion.div>
-  );
-}
-
-function AdminWorkspacePanel() {
-  const { t } = useTranslation();
-  return (
-    <motion.div
-      whileHover={{ boxShadow: "0 12px 36px rgba(4,8,26,0.28)" }}
-      transition={spring}
-      className="overflow-hidden rounded-2xl"
-      style={{ background: "#0d1f3c" }}
-    >
-      <div className="flex flex-col gap-5 p-6 sm:flex-row sm:items-center sm:justify-between sm:p-7">
-        <div className="flex items-start gap-4">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] border border-white/10 bg-white/[0.07]">
-            <Shield className="h-[17px] w-[17px] text-white/55" aria-hidden="true" />
-          </div>
-          <div>
-            <div className="mb-[5px] inline-block rounded-[5px] bg-white/[0.09] px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.10em] text-white/50">
-              {t("home.admin_badge", "Admin mode")}
-            </div>
-            <h3 className="text-[14.5px] font-bold text-white" style={{ letterSpacing: "-0.01em" }}>
-              {t("home.moderator_active_title", "Moderator Workspace Active")}
-            </h3>
-            <p className="mt-0.5 max-w-md text-[12.5px] text-white/40">
-              {t("home.moderator_active_desc", "Review pending items, claims, and reports.")}
-            </p>
-          </div>
-        </div>
-        <Button
-          asChild size="lg" variant="ghost"
-          className="w-full shrink-0 gap-2 border border-white/15 text-white/90 hover:bg-white/10 hover:text-white sm:w-auto"
-        >
-          <Link to="/AdminDashboard">
-            {t("home.go_to_admin_panel", "Open Admin Dashboard")}
-            <ArrowRight className="h-[13px] w-[13px]" aria-hidden="true" />
-          </Link>
-        </Button>
-      </div>
-    </motion.div>
-  );
-}

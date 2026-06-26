@@ -3,12 +3,12 @@
  * List and grid variants with clear typographic hierarchy.
  */
 
-import React from "react";
+import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { motion } from "framer-motion";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, CheckCircle2, MapPin, Package, ArrowRight } from "lucide-react";
+import { Calendar, CheckCircle2, ChevronLeft, ChevronRight, MapPin, Package, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import StatusBadge from "@/components/ui/StatusBadge";
 import { staggerChildVariants } from "@/lib/motion";
@@ -17,7 +17,10 @@ import { formatLocalizedDate, translateCategory, translateColor, translateLocati
 export default function ItemCard({ item, viewMode = "list", compact = false }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const imageUrl = item.photo_urls?.[0];
+  const [photoIdx, setPhotoIdx] = useState(0);
+  const photos = item.photo_urls || [];
+  const currentImg = photos[photoIdx] || null;
+  const imageUrl = currentImg;
   const isLostReport = item.record_type === "lost";
   const detailHref = isLostReport ? `/ItemDetails?type=lost&id=${item.id}` : `/ItemDetails?id=${item.id}`;
   const detailLabel = isLostReport ? t("common.view_report") : t("common.view_item");
@@ -74,13 +77,38 @@ export default function ItemCard({ item, viewMode = "list", compact = false }) {
         <div className="flex gap-4 p-4 sm:p-5">
 
           {/* Thumbnail */}
-          <div className="item-card-thumb shrink-0">
+          <div className="item-card-thumb relative group/thumb shrink-0">
             {imageUrl ? (
               <img src={imageUrl} alt="" className="h-full w-full object-cover" />
             ) : (
               <div className="flex h-full w-full items-center justify-center bg-muted">
                 <Package className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
               </div>
+            )}
+            {photos.length > 1 && (
+              <>
+                <div className="absolute inset-y-0 left-0 right-0 flex items-center justify-between px-0.5 opacity-0 group-hover/thumb:opacity-100 transition-opacity">
+                  <button
+                    type="button"
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); setPhotoIdx(i => (i - 1 + photos.length) % photos.length); }}
+                    className="rounded-full bg-black/60 p-0.5 text-white"
+                    aria-label="Previous photo"
+                  >
+                    <ChevronLeft className="h-3 w-3" aria-hidden="true" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); setPhotoIdx(i => (i + 1) % photos.length); }}
+                    className="rounded-full bg-black/60 p-0.5 text-white"
+                    aria-label="Next photo"
+                  >
+                    <ChevronRight className="h-3 w-3" aria-hidden="true" />
+                  </button>
+                </div>
+                <span className="absolute top-0.5 right-0.5 text-[9px] font-bold bg-black/60 text-white rounded px-1">
+                  {photoIdx + 1}/{photos.length}
+                </span>
+              </>
             )}
           </div>
 
@@ -129,7 +157,7 @@ export default function ItemCard({ item, viewMode = "list", compact = false }) {
   /* ── Grid view ───────────────────────────────────────────────────────────── */
   return (
     <motion.article className="item-card-compact h-full overflow-hidden" variants={staggerChildVariants}>
-      <Link to={detailHref} className="block h-full" tabIndex={0}>
+      <Link to={detailHref} className="block h-full group" tabIndex={0}>
         {/* Image */}
         <div className="item-card-grid-media">
           {imageUrl ? (
@@ -148,6 +176,36 @@ export default function ItemCard({ item, viewMode = "list", compact = false }) {
             <StatusBadge status={item.status} />
             <TypeChip />
           </div>
+          {/* Arrow navigation */}
+          {photos.length > 1 && (
+            <>
+              <button
+                type="button"
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); setPhotoIdx(i => (i - 1 + photos.length) % photos.length); }}
+                className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full bg-black/50 p-1 text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                aria-label="Previous photo"
+              >
+                <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+              </button>
+              <button
+                type="button"
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); setPhotoIdx(i => (i + 1) % photos.length); }}
+                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-black/50 p-1 text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                aria-label="Next photo"
+              >
+                <ChevronRight className="h-4 w-4" aria-hidden="true" />
+              </button>
+              {/* Dot indicators */}
+              <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1">
+                {photos.map((_, i) => (
+                  <span
+                    key={i}
+                    className={`w-1.5 h-1.5 rounded-full ${i === photoIdx ? "bg-white" : "bg-white/40"}`}
+                  />
+                ))}
+              </div>
+            </>
+          )}
         </div>
 
         {/* Body */}
