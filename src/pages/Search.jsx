@@ -32,65 +32,14 @@ function isBackendUnavailable(health) {
 }
 
 function LockerWall({ warm = false }) {
-  const COLS = 3;
-  const W = 108;
-  const H = 122;
-  const GAP = 3;
-  const totalW = COLS * W + (COLS - 1) * GAP;
-
-  const Locker = ({ col, row }) => {
-    const x = col * (W + GAP);
-    const y = row * (H + GAP);
-    const isGlow = warm && col === 1 && row === 0;
-    const door = isGlow ? "#1c1005" : "#0e1523";
-    const vent = isGlow ? "#2a1604" : "#070911";
-    const handle = isGlow ? "#4e2a0a" : "#162038";
-    const dial = isGlow ? "#3a1d08" : "#101c30";
-    const dialInner = isGlow ? "#6b3612" : "#1c2e46";
-    const borderLine = isGlow ? "#3c200a" : "#0d1a2e";
-
-    return (
-      <g transform={`translate(${x},${y})`}>
-        <rect width={W} height={H} fill="#050709" />
-        <rect x={1.5} y={1.5} width={W - 3} height={H - 3} fill={door} />
-        {isGlow && (
-          <>
-            <defs>
-              <radialGradient id={`glow-${col}-${row}`} cx="50%" cy="40%" r="55%">
-                <stop offset="0%" stopColor="#f97316" stopOpacity="0.28" />
-                <stop offset="100%" stopColor="#92400e" stopOpacity="0" />
-              </radialGradient>
-            </defs>
-            <rect x={1.5} y={1.5} width={W - 3} height={H - 3} fill={`url(#glow-${col}-${row})`} />
-          </>
-        )}
-        <rect x={6} y={6} width={W - 12} height={H - 12} fill="none" stroke={borderLine} strokeWidth={0.8} />
-        {[0, 1, 2, 3].map((i) => (
-          <rect key={i} x={11} y={12 + i * 6} width={W - 22} height={2.5} fill={vent} rx={0.5} />
-        ))}
-        <rect x={9} y={44} width={34} height={11} fill={isGlow ? "#180d02" : "#080f1c"} rx={1} />
-        <rect x={W / 2 - 4} y={62} width={8} height={26} fill={handle} rx={4} />
-        <circle cx={W / 2} cy={98} r={7.5} fill={dial} stroke={borderLine} strokeWidth={0.8} />
-        <circle cx={W / 2} cy={98} r={3} fill={dialInner} />
-        {[0, 1].map((i) => (
-          <rect key={i} x={11} y={H - 22 + i * 6} width={W - 22} height={2.5} fill={vent} rx={0.5} />
-        ))}
-      </g>
-    );
-  };
-
   return (
-    <svg
-      viewBox={`0 0 ${totalW} 240`}
-      xmlns="http://www.w3.org/2000/svg"
-      className="h-full w-full"
-      preserveAspectRatio="xMaxYMid slice"
-    >
-      <rect width={totalW} height="240" fill="#06080d" />
-      {[0, 1, 2].map((col) =>
-        [0, 1, 2].map((row) => <Locker key={`${col}-${row}`} col={col} row={row} />)
-      )}
-    </svg>
+    <img
+      src={warm ? "./images/locker-warm.png" : "./images/locker-cool.png"}
+      alt=""
+      aria-hidden="true"
+      className="h-full w-full object-cover object-left"
+      draggable={false}
+    />
   );
 }
 
@@ -412,12 +361,12 @@ export default function Search({ recordTypeOverride = "found" }) {
         </div>
 
         {/* Locker wall - right side */}
-        <div className="absolute right-0 top-0 bottom-0 w-[38%] sm:w-[36%]">
+        <div className="absolute right-0 top-0 bottom-0 w-[46%] sm:w-[42%]">
           <LockerWall warm={!isLostItemsPage} />
           {/* Fade from hero background into the locker image */}
           <div
-            className="pointer-events-none absolute inset-y-0 left-0 w-3/5"
-            style={{ background: `linear-gradient(to right, ${heroBg}, transparent)` }}
+            className="pointer-events-none absolute inset-y-0 left-0 w-2/3"
+            style={{ background: `linear-gradient(to right, ${heroBg} 0%, ${heroBg}cc 30%, transparent 100%)` }}
           />
         </div>
 
