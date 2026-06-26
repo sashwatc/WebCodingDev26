@@ -373,16 +373,18 @@ export default function Search({ recordTypeOverride = "found" }) {
       </div>
 
       <div className="page-shell py-8" style={{ background: contentBg }}>
-      <div className="mb-6 flex flex-wrap gap-2">
-        <Button asChild variant={!isLostItemsPage ? "default" : "outline"} size="sm">
+      {/* Tabs */}
+      <div className="mb-5 flex gap-2">
+        <Button asChild variant={!isLostItemsPage ? "default" : "outline"}>
           <Link to="/Search">{t("search.found_items_tag", "Found Items")}</Link>
         </Button>
-        <Button asChild variant={isLostItemsPage ? "default" : "outline"} size="sm">
+        <Button asChild variant={isLostItemsPage ? "default" : "outline"}>
           <Link to="/LostItems">{t("search.lost_reports_tag", "Lost Reports")}</Link>
         </Button>
       </div>
 
-      <section className="mb-6 space-y-4" aria-label={t("search.search_label")}>
+      <section className="mb-5 space-y-3" aria-label={t("search.search_label")}>
+        {/* Search toolbar — single bordered card, no inner borders */}
         <div className="search-toolbar">
           <div className="relative flex-1">
             <SearchIcon className="search-toolbar-icon" aria-hidden="true" />
@@ -405,24 +407,30 @@ export default function Search({ recordTypeOverride = "found" }) {
             />
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex items-center gap-1 pr-2">
+            {/* Interpret search — ghost text button */}
             <Button
               type="button"
-              variant="outline"
-              className="search-toolbar-filter gap-2"
+              variant="ghost"
+              size="sm"
+              className="gap-1.5 text-xs text-muted-foreground hover:text-foreground"
               disabled={!searchQuery.trim() || searchAssistMutation.isPending}
               onClick={() => searchAssistMutation.mutate(searchQuery)}
             >
-              {searchAssistMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+              {searchAssistMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
               <span className="hidden sm:inline">Interpret search</span>
             </Button>
 
+            <div className="h-5 w-px bg-border" aria-hidden="true" />
+
+            {/* Filters — filled secondary button */}
             <Button
-              variant="outline"
-              className="search-toolbar-filter gap-2"
+              variant="secondary"
+              size="sm"
+              className="gap-1.5"
               onClick={() => setFiltersOpen(true)}
             >
-              <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
+              <SlidersHorizontal className="h-3.5 w-3.5" aria-hidden="true" />
               <span>{t("search.filters", "Filters")}</span>
               {activeFilterBadges.length > 0 ? (
                 <span className="search-filter-count" aria-label={t("search.applied_filters", "Filters:")}>
@@ -437,9 +445,7 @@ export default function Search({ recordTypeOverride = "found" }) {
                   <DrawerHeader>
                     <DrawerTitle>{t("search.filter_settings", "Filter Options")}</DrawerTitle>
                   </DrawerHeader>
-                  <div className="px-4 pb-2">
-                    {filterPanelContent}
-                  </div>
+                  <div className="px-4 pb-2">{filterPanelContent}</div>
                   <DrawerFooter>
                     <DrawerClose asChild>
                       <Button variant="outline">Done</Button>
@@ -464,6 +470,9 @@ export default function Search({ recordTypeOverride = "found" }) {
               </Sheet>
             )}
 
+            <div className="h-5 w-px bg-border" aria-hidden="true" />
+
+            {/* View toggles — icon-only, no container border */}
             <div className="view-toggle" role="group" aria-label={t("search.list_view")}>
               <Button
                 variant={viewMode === "list" ? "secondary" : "ghost"}
@@ -471,7 +480,7 @@ export default function Search({ recordTypeOverride = "found" }) {
                 aria-label={t("search.list_view")}
                 aria-pressed={viewMode === "list"}
                 onClick={() => setViewMode("list")}
-                className="h-10 w-10"
+                className="h-9 w-9"
               >
                 <List className="h-4 w-4" />
               </Button>
@@ -481,7 +490,7 @@ export default function Search({ recordTypeOverride = "found" }) {
                 aria-label={t("search.grid_view")}
                 aria-pressed={viewMode === "grid"}
                 onClick={() => setViewMode("grid")}
-                className="h-10 w-10"
+                className="h-9 w-9"
               >
                 <Grid3X3 className="h-4 w-4" />
               </Button>

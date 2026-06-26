@@ -419,31 +419,27 @@
 
   /* Recovery scanner — search toolbar */
   .search-toolbar {
-    @apply flex flex-col gap-3 rounded-xl border border-border bg-surface-elevated p-3 shadow-archive-sm sm:flex-row sm:items-stretch;
+    @apply flex overflow-hidden rounded-xl border border-border bg-card;
   }
 
   .search-toolbar-icon {
-    @apply pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground;
+    @apply pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground;
   }
 
   .search-toolbar-input {
-    @apply h-12 rounded-lg border-border bg-background pl-12 text-base shadow-none transition-shadow focus-visible:border-primary focus-visible:ring-4 focus-visible:ring-ring/20;
-  }
-
-  .search-toolbar-input:focus-visible {
-    box-shadow: 0 0 0 1px hsl(var(--ring) / 0.35), 0 0 24px hsl(var(--ring) / 0.08);
+    @apply h-12 w-full border-0 bg-transparent pl-11 text-sm shadow-none placeholder:text-muted-foreground/60 focus-visible:outline-none focus-visible:ring-0;
   }
 
   .search-toolbar-filter {
-    @apply h-12 shrink-0 rounded-lg;
+    @apply h-9 shrink-0 rounded-lg;
   }
 
   .search-filter-count {
-    @apply inline-flex h-5 min-w-5 items-center justify-center rounded-md bg-primary px-1.5 text-[10px] font-bold text-primary-foreground;
+    @apply inline-flex h-4 min-w-4 items-center justify-center rounded bg-primary px-1 text-[9px] font-bold text-primary-foreground;
   }
 
   .view-toggle {
-    @apply inline-flex items-center rounded-lg border border-border bg-muted p-1;
+    @apply inline-flex items-center gap-0.5;
   }
 
   .quick-filter-chip {
