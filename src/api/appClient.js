@@ -1166,7 +1166,13 @@ function serializeClaim(record = {}) {
 
 async function fetchEntityRecords(entityName) {
   if (entityName === "LostReport" && isAdminUser()) {
-    return requestFeatureApi("/admin/lost-reports");
+    try {
+      return await requestFeatureApi("/admin/lost-reports");
+    } catch (error) {
+      if (error?.status !== 401 && error?.status !== 403) {
+        throw error;
+      }
+    }
   }
 
   if (entityName === "Claim" && isAdminUser()) {
