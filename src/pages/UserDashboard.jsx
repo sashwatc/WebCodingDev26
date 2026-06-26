@@ -4,10 +4,9 @@
  * advisory match suggestions, and notification updates.
  */
 
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -31,7 +30,8 @@ import {
 import {
   AlertTriangle, FileCheck, Bell, Eye,
   Brain, CheckCircle2, Loader2, Star,
-  ShieldAlert, Clock, Sparkles, ArrowRight, Ticket
+  ShieldAlert, Clock, Sparkles, ArrowRight, Ticket,
+  Bookmark, Trash2, Search as SearchIcon
 } from "lucide-react";
 
 export default function UserDashboard() {
@@ -40,6 +40,23 @@ export default function UserDashboard() {
   const { user, navigateToLogin } = useAuth();
   const { toast } = useToast();
   const [reviewDrafts, setReviewDrafts] = useState({});
+  const [savedItemData, setSavedItemData] = useState([]);
+  const [savedSearches, setSavedSearches] = useState(
+    () => JSON.parse(localStorage.getItem("ltf_saved_searches") || "[]")
+  );
+
+  useEffect(() => {
+    const ids = JSON.parse(localStorage.getItem("ltf_saved_items") || "[]");
+    if (!ids.length) return;
+    Promise.all(ids.map(id => appClient.entities.FoundItem.get(id).catch(() => null)))
+      .then(items => setSavedItemData(items.filter(Boolean)));
+  }, []);
+
+  const deleteSavedSearch = (id) => {
+    const updated = savedSearches.filter(s => s.id !== id);
+    localStorage.setItem("ltf_saved_searches", JSON.stringify(updated));
+    setSavedSearches(updated);
+  };
 
   // Fetch user's lost reports
   const { data: lostReports = [], isLoading: lrLoading } = useQuery({
@@ -144,19 +161,19 @@ export default function UserDashboard() {
 
   const EmptyState = ({ icon: Icon, message }) => (
     <div className="text-center py-12">
-      <Icon className="w-10 h-10 text-slate-200 mx-auto mb-3" />
-      <p className="text-sm text-slate-400">{message}</p>
+      <Icon className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
+      <p className="text-sm text-muted-foreground">{message}</p>
     </div>
   );
 
   if (!user) {
     return (
       <div className="max-w-xl mx-auto px-4 py-16">
-        <Card className="border-slate-200 shadow-sm">
-          <CardContent className="p-8 text-center">
-            <Bell className="w-10 h-10 text-slate-300 mx-auto mb-4" />
-            <h1 className="text-2xl font-bold text-slate-900 mb-2">{t("user_dashboard.sign_in_title")}</h1>
-            <p className="text-slate-500 mb-6">
+        <div className="surface-card shadow-sm">
+          <div className="p-8 text-center">
+            <Bell className="w-10 h-10 text-muted-foreground/50 mx-auto mb-4" />
+            <h1 className="text-2xl font-bold text-foreground mb-2">{t("user_dashboard.sign_in_title")}</h1>
+            <p className="text-muted-foreground mb-6">
               {t("user_dashboard.sign_in_description")}
             </p>
             <Button
@@ -175,8 +192,8 @@ export default function UserDashboard() {
             >
               {t("common.sign_in")}
             </Button>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </div>
     );
   }
@@ -184,13 +201,13 @@ export default function UserDashboard() {
   return (
     <div className="page-shell max-w-6xl py-10 space-y-8">
       {/* Page Header */}
-      <div className="page-header flex flex-col md:flex-row md:items-center md:justify-between gap-4 pb-4 border-b border-slate-100">
+      <div className="page-header flex flex-col md:flex-row md:items-center md:justify-between gap-4 pb-4 border-b border-border">
         <div>
           <span className="page-kicker">{t("user_dashboard.kicker", "Personal Command Center")}</span>
-          <h1 className="page-title text-4xl font-extrabold tracking-tight text-slate-900 mt-1">
+          <h1 className="page-title text-4xl font-extrabold tracking-tight text-foreground mt-1">
             {t("user_dashboard.title", "My Account Dashboard")}
           </h1>
-          <p className="page-subtitle mt-2 max-w-2xl text-slate-500">
+          <p className="page-subtitle mt-2 max-w-2xl text-muted-foreground">
             {t("user_dashboard.welcome", {
               suffix: user?.full_name ? `, ${user.full_name.split(" ")[0]}` : "",
             })}
@@ -216,8 +233,8 @@ export default function UserDashboard() {
               <AlertTriangle className="w-6 h-6" />
             </div>
             <div>
-              <p className="text-3xl font-extrabold text-slate-900">{lostReports.length}</p>
-              <p className="text-sm font-semibold text-slate-500 mt-0.5">{t("user_dashboard.lost_reports")}</p>
+              <p className="text-3xl font-extrabold text-foreground">{lostReports.length}</p>
+              <p className="text-sm font-semibold text-muted-foreground mt-0.5">{t("user_dashboard.lost_reports")}</p>
             </div>
           </div>
         </div>
@@ -230,10 +247,10 @@ export default function UserDashboard() {
               <FileCheck className="w-6 h-6" />
             </div>
             <div>
-              <p className="text-3xl font-extrabold text-slate-900">
+              <p className="text-3xl font-extrabold text-foreground">
                 {claims.filter(c => !["completed", "rejected"].includes(c.status)).length}
               </p>
-              <p className="text-sm font-semibold text-slate-500 mt-0.5">{t("user_dashboard.active_claims")}</p>
+              <p className="text-sm font-semibold text-muted-foreground mt-0.5">{t("user_dashboard.active_claims")}</p>
             </div>
           </div>
         </div>
@@ -246,10 +263,10 @@ export default function UserDashboard() {
               <Bell className="w-6 h-6 animate-pulse" />
             </div>
             <div>
-              <p className="text-3xl font-extrabold text-slate-900">
+              <p className="text-3xl font-extrabold text-foreground">
                 {notifications.filter(n => !n.is_read).length}
               </p>
-              <p className="text-sm font-semibold text-slate-500 mt-0.5">{t("user_dashboard.unread_alerts")}</p>
+              <p className="text-sm font-semibold text-muted-foreground mt-0.5">{t("user_dashboard.unread_alerts")}</p>
             </div>
           </div>
         </div>
@@ -257,33 +274,39 @@ export default function UserDashboard() {
 
       {/* Tabs */}
       <Tabs defaultValue="reports" className="w-full">
-        <TabsList className="responsive-tabs bg-slate-100/80 rounded-xl border border-slate-200/50 p-1">
+        <TabsList className="responsive-tabs bg-muted/80 rounded-xl border border-border/50 p-1">
           <TabsTrigger
             value="reports"
-            className="px-5 py-2.5 rounded-lg text-sm font-semibold transition-all data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm"
+            className="px-5 py-2.5 rounded-lg text-sm font-semibold transition-all data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-sm"
           >
             {t("user_dashboard.tab_reports")}
           </TabsTrigger>
           <TabsTrigger
             value="claims"
-            className="px-5 py-2.5 rounded-lg text-sm font-semibold transition-all data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm"
+            className="px-5 py-2.5 rounded-lg text-sm font-semibold transition-all data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-sm"
           >
             {t("user_dashboard.tab_claims")}
           </TabsTrigger>
           <TabsTrigger
             value="recovery"
-            className="px-5 py-2.5 rounded-lg text-sm font-semibold transition-all data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm"
+            className="px-5 py-2.5 rounded-lg text-sm font-semibold transition-all data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-sm"
           >
             Recovery Cases
           </TabsTrigger>
           <TabsTrigger
             value="notifications"
-            className="px-5 py-2.5 rounded-lg text-sm font-semibold transition-all data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm"
+            className="px-5 py-2.5 rounded-lg text-sm font-semibold transition-all data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-sm"
           >
             {t("user_dashboard.tab_notifications")}
             {notifications.filter(n => !n.is_read).length > 0 && (
               <span className="ml-2 w-2 h-2 rounded-full bg-rose-500 inline-block animate-ping" />
             )}
+          </TabsTrigger>
+          <TabsTrigger
+            value="saved"
+            className="px-5 py-2.5 rounded-lg text-sm font-semibold transition-all data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-sm"
+          >
+            <Bookmark className="h-4 w-4 mr-1.5" />Saved
           </TabsTrigger>
         </TabsList>
 
@@ -300,25 +323,25 @@ export default function UserDashboard() {
           ) : (
             <div className="space-y-4">
               {lostReports.map(report => (
-                <Card key={report.id} className="hover:shadow-md transition-all duration-300 border-slate-200/90 overflow-hidden">
-                  <CardContent className="p-5">
+                <div key={report.id} className="archive-card hover:shadow-md transition-all duration-300 overflow-hidden">
+                  <div className="p-5">
                     <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
                       <div className="flex items-start gap-4">
                         <div className="shrink-0 relative">
                           <RecordThumbnail
                             src={getPrimaryRecordPhoto(report)}
                             alt={report.item_type || "Lost report"}
-                            className="w-16 h-16 rounded-lg object-cover border border-slate-100 shadow-sm"
+                            className="w-16 h-16 rounded-lg object-cover border border-border shadow-sm"
                           />
                         </div>
                         <div>
                           <div className="flex flex-wrap items-center gap-2 mb-1.5">
-                            <h3 className="font-bold text-slate-900 text-lg leading-tight">{report.item_type}</h3>
+                            <h3 className="font-bold text-foreground text-lg leading-tight">{report.item_type}</h3>
                             <StatusBadge status={report.status} />
                           </div>
-                          <p className="text-sm text-slate-600 leading-relaxed max-w-xl">{report.description}</p>
-                          <div className="flex flex-wrap items-center gap-3 mt-3 text-xs text-slate-400 font-medium">
-                            <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded">
+                          <p className="text-sm text-muted-foreground leading-relaxed max-w-xl">{report.description}</p>
+                          <div className="flex flex-wrap items-center gap-3 mt-3 text-xs text-muted-foreground font-medium">
+                            <span className="bg-muted text-muted-foreground px-2 py-0.5 rounded">
                               {t("user_dashboard.reported_on_label", "Reported")}:{" "}
                               {report.created_date ? formatLocalizedDate(report.created_date, "MMM d, yyyy") : t("home.no_date")}
                             </span>
@@ -331,8 +354,8 @@ export default function UserDashboard() {
 
                       {report.matched_items?.length > 0 && (
                         <div className="shrink-0 flex items-center md:self-center">
-                          <Badge className="bg-purple-100 hover:bg-purple-200 text-purple-800 font-bold border border-purple-200/50 flex items-center gap-1.5 py-1 px-3 rounded-full text-xs shadow-sm transition-all duration-300">
-                            <Brain className="w-3.5 h-3.5 animate-pulse text-purple-700" />
+                          <Badge className="bg-muted hover:bg-muted text-primary font-bold border border-border flex items-center gap-1.5 py-1 px-3 rounded-full text-xs shadow-sm transition-all duration-300">
+                            <Brain className="w-3.5 h-3.5 animate-pulse text-primary" />
                             {t("user_dashboard.matches", { count: report.matched_items.length })}
                           </Badge>
                         </div>
@@ -341,14 +364,14 @@ export default function UserDashboard() {
 
                     {/* Suggested matches from deterministic/advisory matching. */}
                     {report.matched_items?.length > 0 && (
-                      <div className="mt-4 pt-4 border-t border-slate-100 bg-purple-50/20 -mx-5 -mb-5 px-5 py-4">
+                      <div className="mt-4 pt-4 border-t border-border bg-muted/40 -mx-5 -mb-5 px-5 py-4">
                         <div className="flex items-center gap-2 mb-2">
-                          <Sparkles className="w-4 h-4 text-purple-600 shrink-0" />
-                          <h4 className="text-xs font-bold text-purple-950 uppercase tracking-wider">
+                          <Sparkles className="w-4 h-4 text-primary shrink-0" />
+                          <h4 className="text-xs font-bold text-foreground uppercase tracking-wider">
                             {t("user_dashboard.ai_suggested_matches", "Suggested Found Matches")}
                           </h4>
                         </div>
-                        <p className="text-xs text-purple-800 mb-3">
+                        <p className="text-xs text-muted-foreground mb-3">
                           {t("user_dashboard.ai_suggested_matches_desc", "These advisory matches share item details, timing, or location. Select one to view or claim:")}
                         </p>
                         <div className="flex flex-wrap gap-2">
@@ -360,23 +383,23 @@ export default function UserDashboard() {
                               <Link
                                 key={matchId}
                                 to={`/ItemDetails?id=${matchId}`}
-                                className="flex items-center gap-2.5 bg-white hover:bg-purple-50 border border-purple-200/80 px-3 py-2 rounded-lg transition-all text-xs font-semibold text-purple-950 hover:border-purple-300 shadow-sm"
+                                className="flex items-center gap-2.5 bg-card hover:bg-muted border border-border px-3 py-2 rounded-lg transition-all text-xs font-semibold text-foreground hover:border-border shadow-sm"
                               >
                                 <RecordThumbnail
                                   src={matchedItem.photo_urls?.[0]}
                                   alt={matchedItem.title}
-                                  className="w-6 h-6 rounded-md object-cover shrink-0 border border-slate-100"
+                                  className="w-6 h-6 rounded-md object-cover shrink-0 border border-border"
                                 />
                                 <span>{matchedItem.title}</span>
-                                <ArrowRight className="w-3.5 h-3.5 text-purple-600 transition-transform group-hover:translate-x-0.5" />
+                                <ArrowRight className="w-3.5 h-3.5 text-primary transition-transform group-hover:translate-x-0.5" />
                               </Link>
                             );
                           })}
                         </div>
                       </div>
                     )}
-                  </CardContent>
-                </Card>
+                  </div>
+                </div>
               ))}
             </div>
           )}
@@ -390,15 +413,15 @@ export default function UserDashboard() {
               {lostReports.map((report) => {
                 const recoveryCase = recoveryCasesByReportId[report.id];
                 return (
-                  <Card key={report.id} className="border-slate-200">
-                    <CardContent className="p-5">
+                  <div key={report.id} className="surface-card">
+                    <div className="p-5">
                       <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                         <div>
                           <div className="flex flex-wrap items-center gap-2">
-                            <h3 className="text-lg font-bold text-slate-900">{report.item_type}</h3>
+                            <h3 className="text-lg font-bold text-foreground">{report.item_type}</h3>
                             {recoveryCase ? <StatusBadge status={recoveryCase.status} /> : <Badge variant="outline">open</Badge>}
                           </div>
-                          <p className="mt-2 text-sm text-slate-600">
+                          <p className="mt-2 text-sm text-muted-foreground">
                             {recoveryCase?.status === "match_identified" && "A possible item match is available."}
                             {recoveryCase?.status === "claim_in_review" && "Your ownership claim is under review."}
                             {recoveryCase?.status === "pickup_ready" && "Your item is ready for pickup."}
@@ -408,7 +431,7 @@ export default function UserDashboard() {
                           {recoveryCase?.likely_zone_summaries?.length > 0 && (
                             <div className="mt-3 flex flex-wrap gap-2">
                               {recoveryCase.likely_zone_summaries.map((zone) => (
-                                <Badge key={zone} variant="outline" className="bg-slate-50">{zone}</Badge>
+                                <Badge key={zone} variant="outline" className="bg-muted">{zone}</Badge>
                               ))}
                             </div>
                           )}
@@ -424,8 +447,8 @@ export default function UserDashboard() {
                           Refresh plan
                         </Button>
                       </div>
-                    </CardContent>
-                  </Card>
+                    </div>
+                  </div>
                 );
               })}
             </div>
@@ -445,10 +468,10 @@ export default function UserDashboard() {
           ) : (
             <div className="space-y-4">
               {claims.map(claim => (
-                <Card key={claim.id} className="hover:shadow-md transition-all duration-300 border-slate-200/90 overflow-hidden">
-                  <CardContent className="p-5">
+                <div key={claim.id} className="archive-card hover:shadow-md transition-all duration-300 overflow-hidden">
+                  <div className="p-5">
                     <div className="flex flex-col sm:flex-row gap-5 items-start">
-                      <div className="relative shrink-0 w-24 h-24 sm:w-28 sm:h-28 rounded-xl overflow-hidden border border-slate-100 bg-slate-50 flex items-center justify-center shadow-inner">
+                      <div className="relative shrink-0 w-24 h-24 sm:w-28 sm:h-28 rounded-xl overflow-hidden border border-border bg-muted flex items-center justify-center shadow-inner">
                         <img
                           src={getPrimaryRecordPhoto(claim, foundItemsById[claim.found_item_id])}
                           alt={claim.found_item_title || "Claim"}
@@ -461,17 +484,17 @@ export default function UserDashboard() {
 
                       <div className="flex-1 space-y-2">
                         <div className="flex flex-wrap items-center justify-between gap-2">
-                          <h3 className="font-bold text-lg text-slate-900 leading-tight">
+                          <h3 className="font-bold text-lg text-foreground leading-tight">
                             {claim.found_item_title || t("common.claim")}
                           </h3>
-                          <span className="text-xs text-slate-400 font-semibold">
+                          <span className="text-xs text-muted-foreground font-semibold">
                             {t("user_dashboard.submitted_on", {
                               date: claim.created_date ? formatLocalizedDate(claim.created_date, "MMM d, yyyy") : t("home.no_date"),
                             })}
                           </span>
                         </div>
 
-                        <p className="text-sm text-slate-600 leading-relaxed">{claim.reason}</p>
+                        <p className="text-sm text-muted-foreground leading-relaxed">{claim.reason}</p>
 
                         {claim.admin_notes && (
                           <div className="mt-2.5 text-xs bg-blue-50/50 border border-blue-100/50 text-blue-800 p-3 rounded-lg flex items-start gap-2.5">
@@ -510,7 +533,7 @@ export default function UserDashboard() {
                                   asChild
                                   size="sm"
                                   variant="outline"
-                                  className="border-emerald-300 bg-white text-emerald-900 hover:bg-emerald-50 gap-1.5"
+                                  className="border-emerald-300 bg-card text-emerald-900 hover:bg-emerald-50 gap-1.5"
                                 >
                                   <Link to={getPickupPassRoute(passId)}>
                                     <Ticket className="w-4 h-4" />
@@ -519,7 +542,7 @@ export default function UserDashboard() {
                                 </Button>
                               );
                             })()}
-                            <p className="rounded-lg border border-emerald-200 bg-white px-3 py-2 text-xs leading-5 text-emerald-900">
+                            <p className="rounded-lg border border-emerald-200 bg-card px-3 py-2 text-xs leading-5 text-emerald-900">
                               Pickup completion is recorded by staff at the Pickup Station after they verify the Return Pass code.
                             </p>
                           </div>
@@ -541,11 +564,11 @@ export default function UserDashboard() {
                           <div className="mt-4 rounded-xl border border-amber-100 bg-amber-50/30 p-4 space-y-3">
                             <div className="flex flex-wrap items-center justify-between gap-3">
                               <div>
-                                <h4 className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
+                                <h4 className="text-sm font-bold text-foreground flex items-center gap-1.5">
                                   <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
                                   {t("user_dashboard.leave_rating")}
                                 </h4>
-                                <p className="text-xs text-slate-500 mt-0.5">
+                                <p className="text-xs text-muted-foreground mt-0.5">
                                   {t("user_dashboard.rating_reviewed")}
                                 </p>
                               </div>
@@ -593,7 +616,7 @@ export default function UserDashboard() {
                                   >
                                     <Star
                                       className={`w-6 h-6 transition-all duration-200 ${
-                                        filled ? "fill-amber-400 text-amber-400 drop-shadow-[0_0_4px_rgba(251,191,36,0.35)]" : "text-slate-300 hover:text-amber-300"
+                                        filled ? "fill-amber-400 text-amber-400 drop-shadow-[0_0_4px_rgba(251,191,36,0.35)]" : "text-muted-foreground/50 hover:text-amber-300"
                                       }`}
                                     />
                                   </button>
@@ -603,7 +626,7 @@ export default function UserDashboard() {
 
                             <Textarea
                               rows={3}
-                              className="bg-white border-slate-200 focus-visible:ring-amber-400 placeholder:text-slate-400 text-sm leading-relaxed rounded-lg"
+                              className="bg-card border-border focus-visible:ring-amber-400 placeholder:text-muted-foreground text-sm leading-relaxed rounded-lg"
                               placeholder={t("user_dashboard.rating_placeholder")}
                               disabled={claim.review_status === "pending" || claim.review_status === "approved"}
                               value={reviewDrafts[claim.id]?.review ?? claim.claimant_review ?? ""}
@@ -666,14 +689,14 @@ export default function UserDashboard() {
                       </div>
 
                       <Link to={`/ItemDetails?id=${claim.found_item_id}`} className="self-start">
-                        <Button variant="outline" size="sm" className="gap-1.5 border-slate-200 text-slate-600 hover:text-slate-900 transition-colors">
+                        <Button variant="outline" size="sm" className="gap-1.5 border-border text-muted-foreground hover:text-foreground transition-colors">
                           <Eye className="w-3.5 h-3.5" />
                           {t("common.view_item")}
                         </Button>
                       </Link>
                     </div>
-                  </CardContent>
-                </Card>
+                  </div>
+                </div>
               ))}
             </div>
           )}
@@ -703,7 +726,7 @@ export default function UserDashboard() {
                     pickupRoute ? "cursor-pointer" : ""
                   } ${
                     notif.is_read
-                      ? "bg-white border-slate-100 hover:bg-slate-50/50"
+                      ? "bg-card border-border hover:bg-muted/50"
                       : "bg-blue-50/30 border-blue-100 hover:bg-blue-50/50 shadow-sm"
                   }`}
                   onClick={() => {
@@ -713,12 +736,12 @@ export default function UserDashboard() {
                   }}
                 >
                   <div className="flex items-start gap-3.5">
-                    <div className={`p-2 rounded-lg shrink-0 ${notif.is_read ? "bg-slate-100 text-slate-400" : "bg-blue-100 text-blue-600"}`}>
+                    <div className={`p-2 rounded-lg shrink-0 ${notif.is_read ? "bg-muted text-muted-foreground" : "bg-blue-100 text-blue-600"}`}>
                       <Bell className="w-4 h-4" />
                     </div>
                     <div className="flex-1">
-                      <p className={`text-sm ${notif.is_read ? "text-slate-600" : "text-slate-900 font-bold"}`}>{notif.title}</p>
-                      <p className="text-xs text-slate-500 mt-1 leading-relaxed">{safeMessage}</p>
+                      <p className={`text-sm ${notif.is_read ? "text-muted-foreground" : "text-foreground font-bold"}`}>{notif.title}</p>
+                      <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{safeMessage}</p>
                       {pickupRoute && (
                         <Button asChild size="sm" variant="link" className="mt-2 h-auto p-0 text-emerald-700">
                           <Link to={pickupRoute} onClick={(event) => event.stopPropagation()}>
@@ -727,7 +750,7 @@ export default function UserDashboard() {
                         </Button>
                       )}
                     </div>
-                    <span className="text-[10px] text-slate-400 font-semibold shrink-0">
+                    <span className="text-[10px] text-muted-foreground font-semibold shrink-0">
                       {notif.created_date ? formatLocalizedDate(notif.created_date, "MMM d") : ""}
                     </span>
                   </div>
@@ -735,6 +758,78 @@ export default function UserDashboard() {
               )})}
             </div>
           )}
+        </TabsContent>
+
+        {/* Saved Tab */}
+        <TabsContent value="saved" className="space-y-6">
+          {/* Saved Items */}
+          <div className="space-y-3">
+            <h3 className="text-sm font-bold text-foreground uppercase tracking-wide">Saved Items</h3>
+            {savedItemData.length === 0 ? (
+              <div className="text-center py-12">
+                <Bookmark className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
+                <p className="text-sm text-muted-foreground">Browse found items to save them</p>
+                <Link to="/Search">
+                  <Button variant="outline" size="sm" className="mt-4">Browse Items</Button>
+                </Link>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {savedItemData.map(item => (
+                  <div key={item.id} className="archive-card p-4">
+                    <div className="flex gap-3">
+                      <RecordThumbnail src={item.photo_urls?.[0]} alt={item.title} />
+                      <div className="flex-1">
+                        <p className="font-semibold text-foreground">{item.title}</p>
+                        <p className="text-sm text-muted-foreground">{item.location_found}</p>
+                        <div className="mt-2 flex gap-2">
+                          <Badge variant="outline">{item.status}</Badge>
+                          <Link to={`/ItemDetails?id=${item.id}`}>
+                            <Button size="sm" variant="outline">View</Button>
+                          </Link>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Saved Searches */}
+          <div className="space-y-3">
+            <h3 className="text-sm font-bold text-foreground uppercase tracking-wide">Saved Searches</h3>
+            {savedSearches.length === 0 ? (
+              <div className="text-center py-12">
+                <SearchIcon className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
+                <p className="text-sm text-muted-foreground">Save a search from the Search page to see it here</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {savedSearches.map(item => (
+                  <div key={item.id} className="soft-panel p-4 flex items-center justify-between gap-3">
+                    <div>
+                      <p className="font-semibold text-sm text-foreground">{item.name}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">{item.query || "Saved filters"}</p>
+                    </div>
+                    <div className="flex gap-2">
+                      <Link to={`/Search?q=${encodeURIComponent(item.query || "")}`}>
+                        <Button size="sm" variant="outline">Search</Button>
+                      </Link>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => deleteSavedSearch(item.id)}
+                        aria-label="Delete saved search"
+                      >
+                        <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </TabsContent>
       </Tabs>
     </div>

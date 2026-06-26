@@ -928,11 +928,14 @@ function getRecordId(record = {}) {
 }
 
 function shouldUseLocalFallback(error, { entityName } = {}) {
+  // Non-HTTP errors (TypeError, network failure, unexpected API format) always fall back to local seed data
+  if (!error?.status) {
+    return true;
+  }
   if (entityName && CORE_WORKFLOW_ENTITIES.has(entityName)) {
     return false;
   }
-
-  return !error?.status || error.status === 404 || error.status >= 500;
+  return error.status === 404 || error.status >= 500;
 }
 
 function saveCachedRecord(entityName, id, updates) {

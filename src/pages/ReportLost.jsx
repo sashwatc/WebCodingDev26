@@ -26,6 +26,7 @@ import {
   Brain,
   Eye,
   Loader2,
+  LockKeyhole,
   Sparkles,
 } from "lucide-react";
 
@@ -117,6 +118,15 @@ export default function ReportLost() {
     }
   }, [campusZones, form.campus_zone_id, form.last_seen_location]);
 
+  useEffect(() => {
+    const hasDraft = form.urgency !== "medium" || form.description.trim() !== "";
+    const h = (e) => {
+      if (hasDraft) e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", h);
+    return () => window.removeEventListener("beforeunload", h);
+  }, [form.urgency, form.description]);
+
   const updateField = (field, value) => {
     setForm((prev) => ({ ...prev, [field]: value }));
     if (errors[field]) {
@@ -174,17 +184,17 @@ export default function ReportLost() {
     return (
       <div className="page-shell max-w-2xl py-20">
         <div className="surface-card px-8 py-16 text-center">
-          <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-slate-100 animate-pulse">
+          <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-muted animate-pulse">
             <Brain className="w-8 h-8 text-primary" />
           </div>
-          <h2 className="mb-2 text-2xl font-semibold text-slate-900">{t("report_lost.matching_title")}</h2>
-          <p className="mb-6 text-slate-600">
+          <h2 className="mb-2 text-2xl font-semibold text-foreground">{t("report_lost.matching_title")}</h2>
+          <p className="mb-6 text-muted-foreground">
             {t("report_lost.matching_description", { count: foundItems.length })}
           </p>
           <div className="mx-auto max-w-xs">
             <Progress value={66} className="h-2.5" />
           </div>
-          <p className="mt-3 text-xs text-slate-400">{t("report_lost.matching_hint")}</p>
+          <p className="mt-3 text-xs text-muted-foreground">{t("report_lost.matching_hint")}</p>
         </div>
       </div>
     );
@@ -205,7 +215,7 @@ export default function ReportLost() {
           <div className="mb-8 space-y-4">
             <div className="mb-2 flex items-center gap-2">
               <Sparkles className="w-5 h-5 text-primary" />
-              <h3 className="text-lg font-semibold text-slate-900">
+              <h3 className="text-lg font-semibold text-foreground">
                 {t("report_lost.potential_matches", { count: matches.length })}
               </h3>
             </div>
@@ -222,12 +232,12 @@ export default function ReportLost() {
                       ) : null}
                       <div className="min-w-0 flex-1">
                         <div className="mb-1 flex items-center gap-2">
-                          <h4 className="truncate font-semibold text-slate-900">{item.title}</h4>
+                          <h4 className="truncate font-semibold text-foreground">{item.title}</h4>
                           <Badge className="bg-blue-100 text-blue-800 border-blue-200 text-xs">
                             {t("report_lost.match_badge", { count: match.confidence })}
                           </Badge>
                         </div>
-                        <p className="mb-2 line-clamp-2 text-sm text-slate-600">{item.ai_description || item.description}</p>
+                        <p className="mb-2 line-clamp-2 text-sm text-muted-foreground">{item.ai_description || item.description}</p>
                         {match.reasons?.length > 0 && (
                           <div className="flex flex-wrap gap-1">
                             {match.reasons.map((reason) => (
@@ -250,8 +260,8 @@ export default function ReportLost() {
         ) : (
           <Card className="mb-8">
             <CardContent className="p-8 text-center">
-              <p className="mb-2 text-slate-600">{t("report_lost.no_matches_title")}</p>
-              <p className="text-sm text-slate-400">
+              <p className="mb-2 text-muted-foreground">{t("report_lost.no_matches_title")}</p>
+              <p className="text-sm text-muted-foreground">
                 {t("report_lost.no_matches_description")}
               </p>
             </CardContent>
@@ -285,10 +295,10 @@ export default function ReportLost() {
       )}
 
       {/* Progress Tracker */}
-      <div className="mb-8 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl p-5 shadow-sm">
+      <div className="mb-8 bg-card border border-border rounded-xl p-5 shadow-sm">
         <div className="flex justify-between items-center relative">
           {/* Progress bar background line */}
-          <div className="absolute left-0 right-0 h-0.5 bg-slate-200 dark:bg-slate-800 top-1/2 -translate-y-1/2 z-0" />
+          <div className="absolute left-0 right-0 h-0.5 bg-muted top-1/2 -translate-y-1/2 z-0" />
           {/* Active progress bar line */}
           <div 
             className="absolute left-0 h-0.5 bg-primary top-1/2 -translate-y-1/2 z-0 transition-all duration-300"
@@ -310,12 +320,12 @@ export default function ReportLost() {
                       ? "bg-emerald-600 text-white" 
                       : isActive 
                         ? "bg-primary text-white ring-4 ring-primary/20" 
-                        : "bg-slate-100 dark:bg-slate-800 text-slate-400 border border-slate-200"
+                        : "bg-muted text-muted-foreground border border-border"
                   }`}
                 >
                   {isCompleted ? "✓" : item.step}
                 </div>
-                <span className={`text-xs font-medium mt-2 ${isActive ? "text-primary font-semibold" : "text-slate-500"}`}>
+                <span className={`text-xs font-medium mt-2 ${isActive ? "text-primary font-semibold" : "text-muted-foreground"}`}>
                   {item.label}
                 </span>
               </div>
@@ -329,7 +339,7 @@ export default function ReportLost() {
           {formStep === 1 && (
             <section className="space-y-6 animate-in fade-in duration-300 p-6 sm:p-8">
               <div className="space-y-2">
-                <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-950">
+                <h2 className="flex items-center gap-2 text-lg font-semibold text-foreground">
                   <AlertTriangle className="w-5 h-5 text-primary" />
                   {t("report_lost.details")}
                 </h2>
@@ -381,7 +391,7 @@ export default function ReportLost() {
           {formStep === 2 && (
             <section className="space-y-6 animate-in fade-in duration-300 p-6 sm:p-8">
               <div className="space-y-2">
-                <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-950">
+                <h2 className="flex items-center gap-2 text-lg font-semibold text-foreground">
                   <AlertTriangle className="w-5 h-5 text-primary" />
                   {t("report_lost.details")}
                 </h2>
@@ -433,7 +443,7 @@ export default function ReportLost() {
           {formStep === 3 && (
             <section className="space-y-6 animate-in fade-in duration-300 p-6 sm:p-8">
               <div className="space-y-2">
-                <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-950">
+                <h2 className="flex items-center gap-2 text-lg font-semibold text-foreground">
                   <AlertTriangle className="w-5 h-5 text-primary" />
                   {t("report_lost.contact_information")}
                 </h2>
@@ -447,12 +457,22 @@ export default function ReportLost() {
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
-                  <Label htmlFor="contact_name">{t("report_lost.full_name")}</Label>
+                  <Label htmlFor="contact_name">
+                    {t("report_lost.full_name")}
+                    <span className="ml-1.5 inline-flex items-center gap-1 text-xs font-normal text-muted-foreground">
+                      <LockKeyhole className="h-3 w-3" aria-hidden="true" />Private
+                    </span>
+                  </Label>
                   <Input id="contact_name" value={form.contact_name} onChange={(event) => updateField("contact_name", event.target.value)} className={errors.contact_name ? "border-red-400" : ""} />
                   {errors.contact_name && <p className="mt-1 text-xs text-red-500">{errors.contact_name}</p>}
                 </div>
                 <div>
-                  <Label htmlFor="contact_email">{t("common.email")} *</Label>
+                  <Label htmlFor="contact_email">
+                    {t("common.email")} *
+                    <span className="ml-1.5 inline-flex items-center gap-1 text-xs font-normal text-muted-foreground">
+                      <LockKeyhole className="h-3 w-3" aria-hidden="true" />Private
+                    </span>
+                  </Label>
                   <Input id="contact_email" type="email" value={form.contact_email} onChange={(event) => updateField("contact_email", event.target.value)} className={errors.contact_email ? "border-red-400" : ""} />
                   {errors.contact_email && <p className="mt-1 text-xs text-red-500">{errors.contact_email}</p>}
                 </div>

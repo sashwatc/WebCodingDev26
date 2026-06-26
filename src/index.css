@@ -584,3 +584,85 @@
     scroll-behavior: auto !important;
   }
 }
+
+@media print {
+  /* Hide chrome */
+  nav, header[role="banner"], footer, .no-print,
+  [data-radix-dialog-overlay], [data-radix-popper-content-wrapper],
+  [data-vaul-overlay] {
+    display: none !important;
+  }
+
+  /* Reset page colors */
+  body, html {
+    background: #fff !important;
+    color: #000 !important;
+    font-size: 11pt !important;
+  }
+
+  /* Cards as simple bordered boxes */
+  .surface-card, .archive-card, .soft-panel {
+    box-shadow: none !important;
+    border: 1px solid #bbb !important;
+    background: #fff !important;
+    break-inside: avoid;
+  }
+
+  /* Hide interactive controls */
+  button:not([data-print-show]), [role="button"]:not([data-print-show]),
+  input[type="submit"], input[type="button"] {
+    display: none !important;
+  }
+
+  /* Private / staff-only fields hidden */
+  [data-private="true"], .print-hidden {
+    display: none !important;
+  }
+
+  /* PIN display */
+  .pickup-pin-code {
+    font-size: 28pt !important;
+    letter-spacing: 0.35em !important;
+    font-weight: 900 !important;
+  }
+
+  /* Full width */
+  main, [role="main"], .page-shell {
+    width: 100% !important;
+    max-width: 100% !important;
+    padding: 0.5in 0 !important;
+    margin: 0 !important;
+  }
+
+  /* Page break utilities */
+  .print-break-before { break-before: page; }
+  .print-break-after  { break-after: page; }
+
+  /* Show print-only elements */
+  .print-only { display: block !important; }
+}
+
+/* Hidden in print, shown normally */
+.print-only { display: none; }
+
+/* Text density — compact mode tightens spacing */
+[data-density="compact"] .surface-card,
+[data-density="compact"] .archive-card,
+[data-density="compact"] .soft-panel {
+  padding: 0.75rem !important;
+}
+[data-density="compact"] .page-shell {
+  padding-top: 1.5rem !important;
+  padding-bottom: 1.5rem !important;
+}
+
+/* High contrast mode */
+[data-hc="true"] {
+  --foreground: 0 0% 0%;
+  --muted-foreground: 0 0% 20%;
+  --border: 0 0% 30%;
+}
+[data-hc="true"] .surface-card,
+[data-hc="true"] .archive-card {
+  border-color: hsl(0 0% 30%) !important;
+}

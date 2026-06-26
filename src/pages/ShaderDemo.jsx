@@ -44,11 +44,11 @@ export default function ShaderDemo() {
       <div className="grid gap-4 md:grid-cols-3">
         {samples.map((sample) => (
           <section key={sample.title} className="surface-card p-5">
-            <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-slate-100 text-primary">
+            <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-muted text-primary">
               <sample.icon className="h-5 w-5" />
             </div>
-            <h2 className="text-base font-semibold text-slate-950">{sample.title}</h2>
-            <p className="mt-2 text-sm leading-6 text-slate-600">{sample.description}</p>
+            <h2 className="text-base font-semibold text-foreground">{sample.title}</h2>
+            <p className="mt-2 text-sm leading-6 text-muted-foreground">{sample.description}</p>
           </section>
         ))}
       </div>

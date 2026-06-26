@@ -20,16 +20,16 @@ export default function ClaimOwnershipEvidenceSection({
       <div className="space-y-2">
         <div className="flex items-center gap-2">
           <Shield className="h-5 w-5 text-primary" aria-hidden="true" />
-          <h2 id="claim-ownership-heading" className="text-lg font-semibold text-slate-950">
+          <h2 id="claim-ownership-heading" className="text-lg font-semibold text-foreground">
             {t("claim_item.help_staff_verify_title")}
           </h2>
         </div>
-        <p className="text-sm leading-6 text-slate-600">
+        <p className="text-sm leading-6 text-muted-foreground">
           {t("claim_item.help_staff_verify_description")}
         </p>
-        <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+        <div className="soft-panel px-4 py-3 text-sm text-foreground">
           <div className="flex items-start gap-2">
-            <LockKeyhole className="mt-0.5 h-4 w-4 shrink-0 text-slate-500" aria-hidden="true" />
+            <LockKeyhole className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
             <p>{t("claim_item.private_evidence_notice")}</p>
           </div>
         </div>
@@ -83,15 +83,15 @@ export default function ClaimOwnershipEvidenceSection({
         </div>
       </div>
 
-      <fieldset className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-        <legend className="px-1 text-sm font-semibold text-slate-900">
+      <fieldset className="rounded-lg border border-border bg-muted/40 p-4">
+        <legend className="px-1 text-sm font-semibold text-foreground">
           {t("claim_item.evidence_checklist_title")}
         </legend>
         <div className="mt-3 grid gap-2 sm:grid-cols-3">
           {EVIDENCE_CHECKLIST_OPTIONS.map((label) => (
             <label
               key={label}
-              className="flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700"
+              className="flex items-center gap-2 rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground"
             >
               <input
                 type="checkbox"
@@ -118,7 +118,7 @@ export default function ClaimOwnershipEvidenceSection({
         aspectRatio={1}
         isPrivate
       />
-      <p className="text-xs text-slate-500">{t("claim_item.supporting_photo_private_note")}</p>
+      <p className="text-xs text-muted-foreground">{t("claim_item.supporting_photo_private_note")}</p>
 
       <div>
         <Label htmlFor="c_pickup">{t("claim_item.pickup_availability")}</Label>

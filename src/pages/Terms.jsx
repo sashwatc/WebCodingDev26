@@ -1,10 +1,5 @@
-/**
- * FindBack AI - Terms of Use Page
- */
-
 import React from "react";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
 import { BRAND_NAME } from "@/lib/constants";
 
 const terms = [
@@ -36,21 +31,19 @@ const terms = [
 
 export default function Terms() {
   return (
-    <div className="max-w-4xl mx-auto px-4 py-16">
+    <div className="page-shell max-w-4xl py-16">
       <div className="text-center mb-10">
         <Badge variant="outline" className="mb-3">Legal</Badge>
-        <h1 className="text-4xl font-bold text-slate-900 mb-3">Terms of Use</h1>
-        <p className="text-sm text-slate-400">Last updated: March 16, 2026</p>
+        <h1 className="text-4xl font-bold text-foreground mb-3">Terms of Use</h1>
+        <p className="text-sm text-muted-foreground">Last updated: March 16, 2026</p>
       </div>
 
       <div className="space-y-4">
         {terms.map((section) => (
-          <Card key={section.title} className="border-slate-200">
-            <CardContent className="p-6">
-              <h2 className="text-lg font-semibold text-slate-900 mb-2">{section.title}</h2>
-              <p className="text-sm text-slate-600 leading-relaxed">{section.body}</p>
-            </CardContent>
-          </Card>
+          <div key={section.title} className="surface-card p-6">
+            <h2 className="text-lg font-semibold text-foreground mb-2">{section.title}</h2>
+            <p className="text-sm text-muted-foreground leading-relaxed">{section.body}</p>
+          </div>
         ))}
       </div>
     </div>

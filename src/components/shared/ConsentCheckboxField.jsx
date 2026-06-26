@@ -17,7 +17,7 @@ export function ConsentCheckboxField({
           active: "border-emerald-500 bg-emerald-100 dark:border-emerald-500 dark:bg-emerald-950/35",
         }
       : {
-          base: "border-slate-200 bg-slate-50/80 dark:border-slate-700 dark:bg-slate-900/75",
+          base: "border-border bg-muted/50",
           active: "border-emerald-500 bg-emerald-100 dark:border-emerald-500 dark:bg-emerald-950/35",
         };
 
@@ -40,7 +40,7 @@ export function ConsentCheckboxField({
           <label
             htmlFor={id}
             className={cn(
-              "flex-1 cursor-pointer text-left text-sm font-medium leading-6 text-slate-900 transition-colors hover:text-slate-950 dark:text-slate-50 dark:hover:text-white"
+              "flex-1 cursor-pointer text-left text-sm font-medium leading-6 text-foreground transition-colors"
             )}>
             {children}
           </label>

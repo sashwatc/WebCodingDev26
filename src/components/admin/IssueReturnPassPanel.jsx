@@ -70,18 +70,18 @@ export default function IssueReturnPassPanel({ claim, existingPassId = "" }) {
   }
 
   return (
-    <div className="rounded-xl border border-indigo-900/60 bg-indigo-950/20 px-4 py-4">
+    <div className="soft-panel px-4 py-4">
       <div className="flex items-start gap-3">
-        <Ticket className="mt-0.5 h-5 w-5 shrink-0 text-indigo-300" aria-hidden="true" />
+        <Ticket className="mt-0.5 h-5 w-5 shrink-0 text-primary" aria-hidden="true" />
         <div className="min-w-0 flex-1 space-y-3">
           <div>
-            <p className="text-sm font-semibold text-indigo-100">{t("pickup_pass.issue_title")}</p>
-            <p className="mt-1 text-xs leading-5 text-indigo-200/80">{t("pickup_pass.issue_description")}</p>
+            <p className="text-sm font-semibold text-foreground">{t("pickup_pass.issue_title")}</p>
+            <p className="mt-1 text-xs leading-5 text-muted-foreground">{t("pickup_pass.issue_description")}</p>
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
-              <Label htmlFor={`pickup-window-${claim.id}`} className="text-xs text-indigo-200">
+              <Label htmlFor={`pickup-window-${claim.id}`} className="text-xs text-muted-foreground">
                 {t("pickup_pass.pickup_window_label")}
               </Label>
               <Input
@@ -92,7 +92,7 @@ export default function IssueReturnPassPanel({ claim, existingPassId = "" }) {
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor={`pickup-location-${claim.id}`} className="text-xs text-indigo-200">
+              <Label htmlFor={`pickup-location-${claim.id}`} className="text-xs text-muted-foreground">
                 {t("pickup_pass.pickup_location_label")}
               </Label>
               <Input
@@ -108,7 +108,7 @@ export default function IssueReturnPassPanel({ claim, existingPassId = "" }) {
             <Button
               type="button"
               size="sm"
-              className="bg-indigo-600 hover:bg-indigo-500 text-white"
+              style={{ background: "hsl(var(--primary))", color: "#fff" }}
               disabled={createMutation.isPending || !pickupWindow.trim() || !pickupLocation.trim()}
               onClick={handleIssue}
             >
@@ -118,14 +118,14 @@ export default function IssueReturnPassPanel({ claim, existingPassId = "" }) {
 
             {issuedPassId && (
               <>
-                <Button asChild type="button" size="sm" variant="outline" className="border-indigo-800 text-indigo-100">
+                <Button asChild type="button" size="sm" variant="outline" className="border-border text-foreground">
                   <Link to={getPickupPassRoute(issuedPassId)}>{t("pickup_pass.view_pass")}</Link>
                 </Button>
                 <Button
                   type="button"
                   size="sm"
                   variant="outline"
-                  className="border-indigo-800 text-indigo-100 gap-1.5"
+                  className="border-border text-foreground gap-1.5"
                   disabled={reminderMutation.isPending}
                   onClick={handleReminder}
                 >
@@ -136,7 +136,7 @@ export default function IssueReturnPassPanel({ claim, existingPassId = "" }) {
             )}
           </div>
 
-          <p className="flex items-start gap-1.5 text-xs text-indigo-200/70">
+          <p className="flex items-start gap-1.5 text-xs text-muted-foreground">
             <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
             {t("pickup_pass.issue_privacy_note")}
           </p>

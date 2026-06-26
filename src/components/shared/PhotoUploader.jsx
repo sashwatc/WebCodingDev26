@@ -3,7 +3,8 @@
  */
 
 import React, { useId, useRef, useState } from "react";
-import { ImagePlus, Loader2, LockKeyhole, RefreshCw, X } from "lucide-react";
+import { DragDropContext, Draggable, Droppable } from "@hello-pangea/dnd";
+import { GripVertical, ImagePlus, Loader2, LockKeyhole, RefreshCw, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { appClient } from "@/api/appClient";
 import { useToast } from "@/components/ui/use-toast";
@@ -185,11 +186,11 @@ export default function PhotoUploader({
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
-        <label htmlFor={inputId} className="text-sm font-medium text-slate-800">
+        <label htmlFor={inputId} className="text-sm font-medium text-foreground">
           {displayLabel}
         </label>
         {isPrivate && (
-          <span className="inline-flex items-center gap-1 rounded-full border border-slate-300 bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-700">
+          <span className="inline-flex items-center gap-1 rounded-full border border-border bg-muted px-2 py-0.5 text-xs font-semibold text-foreground">
             <LockKeyhole className="h-3.5 w-3.5" aria-hidden="true" />
             {t("photo_uploader.private_badge")}
           </span>
@@ -220,8 +221,8 @@ export default function PhotoUploader({
         onDrop={handleDrop}
         className={`relative rounded-xl border-2 border-dashed p-4 text-center transition-colors sm:p-6 ${
           isDragging
-            ? "border-primary bg-slate-100"
-            : "border-slate-300 bg-slate-50 hover:border-slate-400 hover:bg-slate-100"
+            ? "border-primary bg-muted"
+            : "border-border bg-muted/50 hover:border-primary/60 hover:bg-muted"
         } ${isFull ? "opacity-60" : ""}`}
       >
         <input
@@ -238,16 +239,16 @@ export default function PhotoUploader({
         {uploading ? (
           <div className="space-y-3" role="status" aria-live="polite">
             <Loader2 className="mx-auto h-8 w-8 animate-spin text-teal-600" aria-hidden="true" />
-            <p className="text-sm font-medium text-slate-700">{t("photo_uploader.uploading")}</p>
+            <p className="text-sm font-medium text-foreground">{t("photo_uploader.uploading")}</p>
             {uploadProgress.total > 0 && (
               <>
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-muted-foreground">
                   {t("photo_uploader.upload_progress", {
                     current: uploadProgress.current,
                     total: uploadProgress.total,
                   })}
                 </p>
-                <div className="mx-auto h-2 w-full max-w-xs overflow-hidden rounded-full bg-slate-200">
+                <div className="mx-auto h-2 w-full max-w-xs overflow-hidden rounded-full bg-muted">
                   <div
                     className="h-full rounded-full bg-teal-600 transition-[width]"
                     style={{ width: `${(uploadProgress.current / uploadProgress.total) * 100}%` }}
@@ -259,12 +260,12 @@ export default function PhotoUploader({
           </div>
         ) : (
           <div className="flex flex-col items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-card border border-border">
               <ImagePlus className="h-5 w-5 text-primary" aria-hidden="true" />
             </div>
             <div className="space-y-1">
-              <p className="text-sm font-semibold text-slate-700">{t("photo_uploader.drag_drop")}</p>
-              <p className="text-xs text-slate-500">{t("photo_uploader.max_photos", { count: maxPhotos })}</p>
+              <p className="text-sm font-semibold text-foreground">{t("photo_uploader.drag_drop")}</p>
+              <p className="text-xs text-muted-foreground">{t("photo_uploader.max_photos", { count: maxPhotos })}</p>
             </div>
             <Button
               type="button"
@@ -281,50 +282,85 @@ export default function PhotoUploader({
       </div>
 
       {photos.length > 0 && (
-        <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3" aria-label={t("photo_uploader.preview_list_label")}>
-          {photos.map((url, index) => (
-            <li key={`${url}-${index}`} className="space-y-2">
-              <div
-                className="relative overflow-hidden rounded-xl border border-slate-200 bg-white"
-                style={{ aspectRatio: String(aspectRatio) }}
+        <DragDropContext
+          onDragEnd={(result) => {
+            if (!result.destination) return;
+            const reordered = [...photos];
+            const [moved] = reordered.splice(result.source.index, 1);
+            reordered.splice(result.destination.index, 0, moved);
+            onChange(reordered);
+          }}
+        >
+          <Droppable droppableId="photos" direction="horizontal">
+            {(provided) => (
+              <ul
+                className="grid grid-cols-2 gap-3 sm:grid-cols-3"
+                aria-label={t("photo_uploader.preview_list_label")}
+                ref={provided.innerRef}
+                {...provided.droppableProps}
               >
-                <img
-                  src={url}
-                  alt={
-                    isPrivate
-                      ? t("photo_uploader.private_photo_alt", { count: index + 1 })
-                      : t("photo_uploader.uploaded_photo", { count: index + 1 })
-                  }
-                  className="h-full w-full object-cover"
-                />
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  className="min-h-10 flex-1 gap-1.5"
-                  onClick={() => replacePhoto(index)}
-                  aria-label={t("photo_uploader.replace_photo", { count: index + 1 })}
-                >
-                  <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
-                  {t("photo_uploader.replace")}
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  className="min-h-10 gap-1.5 text-red-700"
-                  onClick={() => removePhoto(index)}
-                  aria-label={t("photo_uploader.remove_photo", { count: index + 1 })}
-                >
-                  <X className="h-3.5 w-3.5" aria-hidden="true" />
-                  {t("photo_uploader.remove")}
-                </Button>
-              </div>
-            </li>
-          ))}
-        </ul>
+                {photos.map((url, index) => (
+                  <Draggable key={url} draggableId={url} index={index}>
+                    {(dragProvided) => (
+                      <li
+                        ref={dragProvided.innerRef}
+                        {...dragProvided.draggableProps}
+                        className="space-y-2"
+                      >
+                        <div
+                          className="relative overflow-hidden rounded-xl border border-border bg-card"
+                          style={{ aspectRatio: String(aspectRatio) }}
+                        >
+                          <div
+                            {...dragProvided.dragHandleProps}
+                            className="absolute left-1.5 top-1.5 z-10 flex h-7 w-7 cursor-grab items-center justify-center rounded bg-black/40 text-white active:cursor-grabbing"
+                            aria-label="Drag to reorder"
+                          >
+                            <GripVertical className="h-4 w-4" aria-hidden="true" />
+                          </div>
+                          <img
+                            src={url}
+                            alt={
+                              isPrivate
+                                ? t("photo_uploader.private_photo_alt", { count: index + 1 })
+                                : t("photo_uploader.uploaded_photo", { count: index + 1 })
+                            }
+                            className="h-full w-full object-cover"
+                          />
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            className="min-h-10 flex-1 gap-1.5"
+                            onClick={() => replacePhoto(index)}
+                            aria-label={t("photo_uploader.replace_photo", { count: index + 1 })}
+                          >
+                            <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
+                            {t("photo_uploader.replace")}
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            className="min-h-10 gap-1.5 text-red-700"
+                            onClick={() => removePhoto(index)}
+                            aria-label={t("photo_uploader.remove_photo", { count: index + 1 })}
+                          >
+                            <X className="h-3.5 w-3.5" aria-hidden="true" />
+                            {t("photo_uploader.remove")}
+                          </Button>
+                        </div>
+                      </li>
+                    )}
+                  </Draggable>
+                ))}
+                {provided.placeholder}
+              </ul>
+            )}
+          </Droppable>
+        </DragDropContext>
       )}
 
       <ImageCropDialog

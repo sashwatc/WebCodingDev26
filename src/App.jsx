@@ -8,12 +8,14 @@ import { Toaster } from "@/components/ui/toaster"
 import { QueryClientProvider } from '@tanstack/react-query'
 import { queryClientInstance } from '@/lib/query-client'
 import { useTranslation } from "react-i18next";
-import { HashRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
+import React from 'react';
+import { HashRouter as Router, Route, Routes, Navigate, useNavigate } from 'react-router-dom';
 import { MotionConfig } from "framer-motion";
 import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 import AdminRouteGuard from '@/components/auth/AdminRouteGuard';
+import AuthRouteGuard from '@/components/auth/AuthRouteGuard';
 import SignInDialog from '@/components/auth/SignInDialog';
 import AdminAccessDialog from '@/components/auth/AdminAccessDialog';
 import RouteEnhancements from '@/components/layout/RouteEnhancements';
@@ -45,10 +47,19 @@ import Beacon from '@/pages/Beacon';
 import Display from '@/pages/Display';
 import PickupPass from '@/pages/PickupPass';
 import PickupStation from '@/pages/PickupStation';
+import Support from '@/pages/Support';
 
 const AuthenticatedApp = () => {
   const { t } = useTranslation();
-  const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
+  const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin, user, isAdmin } = useAuth();
+  const navigate = useNavigate();
+  React.useEffect(() => {
+    if (user && !isLoadingAuth) {
+      const hash = window.location.hash;
+      const isLobby = !hash || hash === "#/" || hash === "#/Home";
+      if (isLobby) navigate(isAdmin ? "/AdminDashboard" : "/UserDashboard");
+    }
+  }, [user?.id, isLoadingAuth]);
 
   if (isLoadingPublicSettings || isLoadingAuth) {
     return (
@@ -80,13 +91,13 @@ const AuthenticatedApp = () => {
         {/* Public pages with layout (Navbar + Footer) */}
         <Route element={<PublicLayout />}>
           <Route path="/Home" element={<Home />} />
-          <Route path="/Search" element={<Search />} />
-          <Route path="/LostItems" element={<LostItems />} />
-          <Route path="/ReportFound" element={<ReportFound />} />
-          <Route path="/ReportLost" element={<ReportLost />} />
-          <Route path="/ItemDetails" element={<ItemDetails />} />
-          <Route path="/ClaimItem" element={<ClaimItem />} />
-          <Route path="/UserDashboard" element={<UserDashboard />} />
+          <Route path="/Search" element={<AuthRouteGuard><Search /></AuthRouteGuard>} />
+          <Route path="/LostItems" element={<AuthRouteGuard><LostItems /></AuthRouteGuard>} />
+          <Route path="/ReportFound" element={<AuthRouteGuard><ReportFound /></AuthRouteGuard>} />
+          <Route path="/ReportLost" element={<AuthRouteGuard><ReportLost /></AuthRouteGuard>} />
+          <Route path="/ItemDetails" element={<AuthRouteGuard><ItemDetails /></AuthRouteGuard>} />
+          <Route path="/ClaimItem" element={<AuthRouteGuard><ClaimItem /></AuthRouteGuard>} />
+          <Route path="/UserDashboard" element={<AuthRouteGuard><UserDashboard /></AuthRouteGuard>} />
           <Route
             path="/AdminDashboard"
             element={(
@@ -106,7 +117,8 @@ const AuthenticatedApp = () => {
           <Route path="/EventHub" element={<EventHub />} />
           <Route path="/Beacon" element={<Beacon />} />
           <Route path="/Display" element={<Display />} />
-          <Route path="/PickupPass" element={<PickupPass />} />
+          <Route path="/PickupPass" element={<AuthRouteGuard><PickupPass /></AuthRouteGuard>} />
+          <Route path="/Support" element={<Support />} />
           <Route
             path="/PickupStation"
             element={(

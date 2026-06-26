@@ -51,16 +51,16 @@ export default function EventHub() {
       />
 
       <div className="grid gap-4 md:grid-cols-3">
-        <div className="rounded-xl border border-slate-200 bg-white p-5">
+        <div className="archive-card p-5">
           <CalendarDays className="mb-3 h-5 w-5 text-primary" />
-          <p className="font-semibold text-slate-900">Event status</p>
-          <p className="mt-1 text-sm text-slate-600">{hub?.status || "active"}</p>
+          <p className="font-semibold text-foreground">Event status</p>
+          <p className="mt-1 text-sm text-muted-foreground">{hub?.status || "active"}</p>
         </div>
         {(feed?.zones || []).map((zone) => (
-          <div key={zone.id} className="rounded-xl border border-slate-200 bg-white p-5">
+          <div key={zone.id} className="archive-card p-5">
             <MapPin className="mb-3 h-5 w-5 text-primary" />
-            <p className="font-semibold text-slate-900">{zone.label}</p>
-            <p className="mt-1 text-sm text-slate-600">{zone.description}</p>
+            <p className="font-semibold text-foreground">{zone.label}</p>
+            <p className="mt-1 text-sm text-muted-foreground">{zone.description}</p>
             <div className="mt-4 flex flex-wrap gap-2">
               <Link to={`/Beacon?zone=${zone.id}&event=${eventId}`}><Button size="sm" variant="outline">Open beacon</Button></Link>
               <Link to={`/ReportFound?zone=${zone.id}&event=${eventId}`}><Button size="sm" variant="outline">Report found</Button></Link>
@@ -71,24 +71,24 @@ export default function EventHub() {
       </div>
 
       <section>
-        <h2 className="text-lg font-bold text-slate-900">Approved event-related found items</h2>
-        <p className="mt-1 text-sm text-slate-600">Public cards use redacted item fields only; storage and verification clues stay private.</p>
+        <h2 className="text-lg font-bold text-foreground">Approved event-related found items</h2>
+        <p className="mt-1 text-sm text-muted-foreground">Public cards use redacted item fields only; storage and verification clues stay private.</p>
         <div className="mt-3 grid gap-3 md:grid-cols-2">
           {(feed?.found_items || []).map((item) => (
-            <Link key={item.id} to={`/ItemDetails?id=${item.id}`} className="rounded-xl border border-slate-200 bg-white p-4 hover:border-primary">
+            <Link key={item.id} to={`/ItemDetails?id=${item.id}`} className="archive-card p-4 block hover:border-primary/40"style={{ textDecoration: 'none' }}>
               <div className="flex gap-3">
                 <RecordThumbnail src={item.photo_urls?.[0]} alt={item.title} />
                 <div>
-                  <p className="font-semibold text-slate-900">{item.title}</p>
-                  <p className="mt-1 text-sm text-slate-600">{item.location_found}</p>
+                  <p className="font-semibold text-foreground">{item.title}</p>
+                  <p className="mt-1 text-sm text-muted-foreground">{item.location_found}</p>
                   <Badge variant="outline" className="mt-2">{item.status}</Badge>
                 </div>
               </div>
             </Link>
           ))}
           {(feed?.found_items || []).length === 0 && (
-            <div className="rounded-xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-500">
-              <Package className="mx-auto mb-3 h-8 w-8 text-slate-300" />
+            <div className="search-state-panel text-sm">
+              <Package className="mx-auto mb-3 h-8 w-8 text-muted-foreground/40" />
               No public event items are listed yet.
             </div>
           )}

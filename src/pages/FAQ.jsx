@@ -53,20 +53,20 @@ const faqs = [
 
 export default function FAQ() {
   return (
-    <div className="max-w-3xl mx-auto px-4 py-16">
+    <div className="page-shell max-w-3xl py-16">
       <div className="text-center mb-12">
         <Badge variant="outline" className="mb-3">Help Center</Badge>
-        <h1 className="text-4xl font-bold text-slate-900 mb-3">Frequently Asked Questions</h1>
-        <p className="text-slate-500">Quick answers about reporting, searching, claims, privacy, and the judging build.</p>
+        <h1 className="text-4xl font-bold text-foreground mb-3">Frequently Asked Questions</h1>
+        <p className="text-muted-foreground">Quick answers about reporting, searching, claims, privacy, and the judging build.</p>
       </div>
 
       <Accordion type="single" collapsible className="space-y-2">
         {faqs.map((faq, index) => (
-          <AccordionItem key={faq.q} value={`item-${index}`} className="bg-white rounded-lg border px-4">
-            <AccordionTrigger className="text-left font-medium text-slate-900 hover:no-underline">
+          <AccordionItem key={faq.q} value={`item-${index}`} className="bg-card rounded-lg border border-border px-4">
+            <AccordionTrigger className="text-left font-medium text-foreground hover:no-underline">
               {faq.q}
             </AccordionTrigger>
-            <AccordionContent className="text-slate-500 leading-relaxed">
+            <AccordionContent className="text-muted-foreground leading-relaxed">
               {faq.a}
             </AccordionContent>
           </AccordionItem>

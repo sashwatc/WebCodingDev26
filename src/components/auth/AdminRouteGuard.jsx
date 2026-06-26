@@ -37,11 +37,11 @@ export default function AdminRouteGuard({ children }) {
     return (
       <div className="page-shell max-w-2xl py-20">
         <div className="surface-card px-8 py-14 text-center">
-          <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-full bg-slate-100">
+          <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-full bg-muted">
             <Shield className="h-7 w-7 text-primary" />
           </div>
-          <h1 className="text-2xl font-semibold text-slate-950">{t("admin_route_guard.loading_title")}</h1>
-          <p className="mt-3 text-sm leading-6 text-slate-600">
+          <h1 className="text-2xl font-semibold text-foreground">{t("admin_route_guard.loading_title")}</h1>
+          <p className="mt-3 text-sm leading-6 text-muted-foreground">
             {t("admin_route_guard.loading_description")}
           </p>
         </div>
@@ -53,11 +53,11 @@ export default function AdminRouteGuard({ children }) {
     return (
       <div className="page-shell max-w-2xl py-20">
         <div className="surface-card px-8 py-14 text-center">
-          <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-full bg-slate-100">
+          <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-full bg-muted">
             <LockKeyhole className="h-7 w-7 text-primary" />
           </div>
-          <h1 className="text-2xl font-semibold text-slate-950">{t("admin_route_guard.sign_in_required_title")}</h1>
-          <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-slate-600">
+          <h1 className="text-2xl font-semibold text-foreground">{t("admin_route_guard.sign_in_required_title")}</h1>
+          <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-muted-foreground">
             {t("admin_route_guard.sign_in_required_description")}
           </p>
           <div className="mt-8 flex flex-wrap justify-center gap-3">
@@ -80,11 +80,11 @@ export default function AdminRouteGuard({ children }) {
           <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-full bg-red-50">
             <UserRoundX className="h-7 w-7 text-red-600" />
           </div>
-          <h1 className="text-2xl font-semibold text-slate-950">{t("admin_route_guard.access_locked_title")}</h1>
-          <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-slate-600">
+          <h1 className="text-2xl font-semibold text-foreground">{t("admin_route_guard.access_locked_title")}</h1>
+          <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-muted-foreground">
             {t("admin_route_guard.access_locked_description")}
           </p>
-          <p className="mx-auto mt-2 max-w-xl text-xs text-slate-500">
+          <p className="mx-auto mt-2 max-w-xl text-xs text-muted-foreground">
             {user?.email}
           </p>
         </div>

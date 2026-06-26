@@ -53,10 +53,12 @@ export default function ClaimItem() {
   const { user } = useAuth();
   const urlParams = new URLSearchParams(location.search);
   const itemId = urlParams.get("id");
+  const DRAFT_KEY = `ltf_claim_draft_${itemId}`;
 
   const [submitted, setSubmitted] = useState(false);
   const [form, setForm] = useState(() => createInitialForm(user));
   const [errors, setErrors] = useState({});
+  const [showDraftBanner, setShowDraftBanner] = useState(false);
 
   const { data: item, isLoading: itemLoading } = useQuery({
     queryKey: ["claimItem", itemId],
@@ -73,6 +75,59 @@ export default function ClaimItem() {
       claimant_email: prev.claimant_email || user.email || "",
     }));
   }, [user]);
+
+  useEffect(() => {
+    if (!itemId) return;
+    try {
+      const saved = localStorage.getItem(DRAFT_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        setForm((prev) => ({ ...prev, ...parsed }));
+        setShowDraftBanner(true);
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!itemId || submitted) return;
+    const timer = setTimeout(() => {
+      try {
+        localStorage.setItem(DRAFT_KEY, JSON.stringify(form));
+      } catch {
+        // ignore
+      }
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [form, submitted]);
+
+  useEffect(() => {
+    const hasContent =
+      form.reason.trim() ||
+      form.identifying_details.trim() ||
+      form.private_detail.trim() ||
+      form.contents_detail.trim() ||
+      form.student_id.trim() ||
+      form.pickup_availability.trim() ||
+      form.proof_photo_url ||
+      form.evidence_checklist.length > 0;
+
+    if (!hasContent || submitted) return;
+
+    const handler = (event) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [form, submitted]);
+
+  const clearDraft = () => {
+    setShowDraftBanner(false);
+    if (itemId) localStorage.removeItem(DRAFT_KEY);
+  };
 
   const updateField = (field, value) => {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -122,6 +177,7 @@ export default function ClaimItem() {
       queryClient.invalidateQueries({ queryKey: ["userClaims"] });
       queryClient.invalidateQueries({ queryKey: ["adminClaims"] });
       queryClient.invalidateQueries({ queryKey: ["itemDetails"] });
+      if (itemId) localStorage.removeItem(DRAFT_KEY);
       setSubmitted(true);
       toast({
         title: t("claim_item.submitted_title"),
@@ -156,8 +212,8 @@ export default function ClaimItem() {
           <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-50">
             <FileCheck className="h-8 w-8 text-emerald-700" />
           </div>
-          <h1 className="text-2xl font-semibold text-slate-950">{t("claim_item.submitted_title")}</h1>
-          <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-slate-600">
+          <h1 className="text-2xl font-semibold text-foreground">{t("claim_item.submitted_title")}</h1>
+          <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-muted-foreground">
             {t("claim_item.submitted_description")}
           </p>
           <div className="mt-8 flex flex-wrap justify-center gap-3">
@@ -173,7 +229,7 @@ export default function ClaimItem() {
     return (
       <div className="page-shell py-20">
         <div className="flex items-center justify-center">
-          <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
         </div>
       </div>
     );
@@ -183,9 +239,9 @@ export default function ClaimItem() {
     return (
       <div className="page-shell max-w-2xl py-20">
         <div className="surface-card px-8 py-14 text-center">
-          <Package className="mx-auto mb-4 h-12 w-12 text-slate-300" />
-          <h2 className="text-xl font-semibold text-slate-950">{t("claim_item.item_not_found")}</h2>
-          <p className="mt-2 text-sm text-slate-500">{t("claim_item.item_not_found_description")}</p>
+          <Package className="mx-auto mb-4 h-12 w-12 text-muted-foreground/40" />
+          <h2 className="text-xl font-semibold text-foreground">{t("claim_item.item_not_found")}</h2>
+          <p className="mt-2 text-sm text-muted-foreground">{t("claim_item.item_not_found_description")}</p>
           <Button className="mt-6" onClick={() => navigate("/Search")}>{t("claim_item.back_to_search")}</Button>
         </div>
       </div>
@@ -197,7 +253,7 @@ export default function ClaimItem() {
       <Button
         variant="ghost"
         size="sm"
-        className="mb-5 gap-1 text-slate-500"
+        className="mb-5 gap-1 text-muted-foreground"
         onClick={() => navigate(-1)}
       >
         <ArrowLeft className="h-4 w-4" />
@@ -214,7 +270,7 @@ export default function ClaimItem() {
         {/* Left Side: Sticky Details Card & Review Info */}
         <div className="space-y-6 lg:sticky lg:top-24">
           <div className="surface-card overflow-hidden">
-            <div className="aspect-[4/3] bg-slate-100 relative overflow-hidden">
+            <div className="aspect-[4/3] bg-muted relative overflow-hidden">
               {item.photo_urls?.[0] ? (
                 <img
                   src={item.photo_urls[0]}
@@ -222,8 +278,8 @@ export default function ClaimItem() {
                   className="h-full w-full object-cover"
                 />
               ) : (
-                <div className="flex h-full w-full items-center justify-center bg-slate-50">
-                  <Package className="h-10 w-10 text-slate-300" />
+                <div className="flex h-full w-full items-center justify-center bg-muted">
+                  <Package className="h-10 w-10 text-muted-foreground/40" />
                 </div>
               )}
               <div className="absolute left-3 top-3">
@@ -234,17 +290,17 @@ export default function ClaimItem() {
             <div className="p-5 space-y-4">
               <div>
                 <Badge variant="outline" className="text-xs mb-1.5">{translateCategory(t, item.category)}</Badge>
-                <h2 className="text-xl font-bold text-slate-900 leading-tight">{item.title}</h2>
-                <p className="mt-1.5 text-xs text-slate-500">
+                <h2 className="text-xl font-bold text-foreground leading-tight">{item.title}</h2>
+                <p className="mt-1.5 text-xs text-muted-foreground">
                   {translateLocation(t, item.location_found) || t("common.unknown_location")} • {item.date_found ? formatLocalizedDate(item.date_found, "MMM d, yyyy") : t("common.date_unavailable")}
                 </p>
               </div>
 
               <div className="border-t pt-4">
-                <h3 className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400 mb-1">
+                <h3 className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground mb-1">
                   {t("common.description")}
                 </h3>
-                <p className="text-sm leading-relaxed text-slate-600">
+                <p className="text-sm leading-relaxed text-muted-foreground">
                   {item.ai_description || item.description}
                 </p>
               </div>
@@ -252,8 +308,8 @@ export default function ClaimItem() {
           </div>
 
           <div className="soft-panel p-5">
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">{t("claim_item.review_flow")}</p>
-            <div className="mt-4 space-y-3.5 text-sm text-slate-600">
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">{t("claim_item.review_flow")}</p>
+            <div className="mt-4 space-y-3.5 text-sm text-muted-foreground">
               <div className="flex items-start gap-3">
                 <Search className="mt-0.5 h-4 w-4 text-primary shrink-0" />
                 <span>{t("claim_item.review_compare")}</span>
@@ -272,18 +328,24 @@ export default function ClaimItem() {
 
         {/* Right Side: The Form */}
         <form onSubmit={handleSubmit} noValidate>
+          {showDraftBanner && (
+            <div className="soft-panel px-4 py-3 text-sm text-foreground flex items-start justify-between gap-3 mb-4">
+              <span>Draft restored — continue where you left off.</span>
+              <button onClick={clearDraft} className="text-xs font-semibold text-primary shrink-0">Dismiss</button>
+            </div>
+          )}
           <div className="form-shell">
             <section className="space-y-5">
               <div className="space-y-2">
-                <h2 className="text-lg font-semibold text-slate-950">{t("claim_item.your_information")}</h2>
-                <p className="text-sm text-slate-600">
+                <h2 className="text-lg font-semibold text-foreground">{t("claim_item.your_information")}</h2>
+                <p className="text-sm text-muted-foreground">
                   {t("claim_item.your_information_description")}
                 </p>
               </div>
 
               {user && (
-                <div className="soft-panel flex flex-wrap items-center gap-2 px-4 py-3 text-sm text-slate-700">
-                  <Badge variant="secondary" className="bg-slate-200 text-slate-700">{t("claim_item.signed_in")}</Badge>
+                <div className="soft-panel flex flex-wrap items-center gap-2 px-4 py-3 text-sm text-foreground">
+                  <Badge variant="secondary" className="bg-muted text-foreground">{t("claim_item.signed_in")}</Badge>
                   {t("claim_item.submitting_as", { name: user.full_name, email: user.email })}
                 </div>
               )}

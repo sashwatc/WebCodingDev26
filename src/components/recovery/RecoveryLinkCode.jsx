@@ -42,25 +42,25 @@ export default function RecoveryLinkCode({
   const textValue = String(copyValue || value || "");
 
   return (
-    <div className="rounded-lg border border-slate-200 bg-white p-4 text-slate-900 shadow-sm dark:border-slate-800 dark:bg-slate-900/70 dark:text-slate-100">
+    <div className="surface-card p-4">
       <div className="flex items-start gap-4">
         <div
           aria-label={`${label} QR-style visual marker`}
-          className="grid shrink-0 gap-0.5 rounded-md border border-slate-200 bg-white p-2 dark:border-slate-700"
+          className="grid shrink-0 gap-0.5 rounded-md border border-border bg-card p-2"
           style={{ gridTemplateColumns: `repeat(${size}, minmax(0, 1fr))` }}
         >
           {cells.map((filled, index) => (
             <span
               key={index}
-              className={filled ? "h-2 w-2 rounded-[1px] bg-slate-950 dark:bg-slate-900" : "h-2 w-2 rounded-[1px] bg-white"}
+              className={filled ? "h-2 w-2 rounded-[1px] bg-foreground" : "h-2 w-2 rounded-[1px] bg-card"}
             />
           ))}
         </div>
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold">{label}</p>
-          {description && <p className="mt-1 text-sm leading-5 text-slate-600 dark:text-slate-300">{description}</p>}
+          <p className="text-sm font-semibold text-foreground">{label}</p>
+          {description && <p className="mt-1 text-sm leading-5 text-muted-foreground">{description}</p>}
           {textValue && (
-            <p className="mt-2 truncate rounded-md bg-slate-50 px-2 py-1 font-mono text-xs text-slate-600 dark:bg-slate-950 dark:text-slate-300">
+            <p className="mt-2 truncate rounded-md bg-muted px-2 py-1 font-mono text-xs text-muted-foreground">
               {textValue}
             </p>
           )}

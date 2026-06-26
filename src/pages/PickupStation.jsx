@@ -1,10 +1,13 @@
 import React, { useId, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useQuery } from "@tanstack/react-query";
+import confetti from "canvas-confetti";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/use-toast";
 import { useRedeemReturnPass, useVerifyReturnPass } from "@/hooks/useReturnPassWorkflow";
+import { appClient } from "@/api/appClient";
 import { Loader2, ScanLine, ShieldCheck } from "lucide-react";
 
 export default function PickupStation() {
@@ -16,6 +19,18 @@ export default function PickupStation() {
 
   const verifyMutation = useVerifyReturnPass();
   const redeemMutation = useRedeemReturnPass();
+
+  const { data: stationItem } = useQuery({
+    queryKey: ["stationItem", verified?.found_item_id],
+    queryFn: () => appClient.entities.FoundItem.get(verified.found_item_id),
+    enabled: Boolean(verified?.valid && verified?.found_item_id),
+  });
+
+  const { data: stationClaim } = useQuery({
+    queryKey: ["stationClaim", verified?.claim_id],
+    queryFn: () => appClient.entities.Claim.get(verified.claim_id),
+    enabled: Boolean(verified?.valid && verified?.claim_id),
+  });
 
   const resetFlow = () => {
     setVerified(null);
@@ -37,6 +52,7 @@ export default function PickupStation() {
           description: result.message || t("pickup_station.verify_failed_description"),
           variant: "destructive",
         });
+        setCode("");
       }
     } catch (error) {
       setVerified(null);
@@ -45,6 +61,7 @@ export default function PickupStation() {
         description: error.message || t("pickup_station.verify_failed_description"),
         variant: "destructive",
       });
+      setCode("");
     }
   };
 
@@ -58,6 +75,7 @@ export default function PickupStation() {
         passId: verified.return_pass_id,
         oneTimeCode: code.trim(),
       });
+      confetti({ particleCount: 150, spread: 80, origin: { y: 0.6 } });
       resetFlow();
       toast({
         title: t("pickup_station.redeem_success_title"),
@@ -76,12 +94,12 @@ export default function PickupStation() {
     <div className="page-shell max-w-xl py-10 sm:py-12">
       <div className="surface-card p-6 sm:p-8">
         <div className="flex items-start gap-3">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-indigo-50 text-indigo-700">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-muted text-primary">
             <ScanLine className="h-5 w-5" aria-hidden="true" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-slate-950">{t("pickup_station.title")}</h1>
-            <p className="mt-1 text-sm leading-6 text-slate-600">{t("pickup_station.description")}</p>
+            <h1 className="text-2xl font-bold text-foreground">{t("pickup_station.title")}</h1>
+            <p className="mt-1 text-sm leading-6 text-muted-foreground">{t("pickup_station.description")}</p>
           </div>
         </div>
 
@@ -113,7 +131,7 @@ export default function PickupStation() {
               aria-describedby="pickup-station-help"
               disabled={redeemMutation.isPending}
             />
-            <p id="pickup-station-help" className="text-xs text-slate-500">{t("pickup_station.code_help")}</p>
+            <p id="pickup-station-help" className="text-xs text-muted-foreground">{t("pickup_station.code_help")}</p>
           </div>
 
           <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
@@ -158,16 +176,17 @@ export default function PickupStation() {
           >
             <p className="font-semibold">{verified.message || t("pickup_station.verify_result_fallback")}</p>
             {verified.valid && (
-              <dl className="mt-3 grid gap-2 text-xs sm:grid-cols-2">
-                <div>
-                  <dt className="font-semibold uppercase tracking-wide opacity-70">{t("pickup_station.claim_label")}</dt>
-                  <dd className="mt-0.5 font-mono">{verified.claim_id || t("common.not_available")}</dd>
+              <div className="mt-3 flex flex-col items-center gap-3 sm:flex-row sm:items-start">
+                {stationItem?.photo_urls?.[0] && (
+                  <img src={stationItem.photo_urls[0]} alt="Item" className="h-20 w-20 flex-shrink-0 rounded-lg object-cover border border-border"/>
+                )}
+                <div className="text-sm space-y-1 text-center sm:text-left">
+                  <p className="font-semibold text-base">{stationItem?.title || verified.found_item_id || "Item"}</p>
+                  <p className="text-muted-foreground">{stationClaim?.claimant_name || ""}</p>
+                  <p className="text-muted-foreground text-xs">{stationClaim?.claimant_email || ""}</p>
+                  {(!stationItem && !stationClaim) && <p className="text-xs opacity-70">Loading item details...</p>}
                 </div>
-                <div>
-                  <dt className="font-semibold uppercase tracking-wide opacity-70">{t("pickup_station.item_label")}</dt>
-                  <dd className="mt-0.5 font-mono">{verified.found_item_id || t("common.not_available")}</dd>
-                </div>
-              </dl>
+              </div>
             )}
             {verified.backend_required && (
               <p className="mt-2 text-xs">{t("pickup_station.backend_required")}</p>

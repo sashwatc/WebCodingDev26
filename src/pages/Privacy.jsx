@@ -1,11 +1,6 @@
-/**
- * FindBack AI - Privacy Policy Page
- */
-
 import React from "react";
 import { Link } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
 import { Shield } from "lucide-react";
 import { BRAND_NAME, SUPPORT_EMAIL } from "@/lib/constants";
 
@@ -38,26 +33,30 @@ const sections = [
 
 export default function Privacy() {
   return (
-    <div className="max-w-4xl mx-auto px-4 py-16">
+    <div className="page-shell max-w-4xl py-16">
       <div className="text-center mb-10">
-        <Badge variant="outline" className="mb-3"><Shield className="w-3 h-3 mr-1" />Privacy</Badge>
-        <h1 className="text-4xl font-bold text-slate-900 mb-3">Privacy Policy</h1>
-        <p className="text-sm text-slate-400">Last updated: March 16, 2026</p>
+        <Badge variant="outline" className="mb-3">
+          <Shield className="w-3 h-3 mr-1" />Privacy
+        </Badge>
+        <h1 className="text-4xl font-bold text-foreground mb-3">Privacy Policy</h1>
+        <p className="text-sm text-muted-foreground">Last updated: March 16, 2026</p>
       </div>
 
       <div className="space-y-4">
         {sections.map((section) => (
-          <Card key={section.title} className="border-slate-200">
-            <CardContent className="p-6">
-              <h2 className="text-lg font-semibold text-slate-900 mb-2">{section.title}</h2>
-              <p className="text-sm text-slate-600 leading-relaxed">{section.body}</p>
-            </CardContent>
-          </Card>
+          <div key={section.title} className="surface-card p-6">
+            <h2 className="text-lg font-semibold text-foreground mb-2">{section.title}</h2>
+            <p className="text-sm text-muted-foreground leading-relaxed">{section.body}</p>
+          </div>
         ))}
       </div>
 
-      <div className="mt-6 text-sm text-slate-500">
-        See <Link to="/Sources" className="font-semibold text-[hsl(213,56%,24%)] hover:underline">Sources and Citations</Link> for the official privacy references used in this project.
+      <div className="mt-6 text-sm text-muted-foreground">
+        See{" "}
+        <Link to="/Sources" className="font-semibold text-primary hover:underline">
+          Sources and Citations
+        </Link>{" "}
+        for the official privacy references used in this project.
       </div>
     </div>
   );

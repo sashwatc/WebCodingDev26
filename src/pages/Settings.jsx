@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { appClient } from "@/api/appClient";
 import { useAuth } from "@/lib/AuthContext";
@@ -55,6 +55,38 @@ export default function Settings() {
     setThemeState(val);
   };
 
+  // ── Per-category notification prefs ────────────────────────────────────────
+  const [notifPrefs, setNotifPrefs] = useState(() =>
+    JSON.parse(localStorage.getItem("ltf_notif_prefs") || "{}")
+  );
+  const setNotifPref = (key, val) => {
+    const next = { ...notifPrefs, [key]: val };
+    setNotifPrefs(next);
+    localStorage.setItem("ltf_notif_prefs", JSON.stringify(next));
+  };
+
+  // ── Display density ─────────────────────────────────────────────────────────
+  const [density, setDensity] = useState(
+    () => localStorage.getItem("ltf_density") || "comfortable"
+  );
+  const applyDensity = (d) => {
+    setDensity(d);
+    localStorage.setItem("ltf_density", d);
+    document.documentElement.setAttribute("data-density", d);
+  };
+  useEffect(() => { document.documentElement.setAttribute("data-density", density); }, []);
+
+  // ── High contrast ───────────────────────────────────────────────────────────
+  const [highContrast, setHighContrast] = useState(
+    () => localStorage.getItem("ltf_hc") === "true"
+  );
+  const applyHighContrast = (val) => {
+    setHighContrast(val);
+    localStorage.setItem("ltf_hc", String(val));
+    document.documentElement.setAttribute("data-hc", String(val));
+  };
+  useEffect(() => { document.documentElement.setAttribute("data-hc", String(highContrast)); }, []);
+
   // ── Accessibility ───────────────────────────────────────────────────────────
   const [reduceMotion, setReduceMotion] = useState(
     () => localStorage.getItem("ltf-reduced-motion") === "1"
@@ -99,6 +131,24 @@ export default function Settings() {
             checked={true}
             disabled
           />
+          <div className="mt-5 border-t border-border pt-4 space-y-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Notification types</p>
+            {[
+              { key: "matches", label: "Item matches", desc: "When a found item might match your lost report" },
+              { key: "claims", label: "Claim updates", desc: "When your claim status changes" },
+              { key: "chat", label: "Case chat", desc: "When staff send you a message" },
+              { key: "pickup", label: "Pickup reminders", desc: "When your pickup pass is ready or expiring" },
+              { key: "system", label: "System announcements", desc: "Occasional system-wide notices" },
+            ].map(({ key, label, desc }) => (
+              <div key={key} className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-sm font-medium text-foreground">{label}</p>
+                  <p className="text-xs text-muted-foreground">{desc}</p>
+                </div>
+                <Switch checked={notifPrefs[key] ?? true} onCheckedChange={v => setNotifPref(key, v)} aria-label={label} />
+              </div>
+            ))}
+          </div>
         </CardContent>
       </Card>
 
@@ -124,12 +174,37 @@ export default function Settings() {
         </CardContent>
       </Card>
 
-      {/* 3 — Accessibility */}
+      {/* 3 — Display density */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">Display density</CardTitle>
+          <p className="text-xs text-muted-foreground mt-0.5">Controls spacing throughout the app</p>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-wrap gap-2">
+            {["comfortable", "compact"].map(d => (
+              <button
+                key={d}
+                onClick={() => applyDensity(d)}
+                className={`px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                  density === d
+                    ? "border-primary bg-primary/5 text-primary"
+                    : "border-border text-muted-foreground hover:border-primary/40"
+                }`}
+              >
+                {d.charAt(0).toUpperCase() + d.slice(1)}
+              </button>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* 4 — Accessibility */}
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-base">Accessibility</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="divide-y divide-border">
           <ToggleRow
             id="reduce-motion"
             label="Reduce motion"
@@ -137,10 +212,17 @@ export default function Settings() {
             checked={reduceMotion}
             onCheckedChange={toggleReduceMotion}
           />
+          <div className="flex items-start justify-between gap-4 py-3">
+            <div>
+              <p className="text-sm font-medium text-foreground">High contrast</p>
+              <p className="text-xs text-muted-foreground">Increase color contrast for readability</p>
+            </div>
+            <Switch checked={highContrast} onCheckedChange={applyHighContrast} aria-label="High contrast" />
+          </div>
         </CardContent>
       </Card>
 
-      {/* 4 — Account */}
+      {/* 5 — Account */}
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-base">Account</CardTitle>

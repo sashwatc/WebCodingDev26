@@ -7,6 +7,7 @@
 import React, { useState } from "react";
 import { useNavigate, Link, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import { useToast } from "@/components/ui/use-toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -26,7 +27,7 @@ import {
 import {
   ArrowLeft, MapPin, Calendar, Clock, Tag, Package,
   Shield, Printer, Share2, CheckCircle2,
-  Brain, ChevronLeft, ChevronRight, Star
+  Brain, ChevronLeft, ChevronRight, Star, BookmarkPlus, BookmarkCheck
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { fadeUp } from "@/lib/motion";
@@ -60,11 +61,20 @@ export default function ItemDetails() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
+  const { toast } = useToast();
   const { isAdmin, isLoadingAuth } = useAuth();
   const urlParams = new URLSearchParams(location.search);
   const itemId = urlParams.get("id");
   const itemTypeParam = urlParams.get("type");
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
+  const [savedItems, setSavedItems] = useState(() => JSON.parse(localStorage.getItem("ltf_saved_items") || "[]"));
+  const isSaved = savedItems.includes(itemId);
+  const toggleSave = () => {
+    const next = isSaved ? savedItems.filter(id => id !== itemId) : [...savedItems, itemId];
+    setSavedItems(next);
+    localStorage.setItem("ltf_saved_items", JSON.stringify(next));
+    toast({ title: isSaved ? "Removed from saved" : "Saved to your collection" });
+  };
 
   const { data: item, isLoading, error } = useQuery({
     queryKey: ["itemDetails", itemTypeParam || "found", itemId],
@@ -336,8 +346,8 @@ export default function ItemDetails() {
             <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
               <div className="flex items-center justify-between gap-4">
                 <div>
-                  <p className="text-sm font-semibold text-slate-900">{t("item_details.approved_user_ratings")}</p>
-                  <p className="text-xs text-slate-600">
+                  <p className="text-sm font-semibold text-foreground">{t("item_details.approved_user_ratings")}</p>
+                  <p className="text-xs text-muted-foreground">
                     {t("item_details.rating_summary", { average: averageRating, count: approvedReviews.length })}
                   </p>
                 </div>
@@ -353,22 +363,22 @@ export default function ItemDetails() {
 
               <div className="mt-3 space-y-3">
                 {approvedReviews.slice(0, 2).map((claim) => (
-                  <div key={claim.id} className="rounded-lg bg-white/80 p-3">
+                  <div key={claim.id} className="rounded-lg bg-card/80 p-3">
                     <div className="flex items-center justify-between gap-3">
-                      <p className="text-sm font-medium text-slate-900">{claim.claimant_name}</p>
+                      <p className="text-sm font-medium text-foreground">{claim.claimant_name}</p>
                       <div className="flex gap-0.5">
                         {Array.from({ length: 5 }).map((_, index) => (
                           <Star
                             key={index}
                             className={`w-3.5 h-3.5 ${
-                              index < claim.claimant_rating ? "fill-amber-400 text-amber-400" : "text-slate-200"
+                              index < claim.claimant_rating ? "fill-amber-400 text-amber-400" : "text-muted-foreground/30"
                             }`}
                           />
                         ))}
                       </div>
                     </div>
                     {claim.claimant_review && (
-                      <p className="mt-2 text-sm text-slate-600">{claim.claimant_review}</p>
+                      <p className="mt-2 text-sm text-muted-foreground">{claim.claimant_review}</p>
                     )}
                   </div>
                 ))}
@@ -415,29 +425,29 @@ export default function ItemDetails() {
           )}
 
           {isLostReport && recoveryCase && (
-            <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-              <p className="text-sm font-semibold text-slate-900">Likely Recovery Zones</p>
+            <div className="rounded-lg border border-border bg-muted p-4">
+              <p className="text-sm font-semibold text-foreground">Likely Recovery Zones</p>
               <div className="mt-2 flex flex-wrap gap-2">
                 {(recoveryCase.likely_zone_summaries || []).map((zone) => (
-                  <Badge key={zone} variant="outline" className="bg-white">{zone}</Badge>
+                  <Badge key={zone} variant="outline" className="bg-card">{zone}</Badge>
                 ))}
               </div>
-              <p className="mt-3 whitespace-pre-line text-xs leading-5 text-slate-600">{recoveryCase.recovery_plan}</p>
+              <p className="mt-3 whitespace-pre-line text-xs leading-5 text-muted-foreground">{recoveryCase.recovery_plan}</p>
             </div>
           )}
 
           {!isLostReport && custodyEvents.length > 0 && (
-            <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+            <div className="rounded-lg border border-border bg-muted p-4">
               <div className="flex items-center justify-between gap-3">
-                <p className="text-sm font-semibold text-slate-900">Tamper-Evident Custody Ledger</p>
+                <p className="text-sm font-semibold text-foreground">Tamper-Evident Custody Ledger</p>
                 <Badge variant="outline" className={custodyVerification?.verified === false ? "border-amber-300 text-amber-800" : "border-emerald-300 text-emerald-800"}>
                   {custodyVerification?.verified === false ? "Attention needed" : "Integrity verified"}
                 </Badge>
               </div>
               <ol className="mt-3 space-y-2">
                 {custodyEvents.map((event) => (
-                  <li key={event.id || `${event.sequence_number}-${event.event_type}`} className="flex items-start gap-2 text-xs text-slate-600">
-                    <span className="mt-0.5 h-5 min-w-5 rounded-full bg-white border border-slate-200 text-center leading-5 font-semibold">{event.sequence_number}</span>
+                  <li key={event.id || `${event.sequence_number}-${event.event_type}`} className="flex items-start gap-2 text-xs text-muted-foreground">
+                    <span className="mt-0.5 h-5 min-w-5 rounded-full bg-card border border-border text-center leading-5 font-semibold">{event.sequence_number}</span>
                     <span className="capitalize">{String(event.event_type || "").replaceAll("_", " ")}</span>
                   </li>
                 ))}
@@ -467,8 +477,15 @@ export default function ItemDetails() {
             <Button variant="outline" size="sm" className="gap-1" onClick={() => window.print()}>
               <Printer className="w-3.5 h-3.5" /> {t("common.print")}
             </Button>
-            <Button variant="outline" size="sm" className="gap-1" onClick={() => { navigator.clipboard.writeText(window.location.href); }}>
+            <Button variant="outline" size="sm" className="gap-1" onClick={() => {
+              const shareUrl = `${window.location.origin}${window.location.pathname}#/ItemDetails?id=${itemId}`;
+              navigator.clipboard.writeText(shareUrl).then(() => toast({ title: "Link copied" }));
+            }}>
               <Share2 className="w-3.5 h-3.5" /> {t("common.share")}
+            </Button>
+            <Button variant="outline" size="sm" onClick={toggleSave} aria-label={isSaved ? "Remove from saved" : "Save item"}>
+              {isSaved ? <BookmarkCheck className="h-4 w-4 text-primary" /> : <BookmarkPlus className="h-4 w-4" />}
+              {isSaved ? "Saved" : "Save"}
             </Button>
           </div>
         </div>
@@ -476,7 +493,7 @@ export default function ItemDetails() {
 
       {/* Admin: Match Panel */}
       {isAdminView && !isLostReport && matchingReports.length > 0 && (
-        <Card className="mt-8 border-slate-200">
+        <Card className="mt-8 border-border">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
               <Brain className="w-5 h-5 text-primary" />
@@ -488,12 +505,12 @@ export default function ItemDetails() {
               {matchingReports.map(report => {
                 const match = report.matched_items?.find(m => (typeof m === "string" ? m : m.found_item_id) === itemId);
                 return (
-                  <div key={report.id} className="flex items-center gap-4 rounded-xl border border-slate-200 bg-slate-50 p-3">
+                  <div key={report.id} className="flex items-center gap-4 rounded-xl border border-border bg-muted p-3">
                     <div className="flex-1">
-                      <p className="font-medium text-sm text-slate-900">
+                      <p className="font-medium text-sm text-foreground">
                         {t("item_details.lost_report_label", { title: report.item_type || t("item_details.lost_item_report") })}
                       </p>
-                      <p className="text-xs text-slate-500">
+                      <p className="text-xs text-muted-foreground">
                         {t("item_details.by_line", {
                           name: report.contact_name,
                           date: report.date_lost ? formatLocalizedDate(report.date_lost, "MMM d, yyyy") : t("common.not_available"),

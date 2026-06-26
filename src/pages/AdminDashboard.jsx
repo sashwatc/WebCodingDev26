@@ -17,6 +17,8 @@ import { appClient } from "@/api/appClient";
 import AdminOverview from "@/components/admin/AdminOverview";
 import AdminItemsQueue from "@/components/admin/AdminItemsQueue";
 import AdminClaimsQueue from "@/components/admin/AdminClaimsQueue";
+import AdminUserManagement from "@/components/admin/AdminUserManagement";
+import AdminSystemSettings from "@/components/admin/AdminSystemSettings";
 import RecordThumbnail from "@/components/shared/RecordThumbnail";
 import StatusBadge from "@/components/ui/StatusBadge";
 import { getPrimaryRecordPhoto } from "@/lib/media";
@@ -29,29 +31,50 @@ import {
   Radar,
   ShieldCheck,
   Route,
-  PlayCircle,
-  Trash2,
+  MessageSquare,
+  Users,
+  Settings as SettingsIcon,
 } from "lucide-react";
+
+function SupportTicketsList() {
+  const tickets = (() => { try { return JSON.parse(localStorage.getItem("ltf_support_tickets") || "[]"); } catch { return []; } })();
+  if (!tickets.length) return <div className="search-state-panel"><MessageSquare className="mx-auto mb-3 h-8 w-8 text-muted-foreground/40"/>No support tickets yet.</div>;
+  return <div className="space-y-3">{tickets.map(t=>(
+    <div key={t.id} className="archive-card p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <Badge variant="outline" className="text-xs">{t.category}</Badge>
+            <Badge variant="outline" className={`text-xs ${t.status==="open" ? "border-amber-200 bg-amber-50 text-amber-800" : "border-border bg-muted text-muted-foreground"}`}>{t.status}</Badge>
+          </div>
+          <p className="text-sm text-foreground">{t.description}</p>
+          <p className="text-xs text-muted-foreground mt-1">{t.email} · #{t.id}</p>
+        </div>
+      </div>
+    </div>
+  ))}</div>;
+}
 
 export default function AdminDashboard() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = React.useState("overview");
-  const [lastScenarioResult, setLastScenarioResult] = React.useState(null);
-  const [cleanupConfirmation, setCleanupConfirmation] = React.useState("");
   const { data: foundItems = [], isLoading: fiLoading } = useQuery({
     queryKey: ["adminFoundItems"],
     queryFn: () => appClient.entities.FoundItem.list("-created_date", 500),
+    refetchInterval: 30000,
   });
 
   const { data: lostReports = [], isLoading: lrLoading } = useQuery({
     queryKey: ["adminLostReports"],
     queryFn: () => appClient.entities.LostReport.list("-created_date", 500),
+    refetchInterval: 30000,
   });
 
   const { data: claims = [], isLoading: clLoading, error: claimsError } = useQuery({
     queryKey: ["adminClaims"],
     queryFn: () => appClient.entities.Claim.list("-created_date", 500),
+    refetchInterval: 30000,
   });
 
   const {
@@ -118,59 +141,28 @@ export default function AdminDashboard() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["adminSentinelAlerts"] }),
   });
 
-  const invalidateDemoData = () => {
-    [
-      ["adminFoundItems"],
-      ["adminLostReports"],
-      ["adminClaims"],
-      ["adminRecoveryCenter"],
-      ["adminRecoveryCases"],
-      ["adminRecoveryMissions"],
-      ["adminSentinelAlerts"],
-      ["homePreviewItems"],
-      ["searchRecords"],
-      ["eventHubFeed"],
-    ].forEach((queryKey) => queryClient.invalidateQueries({ queryKey }));
-  };
-
-  const createScenarioMutation = useMutation({
-    mutationFn: (scenario) => appClient.demoScenarios.create(scenario),
-    onSuccess: (result) => {
-      setLastScenarioResult(result);
-      invalidateDemoData();
-    },
-  });
-
-  const cleanupDemoMutation = useMutation({
-    mutationFn: () => appClient.demoScenarios.cleanup(cleanupConfirmation),
-    onSuccess: (result) => {
-      setLastScenarioResult(result);
-      setCleanupConfirmation("");
-      invalidateDemoData();
-    },
-  });
-
   const isLoading = fiLoading || lrLoading || clLoading || recoveryLoading;
   const recoverySummary = recoveryCenter?.summary;
   const pendingCount = foundItems.filter((item) => ["pending_review", "FOUND"].includes(item.status)).length;
   const pendingClaims = recoverySummary?.claims_awaiting_review ?? claims.filter((claim) => claim.status === "submitted" || claim.status === "under_review").length;
   const openReports = recoverySummary?.active_cases ?? lostReports.filter((report) => report.status === "open").length;
+  const supportCount = (() => { try { return JSON.parse(localStorage.getItem("ltf_support_tickets") || "[]").filter(t=>t.status==="open").length; } catch { return 0; } })();
   const EmptyAdminPanel = ({ icon: Icon, title, description }) => (
-    <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-5 py-10 text-center dark:border-slate-800 dark:bg-slate-900/30">
-      <Icon className="mx-auto mb-3 h-9 w-9 text-slate-300 dark:text-slate-600" />
-      <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">{title}</p>
-      {description && <p className="mx-auto mt-1 max-w-md text-sm text-slate-500 dark:text-slate-400">{description}</p>}
+    <div className="search-state-panel">
+      <Icon className="mx-auto mb-3 h-9 w-9 text-muted-foreground/40" />
+      <p className="text-sm font-semibold text-foreground">{title}</p>
+      {description && <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">{description}</p>}
     </div>
   );
 
   return (
-    <div className="bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 min-h-screen py-10">
+    <div className="bg-card text-foreground min-h-screen py-10">
       <div className="page-shell max-w-7xl space-y-8">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 pb-4 border-b border-slate-200 dark:border-slate-800">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 pb-4 border-b border-border">
           <div className="page-header">
-            <span className="page-kicker text-indigo-600 dark:text-indigo-400 font-bold uppercase tracking-wider">{t("admin_dashboard.kicker")}</span>
-            <h1 className="page-title text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight mt-1">{t("admin_dashboard.title")}</h1>
-            <p className="page-subtitle text-slate-500 dark:text-slate-400 mt-2 max-w-2xl">{t("admin_dashboard.subtitle")}</p>
+            <span className="page-kicker">{t("admin_dashboard.kicker")}</span>
+            <h1 className="page-title text-4xl font-extrabold text-foreground tracking-tight mt-1">{t("admin_dashboard.title")}</h1>
+            <p className="page-subtitle text-muted-foreground mt-2 max-w-2xl">{t("admin_dashboard.subtitle")}</p>
           </div>
           <Button asChild className="shrink-0 gap-2 bg-emerald-600 hover:bg-emerald-700 text-white">
             <Link to="/PickupStation">
@@ -184,7 +176,7 @@ export default function AdminDashboard() {
         <div className="grid gap-6 sm:grid-cols-3">
           {[
             { label: t("admin_dashboard.pending_items", "Pending Items"), value: pendingCount, color: "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/25 dark:bg-amber-500/5 dark:text-amber-400" },
-            { label: t("admin_dashboard.pending_claims", "Pending Claims"), value: pendingClaims, color: "border-indigo-200 bg-indigo-50 text-indigo-700 dark:border-indigo-500/25 dark:bg-indigo-500/5 dark:text-indigo-400" },
+            { label: t("admin_dashboard.pending_claims", "Pending Claims"), value: pendingClaims, color: "border-primary/20 bg-primary/5 text-primary" },
             { label: t("admin_dashboard.open_reports", "Open Reports"), value: openReports, color: "border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-500/25 dark:bg-sky-500/5 dark:text-sky-400" },
           ].map((stat) => (
             <div key={stat.label} className={`border p-6 rounded-2xl relative overflow-hidden group hover:scale-[1.02] transition-all duration-300 ${stat.color} shadow-sm`}>
@@ -204,65 +196,76 @@ export default function AdminDashboard() {
           <div className="space-y-4">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               {Array.from({ length: 3 }).map((_, index) => (
-                <Skeleton key={index} className="h-28 rounded-xl bg-slate-100 dark:bg-slate-900" />
+                <Skeleton key={index} className="h-28 rounded-xl bg-muted" />
               ))}
             </div>
-            <Skeleton className="h-80 rounded-xl bg-slate-100 dark:bg-slate-900" />
+            <Skeleton className="h-80 rounded-xl bg-muted" />
           </div>
         ) : (
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="responsive-tabs bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800/80 p-1 rounded-xl shadow-inner">
+            <TabsList className="responsive-tabs bg-muted border border-border p-1 rounded-xl shadow-inner">
               <TabsTrigger
                 value="overview"
-                className="px-5 py-2.5 rounded-lg text-sm font-semibold transition-all text-slate-500 dark:text-slate-400 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-800 data-[state=active]:text-slate-900 dark:data-[state=active]:text-white data-[state=active]:shadow-sm gap-2"
+                className="px-5 py-2.5 rounded-lg text-sm font-semibold transition-all text-muted-foreground data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-sm gap-2"
               >
                 <LayoutDashboard className="h-4 w-4" />
                 {t("admin_dashboard.overview", "Command Center")}
               </TabsTrigger>
               <TabsTrigger
                 value="moderation"
-                className="px-5 py-2.5 rounded-lg text-sm font-semibold transition-all text-slate-500 dark:text-slate-400 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-800 data-[state=active]:text-slate-900 dark:data-[state=active]:text-white data-[state=active]:shadow-sm gap-2"
+                className="px-5 py-2.5 rounded-lg text-sm font-semibold transition-all text-muted-foreground data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-sm gap-2"
               >
                 <Package className="h-4 w-4" />
                 {t("admin_dashboard.moderation", "Moderation Queue")}
                 {(pendingCount + pendingClaims) > 0 && (
-                  <Badge className="bg-amber-500 text-white dark:text-slate-950 font-bold text-[10px] px-2 py-0.5 border-none shadow-sm ml-1">
+                  <Badge className="bg-amber-500 text-white font-bold text-[10px] px-2 py-0.5 border-none shadow-sm ml-1">
                     {pendingCount + pendingClaims}
                   </Badge>
                 )}
               </TabsTrigger>
               <TabsTrigger
                 value="reports"
-                className="px-5 py-2.5 rounded-lg text-sm font-semibold transition-all text-slate-500 dark:text-slate-400 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-800 data-[state=active]:text-slate-900 dark:data-[state=active]:text-white data-[state=active]:shadow-sm gap-2"
+                className="px-5 py-2.5 rounded-lg text-sm font-semibold transition-all text-muted-foreground data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-sm gap-2"
               >
                 <AlertTriangle className="h-4 w-4" />
                 {t("admin_dashboard.lost_reports", "Reference Desk")}
                 {openReports > 0 && (
-                  <Badge className="bg-sky-500 text-white dark:text-slate-950 font-bold text-[10px] px-2 py-0.5 border-none shadow-sm ml-1">
+                  <Badge className="bg-sky-500 text-white font-bold text-[10px] px-2 py-0.5 border-none shadow-sm ml-1">
                     {openReports}
                   </Badge>
                 )}
               </TabsTrigger>
               <TabsTrigger
                 value="recovery"
-                className="px-5 py-2.5 rounded-lg text-sm font-semibold transition-all text-slate-500 dark:text-slate-400 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-800 data-[state=active]:text-slate-900 dark:data-[state=active]:text-white data-[state=active]:shadow-sm gap-2"
+                className="px-5 py-2.5 rounded-lg text-sm font-semibold transition-all text-muted-foreground data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-sm gap-2"
               >
                 <Radar className="h-4 w-4" />
                 Recovery Center
               </TabsTrigger>
               <TabsTrigger
                 value="sentinel"
-                className="px-5 py-2.5 rounded-lg text-sm font-semibold transition-all text-slate-500 dark:text-slate-400 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-800 data-[state=active]:text-slate-900 dark:data-[state=active]:text-white data-[state=active]:shadow-sm gap-2"
+                className="px-5 py-2.5 rounded-lg text-sm font-semibold transition-all text-muted-foreground data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-sm gap-2"
               >
                 <ShieldCheck className="h-4 w-4" />
                 Loss Sentinel
               </TabsTrigger>
               <TabsTrigger
-                value="demo"
-                className="px-5 py-2.5 rounded-lg text-sm font-semibold transition-all text-slate-500 dark:text-slate-400 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-800 data-[state=active]:text-slate-900 dark:data-[state=active]:text-white data-[state=active]:shadow-sm gap-2"
+                value="support"
+                className="px-5 py-2.5 rounded-lg text-sm font-semibold transition-all text-muted-foreground data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-sm gap-2"
               >
-                <PlayCircle className="h-4 w-4" />
-                Demo Builder
+                <MessageSquare className="h-4 w-4"/>Support{supportCount > 0 && <Badge className="bg-amber-500 text-white font-bold text-[10px] px-2 py-0.5 border-none shadow-sm ml-1">{supportCount}</Badge>}
+              </TabsTrigger>
+              <TabsTrigger
+                value="users"
+                className="px-5 py-2.5 rounded-lg text-sm font-semibold transition-all text-muted-foreground data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-sm gap-2"
+              >
+                <Users className="h-4 w-4"/>Users
+              </TabsTrigger>
+              <TabsTrigger
+                value="sysconfig"
+                className="px-5 py-2.5 rounded-lg text-sm font-semibold transition-all text-muted-foreground data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-sm gap-2"
+              >
+                <SettingsIcon className="h-4 w-4"/>Settings
               </TabsTrigger>
             </TabsList>
 
@@ -275,15 +278,15 @@ export default function AdminDashboard() {
                 {/* Column 1: Items Queue */}
                 <div className="space-y-4">
                   <div>
-                    <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                    <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
                       <Package className="w-5 h-5 text-amber-500" />
                       {t("admin_dashboard.found_items_queue", "Found Items Review")}
                     </h2>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                    <p className="text-xs text-muted-foreground mt-1">
                       {t("admin_dashboard.found_items_queue_desc", "Approve or reject newly submitted found items before they go public.")}
                     </p>
                   </div>
-                  <div className="bg-slate-50 dark:bg-slate-900/30 border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 shadow-sm">
+                  <div className="bg-muted border border-border rounded-xl p-4 shadow-sm">
                     <AdminItemsQueue items={foundItems} filterStatus="pending_review" />
                   </div>
                 </div>
@@ -291,15 +294,15 @@ export default function AdminDashboard() {
                 {/* Column 2: Claims Queue */}
                 <div className="space-y-4">
                   <div>
-                    <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                      <FileCheck className="w-5 h-5 text-indigo-500 dark:text-indigo-400" />
+                    <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
+                      <FileCheck className="w-5 h-5 text-primary" />
                       {t("admin_dashboard.claims_queue", "Claims Verification")}
                     </h2>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                    <p className="text-xs text-muted-foreground mt-1">
                       {t("admin_dashboard.claims_queue_desc", "Verify ownership proof and details to approve or reject student claims.")}
                     </p>
                   </div>
-                  <div className="bg-slate-50 dark:bg-slate-900/30 border border-slate-200 dark:border-slate-800/80 rounded-xl p-4 shadow-sm">
+                  <div className="bg-muted border border-border rounded-xl p-4 shadow-sm">
                     <AdminClaimsQueue claims={claims} foundItems={foundItems} />
                   </div>
                 </div>
@@ -308,20 +311,20 @@ export default function AdminDashboard() {
 
             <TabsContent value="reports">
               <div className="space-y-4">
-                <div className="bg-slate-50 dark:bg-slate-900/30 border border-slate-200 dark:border-slate-800/80 rounded-xl p-5 shadow-sm">
-                  <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{t("admin_dashboard.lost_reports")}</p>
-                  <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">{t("admin_dashboard.reports_summary", { count: lostReports.length })}</p>
+                <div className="bg-muted border border-border rounded-xl p-5 shadow-sm">
+                  <p className="text-sm font-semibold text-foreground">{t("admin_dashboard.lost_reports")}</p>
+                  <p className="mt-2 text-sm text-muted-foreground">{t("admin_dashboard.reports_summary", { count: lostReports.length })}</p>
                 </div>
 
                 {lostReports.length === 0 ? (
-                  <div className="bg-slate-50 dark:bg-slate-900/30 border border-slate-200 dark:border-slate-800/80 rounded-xl px-6 py-14 text-center">
-                    <AlertTriangle className="mx-auto mb-3 h-10 w-10 text-slate-300 dark:text-slate-600" />
-                    <p className="text-sm text-slate-500">{t("admin_dashboard.no_lost_reports")}</p>
+                  <div className="bg-muted border border-border rounded-xl px-6 py-14 text-center">
+                    <AlertTriangle className="mx-auto mb-3 h-10 w-10 text-muted-foreground/40" />
+                    <p className="text-sm text-muted-foreground">{t("admin_dashboard.no_lost_reports")}</p>
                   </div>
                 ) : (
                   <div className="space-y-3">
                     {lostReports.map((report) => (
-                      <div key={report.id} className="bg-white dark:bg-slate-900/30 border border-slate-200 dark:border-slate-800/80 rounded-xl p-5 shadow-sm">
+                      <div key={report.id} className="bg-card border border-border rounded-xl p-5 shadow-sm">
                         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                           <div className="flex items-start gap-4 min-w-0 flex-1">
                             <RecordThumbnail
@@ -330,21 +333,21 @@ export default function AdminDashboard() {
                             />
                             <div className="min-w-0 flex-1">
                               <div className="flex flex-wrap items-center gap-2">
-                                <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">{report.item_type}</h3>
+                                <h3 className="text-base font-semibold text-foreground">{report.item_type}</h3>
                                 <StatusBadge status={report.status} />
                                 {report.matched_items?.length > 0 && (
                                   <Badge className="bg-purple-100 text-purple-700 border border-purple-200 dark:bg-purple-500/10 dark:text-purple-400 dark:border-purple-500/25">{t("admin_dashboard.matches", { count: report.matched_items.length })}</Badge>
                                 )}
                               </div>
-                              <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-400">{report.description}</p>
-                              <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-500">
+                              <p className="mt-2 text-sm leading-6 text-muted-foreground">{report.description}</p>
+                              <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
                                 <span>{report.contact_name}</span>
                                 <span>{report.date_lost ? formatLocalizedDate(report.date_lost, "MMM d, yyyy") : t("common.not_available")}</span>
                                 <span>{translateLocation(t, report.last_seen_location) || t("admin_dashboard.unknown_location")}</span>
                               </div>
                             </div>
                           </div>
-                          <Badge variant="outline" className="capitalize self-start text-indigo-600 border-indigo-200 dark:text-indigo-400 dark:border-indigo-500/20">{translateUrgency(t, report.urgency)}</Badge>
+                          <Badge variant="outline" className="capitalize self-start text-primary border-primary/20">{translateUrgency(t, report.urgency)}</Badge>
                         </div>
                       </div>
                     ))}
@@ -356,7 +359,7 @@ export default function AdminDashboard() {
             <TabsContent value="recovery" className="space-y-6">
               <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
                 <div className="space-y-3">
-                  <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">Recovery Cases</h2>
+                  <h2 className="text-lg font-bold text-foreground">Recovery Cases</h2>
                   {recoveryCases.length === 0 ? (
                     <EmptyAdminPanel
                       icon={Radar}
@@ -365,21 +368,21 @@ export default function AdminDashboard() {
                     />
                   ) : (
                     recoveryCases.map((recoveryCase) => (
-                      <div key={recoveryCase.id} className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900/40">
+                      <div key={recoveryCase.id} className="rounded-xl border border-border bg-card p-5 shadow-sm">
                         <div className="flex flex-wrap items-center justify-between gap-3">
                           <div>
-                            <p className="font-semibold text-slate-900 dark:text-slate-100">{recoveryCase.summary || recoveryCase.case_code}</p>
-                            <p className="mt-1 text-xs text-slate-500">{recoveryCase.case_code} · {recoveryCase.priority}</p>
+                            <p className="font-semibold text-foreground">{recoveryCase.summary || recoveryCase.case_code}</p>
+                            <p className="mt-1 text-xs text-muted-foreground">{recoveryCase.case_code} · {recoveryCase.priority}</p>
                           </div>
                           <StatusBadge status={recoveryCase.status} />
                         </div>
-                        <p className="mt-3 whitespace-pre-line text-sm leading-6 text-slate-600 dark:text-slate-400">{recoveryCase.recovery_plan}</p>
+                        <p className="mt-3 whitespace-pre-line text-sm leading-6 text-muted-foreground">{recoveryCase.recovery_plan}</p>
                       </div>
                     ))
                   )}
                 </div>
                 <div className="space-y-3">
-                  <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">Recovery Missions</h2>
+                  <h2 className="text-lg font-bold text-foreground">Recovery Missions</h2>
                   {recoveryMissions.length === 0 ? (
                     <EmptyAdminPanel
                       icon={ShieldCheck}
@@ -388,18 +391,18 @@ export default function AdminDashboard() {
                     />
                   ) : (
                     recoveryMissions.map((mission) => (
-                      <div key={mission.id} className="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900/40">
+                      <div key={mission.id} className="rounded-xl border border-border bg-muted p-4">
                         <div className="flex items-start justify-between gap-3">
                           <div>
-                            <p className="font-semibold text-slate-900 dark:text-slate-100">{mission.title}</p>
-                            <p className="mt-1 text-xs text-slate-500">{mission.zone_label} · {mission.score}%</p>
+                            <p className="font-semibold text-foreground">{mission.title}</p>
+                            <p className="mt-1 text-xs text-muted-foreground">{mission.zone_label} · {mission.score}%</p>
                           </div>
                           <StatusBadge status={mission.status} />
                         </div>
                         <div className="mt-3 flex flex-wrap gap-2">
                           <button
                             type="button"
-                            className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700 hover:border-primary hover:text-primary"
+                            className="rounded-md border border-border bg-card px-2 py-1 text-xs font-semibold text-foreground hover:border-primary hover:text-primary"
                             onClick={() => updateMissionMutation.mutate({ id: mission.id, updates: { assigned_to: "avery.patel@pleasantvalley.edu" } })}
                           >
                             Assign
@@ -408,22 +411,22 @@ export default function AdminDashboard() {
                             <button
                               key={status}
                               type="button"
-                              className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-600 hover:border-primary hover:text-primary"
+                              className="rounded-md border border-border bg-card px-2 py-1 text-xs font-medium text-muted-foreground hover:border-primary hover:text-primary"
                               onClick={() => updateMissionMutation.mutate({ id: mission.id, updates: { status } })}
                             >
                               {status.replaceAll("_", " ")}
                             </button>
                           ))}
                         </div>
-                        {mission.assigned_to && <p className="mt-2 text-xs text-slate-500">Assigned to {mission.assigned_to}</p>}
+                        {mission.assigned_to && <p className="mt-2 text-xs text-muted-foreground">Assigned to {mission.assigned_to}</p>}
                       </div>
                     ))
                   )}
                 </div>
               </div>
 
-              <div className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900/40">
-                <h2 className="flex items-center gap-2 text-lg font-bold text-slate-900 dark:text-slate-100">
+              <div className="rounded-xl border border-border bg-card p-5">
+                <h2 className="flex items-center gap-2 text-lg font-bold text-foreground">
                   <Route className="h-5 w-5 text-primary" />
                   Partner Relay Simulation
                 </h2>
@@ -436,9 +439,9 @@ export default function AdminDashboard() {
                     />
                   ) : (
                     partnerRelays.map((relay) => (
-                      <div key={relay.id} className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm dark:border-slate-800 dark:bg-slate-950">
-                        <p className="font-semibold text-slate-900 dark:text-slate-100">{relay.public_summary}</p>
-                        <p className="mt-2 text-xs text-slate-500">Demo/integration-ready simulation · {relay.status}</p>
+                      <div key={relay.id} className="rounded-lg border border-border bg-muted p-4 text-sm">
+                        <p className="font-semibold text-foreground">{relay.public_summary}</p>
+                        <p className="mt-2 text-xs text-muted-foreground">Demo/integration-ready simulation · {relay.status}</p>
                         <div className="mt-2 flex flex-wrap gap-1">
                           {(relay.redacted_match_reasons || []).map((reason) => <Badge key={reason} variant="outline">{reason}</Badge>)}
                         </div>
@@ -448,9 +451,9 @@ export default function AdminDashboard() {
                 </div>
               </div>
 
-              <div className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900/40">
-                <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">Asset Rescue Bridge</h2>
-                <p className="mt-1 text-sm text-slate-500">Recognized school assets are restricted from public search and routed internally by the backend.</p>
+              <div className="rounded-xl border border-border bg-card p-5">
+                <h2 className="text-lg font-bold text-foreground">Asset Rescue Bridge</h2>
+                <p className="mt-1 text-sm text-muted-foreground">Recognized school assets are restricted from public search and routed internally by the backend.</p>
                 {assetDemo?.recognized && (
                   <div className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
                     {assetDemo.asset_tag} · {assetDemo.asset_type} recognized by asset lookup.
@@ -465,9 +468,9 @@ export default function AdminDashboard() {
                     />
                   ) : (
                     foundItems.filter((item) => item.asset_tag || item.restricted_visibility).map((item) => (
-                      <div key={item.id} className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm dark:border-slate-800 dark:bg-slate-950">
-                        <p className="font-semibold text-slate-900 dark:text-slate-100">{item.title}</p>
-                        <p className="mt-1 text-xs text-slate-500">{item.asset_tag || "restricted item"} · {item.status}</p>
+                      <div key={item.id} className="rounded-lg border border-border bg-muted p-4 text-sm">
+                        <p className="font-semibold text-foreground">{item.title}</p>
+                        <p className="mt-1 text-xs text-muted-foreground">{item.asset_tag || "restricted item"} · {item.status}</p>
                       </div>
                     ))
                   )}
@@ -484,24 +487,24 @@ export default function AdminDashboard() {
                 />
               ) : (
                 sentinelAlerts.map((alert) => (
-                  <div key={alert.id} className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900/40">
+                  <div key={alert.id} className="rounded-xl border border-border bg-card p-5 shadow-sm">
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div>
-                        <p className="font-bold text-slate-900 dark:text-slate-100">{alert.title}</p>
-                        <p className="mt-1 text-sm text-slate-500">{alert.category} · observed {alert.observed_count} vs baseline {alert.baseline_count}</p>
+                        <p className="font-bold text-foreground">{alert.title}</p>
+                        <p className="mt-1 text-sm text-muted-foreground">{alert.category} · observed {alert.observed_count} vs baseline {alert.baseline_count}</p>
                       </div>
                       <Badge variant="outline" className="capitalize">{alert.severity}</Badge>
                     </div>
                     <div className="mt-3 grid gap-4 md:grid-cols-2">
                       <div>
-                        <p className="text-xs font-semibold uppercase text-slate-500">Reasons</p>
-                        <ul className="mt-2 space-y-1 text-sm text-slate-600">
+                        <p className="text-xs font-semibold uppercase text-muted-foreground">Reasons</p>
+                        <ul className="mt-2 space-y-1 text-sm text-muted-foreground">
                           {(alert.reasons || []).map((reason) => <li key={reason}>{reason}</li>)}
                         </ul>
                       </div>
                       <div>
-                        <p className="text-xs font-semibold uppercase text-slate-500">Suggested actions</p>
-                        <ul className="mt-2 space-y-1 text-sm text-slate-600">
+                        <p className="text-xs font-semibold uppercase text-muted-foreground">Suggested actions</p>
+                        <ul className="mt-2 space-y-1 text-sm text-muted-foreground">
                           {(alert.suggested_actions || []).map((action) => <li key={action}>{action}</li>)}
                         </ul>
                       </div>
@@ -530,109 +533,18 @@ export default function AdminDashboard() {
               )}
             </TabsContent>
 
-            <TabsContent value="demo" className="space-y-5">
-              <div className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900/40">
-                <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                  <div>
-                    <h2 className="flex items-center gap-2 text-lg font-bold text-slate-900 dark:text-slate-100">
-                      <PlayCircle className="h-5 w-5 text-primary" />
-                      Event Recovery Demo Scenario Builder
-                    </h2>
-                    <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-500 dark:text-slate-400">
-                      Creates real MongoDB records through backend services and flags them as demo data. It never claims live PVHS calendar, GPS, or automated school-system integration.
-                    </p>
-                  </div>
-                  <Button asChild variant="outline">
-                    <Link to="/EventHub?id=hub_basketball_game">Open Event Hub</Link>
-                  </Button>
-                </div>
-
-                <div className="mt-5 grid gap-3 lg:grid-cols-3">
-                  {[
-                    {
-                      id: "airpods_gym",
-                      title: "AirPods at Gym",
-                      description: "Creates a gym Lost Report, recovery case, missions, found item, and pending claim.",
-                    },
-                    {
-                      id: "approved_calculator_return",
-                      title: "Approved Calculator Return",
-                      description: "Creates an approved calculator claim and active Return Pass for Pickup Station demo.",
-                    },
-                    {
-                      id: "gym_electronics_pattern",
-                      title: "Gym Electronics Pattern",
-                      description: "Creates persisted Lost Reports and recomputes Loss Sentinel counts from records.",
-                    },
-                  ].map((scenario) => (
-                    <div key={scenario.id} className="rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950">
-                      <p className="font-semibold text-slate-900 dark:text-slate-100">{scenario.title}</p>
-                      <p className="mt-2 min-h-12 text-sm leading-6 text-slate-500 dark:text-slate-400">{scenario.description}</p>
-                      <Button
-                        type="button"
-                        className="mt-4 w-full gap-2"
-                        variant="outline"
-                        disabled={createScenarioMutation.isPending}
-                        onClick={() => createScenarioMutation.mutate(scenario.id)}
-                      >
-                        <PlayCircle className="h-4 w-4" aria-hidden="true" />
-                        {createScenarioMutation.isPending ? "Creating..." : "Create scenario"}
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-
-                {createScenarioMutation.error && (
-                  <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
-                    {createScenarioMutation.error.message || "Scenario creation failed."}
-                  </div>
-                )}
-
-                {lastScenarioResult && (
-                  <div className="mt-5 rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
-                    <p className="font-semibold">{lastScenarioResult.scenario ? `Created ${lastScenarioResult.scenario}` : "Demo cleanup completed"}</p>
-                    {lastScenarioResult.details?.next_step && <p className="mt-1">{lastScenarioResult.details.next_step}</p>}
-                    <div className="mt-3 grid gap-2 text-xs sm:grid-cols-3">
-                      <span>Lost Reports: {lastScenarioResult.lost_report_ids?.length ?? lastScenarioResult.deleted?.lost_reports ?? 0}</span>
-                      <span>Found Items: {lastScenarioResult.found_item_ids?.length ?? lastScenarioResult.deleted?.found_items ?? 0}</span>
-                      <span>Claims: {lastScenarioResult.claim_ids?.length ?? lastScenarioResult.deleted?.claims ?? 0}</span>
-                    </div>
-                    {lastScenarioResult.details?.return_pass_id && (
-                      <p className="mt-2 text-xs">Return Pass created: {lastScenarioResult.details.return_pass_id}</p>
-                    )}
-                  </div>
-                )}
+            <TabsContent value="support">
+              <div className="surface-card p-5">
+                <SupportTicketsList/>
               </div>
+            </TabsContent>
 
-              <div className="rounded-xl border border-red-200 bg-red-50 p-5 dark:border-red-500/30 dark:bg-red-950/20">
-                <h2 className="flex items-center gap-2 text-lg font-bold text-red-900 dark:text-red-200">
-                  <Trash2 className="h-5 w-5" />
-                  Cleanup demo records
-                </h2>
-                <p className="mt-1 text-sm leading-6 text-red-800 dark:text-red-200/80">
-                  Cleanup deletes only records marked <code>is_demo=true</code>. Type <strong>DELETE DEMO DATA</strong> to confirm.
-                </p>
-                <div className="mt-4 flex flex-col gap-3 sm:flex-row">
-                  <input
-                    value={cleanupConfirmation}
-                    onChange={(event) => setCleanupConfirmation(event.target.value)}
-                    className="h-10 flex-1 rounded-md border border-red-200 bg-white px-3 text-sm text-slate-900 outline-none focus-visible:ring-2 focus-visible:ring-red-500"
-                    aria-label="Demo cleanup confirmation"
-                    placeholder="DELETE DEMO DATA"
-                  />
-                  <Button
-                    type="button"
-                    variant="destructive"
-                    disabled={cleanupConfirmation !== "DELETE DEMO DATA" || cleanupDemoMutation.isPending}
-                    onClick={() => cleanupDemoMutation.mutate()}
-                  >
-                    {cleanupDemoMutation.isPending ? "Cleaning..." : "Clean demo data"}
-                  </Button>
-                </div>
-                {cleanupDemoMutation.error && (
-                  <p className="mt-3 text-sm text-red-800 dark:text-red-200">{cleanupDemoMutation.error.message || "Cleanup failed."}</p>
-                )}
-              </div>
+            <TabsContent value="users">
+              <div className="surface-card p-5"><AdminUserManagement/></div>
+            </TabsContent>
+
+            <TabsContent value="sysconfig">
+              <div className="surface-card p-5"><AdminSystemSettings/></div>
             </TabsContent>
           </Tabs>
         )}

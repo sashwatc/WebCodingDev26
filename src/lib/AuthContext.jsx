@@ -14,6 +14,7 @@ export const AuthProvider = ({ children }) => {
   const [authError, setAuthError] = useState(null);
   const [appPublicSettings, setAppPublicSettings] = useState(null);
   const [isSignInOpen, setIsSignInOpen] = useState(false);
+  const [signInMode, setSignInMode] = useState("signin"); // "signin" | "register"
   const [isAdminAccessOpen, setIsAdminAccessOpen] = useState(false);
 
   const isAdmin = useMemo(() => isAdminRole(user), [user]);
@@ -106,9 +107,13 @@ export const AuthProvider = ({ children }) => {
   const isAppwriteEnabled = Boolean(appClient.auth.isAppwriteEnabled?.());
 
   const navigateToLogin = async () => {
+    setSignInMode("signin");
     setIsSignInOpen(true);
     return null;
   };
+
+  const openSignIn = () => { setSignInMode("signin"); setIsSignInOpen(true); };
+  const openRegister = () => { setSignInMode("register"); setIsSignInOpen(true); };
 
   const openAdminAccess = async () => {
     if (!user) {
@@ -147,6 +152,9 @@ export const AuthProvider = ({ children }) => {
         checkAppState,
         isSignInOpen,
         setIsSignInOpen,
+        signInMode,
+        openSignIn,
+        openRegister,
         isAdminAccessOpen,
         setIsAdminAccessOpen,
       }}

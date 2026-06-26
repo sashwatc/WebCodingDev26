@@ -85,6 +85,7 @@ export default function ReportFound() {
   const [helperProcessing, setHelperProcessing] = useState(false);
   const [form, setForm] = useState(() => createInitialForm(new URLSearchParams(location.search)));
   const [errors, setErrors] = useState({});
+  const [fieldErrors, setFieldErrors] = useState({});
   const [generatedTags, setGeneratedTags] = useState([]);
   const [intakeSuggestion, setIntakeSuggestion] = useState(null);
   const aiProcessing = helperProcessing;
@@ -134,6 +135,15 @@ export default function ReportFound() {
     }));
     setPrefilledReportId(linkedLostReport.id);
   }, [linkedLostReport, prefilledReportId]);
+
+  useEffect(() => {
+    const hasDraftContent = form.title.trim() !== "" || form.description.trim() !== "";
+    const handler = (e) => {
+      if (hasDraftContent) { e.returnValue = ""; }
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [form.title, form.description]);
 
   const resetForm = () => {
     setForm(createInitialForm(new URLSearchParams(location.search)));
@@ -318,8 +328,8 @@ export default function ReportFound() {
           <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-md bg-emerald-50">
             <CheckCircle2 className="h-8 w-8 text-emerald-700" />
           </div>
-          <h1 className="text-2xl font-semibold text-slate-950">{t("report_found.submitted_title")}</h1>
-          <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-slate-600">
+          <h1 className="text-2xl font-semibold text-foreground">{t("report_found.submitted_title")}</h1>
+          <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-muted-foreground">
             {t("report_found.submitted_description")}
           </p>
           <div className="mt-8 flex flex-wrap justify-center gap-3">
@@ -355,8 +365,8 @@ export default function ReportFound() {
           <div className="flex items-start gap-3">
             <Shield className="mt-0.5 h-5 w-5 text-primary" />
             <div>
-              <p className="font-semibold text-slate-900">{t("report_found.public_listing_title")}</p>
-              <p className="mt-1 text-sm leading-6 text-slate-600">
+              <p className="font-semibold text-foreground">{t("report_found.public_listing_title")}</p>
+              <p className="mt-1 text-sm leading-6 text-muted-foreground">
                 {t("report_found.public_listing_description")}
               </p>
             </div>
@@ -365,8 +375,8 @@ export default function ReportFound() {
           <div className="flex items-start gap-3">
             <LockKeyhole className="mt-0.5 h-5 w-5 text-primary" />
             <div>
-              <p className="font-semibold text-slate-900">{t("report_found.reviewed_first_title")}</p>
-              <p className="mt-1 text-sm leading-6 text-slate-600">
+              <p className="font-semibold text-foreground">{t("report_found.reviewed_first_title")}</p>
+              <p className="mt-1 text-sm leading-6 text-muted-foreground">
                 {t("report_found.reviewed_first_description")}
               </p>
             </div>
@@ -381,10 +391,10 @@ export default function ReportFound() {
       )}
 
       {/* Progress Tracker */}
-      <div className="mb-8 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl p-5 shadow-sm">
+      <div className="mb-8 bg-card border border-border rounded-xl p-5 shadow-sm">
         <div className="flex justify-between items-center relative">
           {/* Progress bar background line */}
-          <div className="absolute left-0 right-0 h-0.5 bg-slate-200 dark:bg-slate-800 top-1/2 -translate-y-1/2 z-0" />
+          <div className="absolute left-0 right-0 h-0.5 bg-border top-1/2 -translate-y-1/2 z-0" />
           {/* Active progress bar line */}
           <div 
             className="absolute left-0 h-0.5 bg-primary top-1/2 -translate-y-1/2 z-0 transition-all duration-300"
@@ -406,12 +416,12 @@ export default function ReportFound() {
                       ? "bg-emerald-600 text-white" 
                       : isActive 
                         ? "bg-primary text-white ring-4 ring-primary/20" 
-                        : "bg-slate-100 dark:bg-slate-800 text-slate-400 border border-slate-200"
+                        : "bg-muted text-muted-foreground border border-border"
                   }`}
                 >
                   {isCompleted ? "✓" : item.step}
                 </div>
-                <span className={`text-xs font-medium mt-2 ${isActive ? "text-primary font-semibold" : "text-slate-500"}`}>
+                <span className={`text-xs font-medium mt-2 ${isActive ? "text-primary font-semibold" : "text-muted-foreground"}`}>
                   {item.label}
                 </span>
               </div>
@@ -425,11 +435,11 @@ export default function ReportFound() {
           {formStep === 1 && (
             <section className="space-y-6 animate-in fade-in duration-300">
               <div className="space-y-2">
-                <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-950">
+                <h2 className="flex items-center gap-2 text-lg font-semibold text-foreground">
                   <Tag className="h-5 w-5 text-primary" />
                   {t("report_found.item_details")}
                 </h2>
-                <p className="text-sm text-slate-600">
+                <p className="text-sm text-muted-foreground">
                   {t("report_found.item_details_description")}
                 </p>
               </div>
@@ -440,10 +450,12 @@ export default function ReportFound() {
                   id="title"
                   placeholder={t("report_found.item_title_placeholder")}
                   value={form.title}
-                  onChange={(event) => updateField("title", event.target.value)}
-                  className={errors.title ? "border-red-400" : ""}
+                  onChange={(event) => { updateField("title", event.target.value); setFieldErrors((e) => ({ ...e, title: "" })); }}
+                  onBlur={() => { if (!form.title.trim()) setFieldErrors((e) => ({ ...e, title: "Required" })); }}
+                  className={errors.title || fieldErrors.title ? "border-red-400" : ""}
                 />
                 {errors.title && <p className="mt-1 text-xs text-red-500">{errors.title}</p>}
+                {fieldErrors.title && <p className="mt-1 text-xs text-red-600" role="alert">{fieldErrors.title}</p>}
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2">
@@ -474,7 +486,7 @@ export default function ReportFound() {
 
               <PhotoUploader photos={form.photo_urls} onChange={(urls) => updateField("photo_urls", urls)} />
 
-              <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+              <div className="rounded-lg border border-border bg-muted p-4">
                 <Label htmlFor="asset_tag">Optional school asset tag</Label>
                 <div className="mt-2 flex flex-col gap-2 sm:flex-row">
                   <Input
@@ -510,11 +522,11 @@ export default function ReportFound() {
           {formStep === 2 && (
             <section className="space-y-6 animate-in fade-in duration-300">
               <div className="space-y-2">
-                <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-950">
+                <h2 className="flex items-center gap-2 text-lg font-semibold text-foreground">
                   <MapPin className="h-5 w-5 text-primary" />
                   {t("report_found.location_and_time")}
                 </h2>
-                <p className="text-sm text-slate-600">
+                <p className="text-sm text-muted-foreground">
                   {t("report_found.location_and_time_description")}
                 </p>
               </div>
@@ -559,7 +571,7 @@ export default function ReportFound() {
                   value={form.storage_location}
                   onChange={(event) => updateField("storage_location", event.target.value)}
                 />
-                <p className="mt-1 text-xs text-slate-500">{t("report_found.storage_admin_only")}</p>
+                <p className="mt-1 text-xs text-muted-foreground">{t("report_found.storage_admin_only")}</p>
               </div>
 
               <div className="flex justify-between pt-4">
@@ -576,11 +588,11 @@ export default function ReportFound() {
           {formStep === 3 && (
             <section className="space-y-6 animate-in fade-in duration-300">
               <div className="space-y-2">
-                <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-950">
+                <h2 className="flex items-center gap-2 text-lg font-semibold text-foreground">
                   <User className="h-5 w-5 text-primary" />
                   {t("report_found.your_information")}
                 </h2>
-                <p className="text-sm text-slate-600">
+                <p className="text-sm text-muted-foreground">
                   {t("report_found.your_information_description")}
                 </p>
               </div>
@@ -592,10 +604,12 @@ export default function ReportFound() {
                   placeholder={t("report_found.description_placeholder")}
                   rows={4}
                   value={form.description}
-                  onChange={(event) => updateField("description", event.target.value)}
-                  className={errors.description ? "border-red-400" : ""}
+                  onChange={(event) => { updateField("description", event.target.value); setFieldErrors((e) => ({ ...e, description: "" })); }}
+                  onBlur={() => { if (!form.description.trim()) setFieldErrors((e) => ({ ...e, description: "Required" })); }}
+                  className={errors.description || fieldErrors.description ? "border-red-400" : ""}
                 />
                 {errors.description && <p className="mt-1 text-xs text-red-500">{errors.description}</p>}
+                {fieldErrors.description && <p className="mt-1 text-xs text-red-600" role="alert">{fieldErrors.description}</p>}
                 {form.description.length > 10 && (
                   <Button
                     type="button"
@@ -611,8 +625,8 @@ export default function ReportFound() {
                 )}
                 {form.ai_description && (
                   <div className="soft-panel mt-3 px-4 py-3">
-                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">{t("report_found.ai_suggestion")}</p>
-                    <p className="mt-2 text-sm leading-6 text-slate-700">{form.ai_description}</p>
+                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">{t("report_found.ai_suggestion")}</p>
+                    <p className="mt-2 text-sm leading-6 text-foreground">{form.ai_description}</p>
                   </div>
                 )}
               </div>
@@ -667,8 +681,8 @@ export default function ReportFound() {
                 <div className="soft-panel px-4 py-4">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
-                      <p className="text-sm font-semibold text-slate-900">Optional field suggestions</p>
-                      <p className="mt-1 text-xs leading-5 text-slate-500">
+                      <p className="text-sm font-semibold text-foreground">Optional field suggestions</p>
+                      <p className="mt-1 text-xs leading-5 text-muted-foreground">
                         Uses public item details only. Suggestions are editable and never approve ownership or claims.
                       </p>
                     </div>
@@ -687,7 +701,7 @@ export default function ReportFound() {
 
                   {intakeSuggestion ? (
                     <div className="mt-4 space-y-3">
-                      <p className="text-xs leading-5 text-slate-500">
+                      <p className="text-xs leading-5 text-muted-foreground">
                         {intakeSuggestion.explanation || "Deterministic fallback generated these editable suggestions."}
                       </p>
                       <div className="flex flex-wrap gap-2">
@@ -721,8 +735,8 @@ export default function ReportFound() {
                 <div className="soft-panel px-4 py-4">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
-                      <p className="text-sm font-semibold text-slate-900">{t("report_found.suggested_tags")}</p>
-                      <p className="text-xs text-slate-500">{t("report_found.suggested_tags_description")}</p>
+                      <p className="text-sm font-semibold text-foreground">{t("report_found.suggested_tags")}</p>
+                      <p className="text-xs text-muted-foreground">{t("report_found.suggested_tags_description")}</p>
                     </div>
                     <Button
                       type="button"
@@ -747,7 +761,7 @@ export default function ReportFound() {
               )}
 
               {user && (
-                <div className="soft-panel px-4 py-4 text-sm text-slate-700">
+                <div className="soft-panel px-4 py-4 text-sm text-foreground">
                   {t("report_found.signed_in_as", { name: user.full_name })}
                 </div>
               )}
@@ -787,7 +801,7 @@ export default function ReportFound() {
                 </Select>
               </div>
 
-              <div className="space-y-3 rounded-[18px] border border-slate-200 bg-slate-50 px-4 py-4">
+              <div className="space-y-3 rounded-[18px] border border-border bg-muted px-4 py-4">
                 <ConsentCheckboxField
                   id="privacy"
                   checked={form.privacy_consent}
