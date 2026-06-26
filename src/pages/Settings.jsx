@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { appClient } from "@/api/appClient";
 import { useAuth } from "@/lib/AuthContext";
 import { Badge } from "@/components/ui/badge";
@@ -28,6 +28,7 @@ export default function Settings() {
   const { user, logout } = useAuth();
 
   // ── Notification prefs ──────────────────────────────────────────────────────
+  const queryClient = useQueryClient();
   const { data: prefs } = useQuery({
     queryKey: ["notifPrefs"],
     queryFn: () => appClient.recoveryPulse.preferences(),
@@ -35,7 +36,11 @@ export default function Settings() {
   });
 
   const updatePref = async (patch) => {
-    try { await appClient.recoveryPulse.updatePreferences(patch); } catch { /* silent */ }
+    try {
+      await appClient.recoveryPulse.updatePreferences(patch);
+      // Refetch so the toggles reflect the persisted state instead of snapping back.
+      queryClient.invalidateQueries({ queryKey: ["notifPrefs"] });
+    } catch { /* silent */ }
   };
 
   // ── Appearance ──────────────────────────────────────────────────────────────
@@ -113,15 +118,15 @@ export default function Settings() {
           <ToggleRow
             id="notif-email"
             label="Email notifications"
-            checked={prefs?.email_enabled ?? true}
-            onCheckedChange={(v) => updatePref({ email_enabled: v })}
+            checked={prefs?.email_notifications_enabled ?? true}
+            onCheckedChange={(v) => updatePref({ email_notifications_enabled: v })}
           />
           <ToggleRow
             id="notif-sms"
             label="SMS notifications"
             description={!user?.phone_number ? "Requires phone number in profile" : undefined}
-            checked={prefs?.sms_enabled ?? false}
-            onCheckedChange={(v) => updatePref({ sms_enabled: v })}
+            checked={prefs?.sms_notifications_enabled ?? false}
+            onCheckedChange={(v) => updatePref({ sms_notifications_enabled: v })}
             disabled={!user?.phone_number}
           />
           <ToggleRow

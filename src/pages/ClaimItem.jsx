@@ -142,6 +142,9 @@ export default function ClaimItem() {
       errs.claimant_email = t("claim_item.email_invalid", "Enter a valid email address.");
     }
     if (!form.reason.trim()) errs.reason = t("claim_item.reason_required");
+    if (!form.identifying_details.trim()) {
+      errs.identifying_details = t("claim_item.identifying_required", "Add at least one private identifying detail.");
+    }
     if (!form.truthful) errs.truthful = t("claim_item.truthful_required");
     setErrors(errs);
     return Object.keys(errs).length === 0;

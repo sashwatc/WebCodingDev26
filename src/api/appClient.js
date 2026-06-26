@@ -1416,12 +1416,23 @@ async function applyEntitySideEffects(entityName, operation, record, previousRec
     record.matched_items?.length &&
     JSON.stringify(record.matched_items || []) !== JSON.stringify(previousRecord?.matched_items || [])
   ) {
+    const newMatches = record.matched_items.filter(m => {
+      const mid = typeof m === "string" ? m : (m?.found_item_id || m?.foundItemId);
+      return !(previousRecord?.matched_items || []).some(pm => {
+        const pmid = typeof pm === "string" ? pm : (pm?.found_item_id || pm?.foundItemId);
+        return pmid === mid;
+      });
+    });
+    const count = newMatches.length || record.matched_items.length;
+    const bestMatch = record.matched_items[0];
+    const bestMatchId = typeof bestMatch === "string" ? bestMatch : (bestMatch?.found_item_id || bestMatch?.foundItemId);
     await addNotification({
       user_email: record.contact_email,
       title: "Potential match found",
-      message: `We found ${record.matched_items.length} possible match${record.matched_items.length > 1 ? "es" : ""} for your lost item report.`,
+      message: `We found ${count} possible match${count > 1 ? "es" : ""} for your lost ${record.item_type || "item"}. Check your dashboard to review and claim.`,
       type: "match_found",
-      link: "/UserDashboard",
+      link: "/UserDashboard?tab=reports",
+      related_item_id: bestMatchId || null,
     });
   }
 
@@ -2255,6 +2266,19 @@ function createClaimApi(baseApi) {
         Array.isArray(records) ? records.map(normalizeClaim) : []
       );
     },
+    // Claimant-authorized rating submission. Uses the dedicated endpoint so a
+    // normal user does not hit the admin-only entity list (which 403s) via the
+    // generic update path. The backend also records the rating on the FoundItem.
+    submitRating(claimOrId, { rating, review } = {}) {
+      const id = typeof claimOrId === "string" ? claimOrId : getRecordId(claimOrId);
+      if (!id) {
+        throw new Error("Claim ID is required.");
+      }
+      return requestFeatureApi(`/claims/${encodeURIComponent(id)}/rating`, {
+        method: "POST",
+        body: JSON.stringify({ rating, review: String(review || "").trim() }),
+      }).then((record) => normalizeClaim(record));
+    },
     approve(claimOrId, data = {}) {
       const id = typeof claimOrId === "string" ? claimOrId : getRecordId(claimOrId);
       requireAdmin();
@@ -2602,10 +2626,12 @@ function createReturnPassApi() {
 }
 
 const DEFAULT_NOTIFICATION_PREFERENCES = {
-  email_enabled: false,
-  sms_enabled: false,
-  sms_opted_in: false,
-  categories: {},
+  // Mirrors the backend NotificationPreferencesResponse (snake_case) so the
+  // Settings UI reads the same keys whether the data is live or fallback.
+  email_notifications_enabled: true,
+  sms_notifications_enabled: false,
+  sms_opt_in: false,
+  notification_categories: [],
 };
 
 function normalizeReturnPass(record = {}) {
@@ -3745,19 +3771,50 @@ function createAppClient() {
         }
 
         // Local development fallback: name + email demo identity.
-        const user = await requestAuthApi("/signin", {
-          method: "POST",
-          body: JSON.stringify({
-            email: String(credentials.email || "").trim().toLowerCase(),
-            full_name: String(credentials.full_name || credentials.fullName || "").trim(),
-            role: credentials.role || "student",
-            register: Boolean(credentials.register),
-          }),
-        });
+        const email = String(credentials.email || "").trim().toLowerCase();
+        const fullName = String(credentials.full_name || credentials.fullName || "").trim();
+        // The backend /signin endpoint ignores role; self-registration must use
+        // /signup so the chosen role (student/staff) is actually honored.
+        const role = credentials.role === "staff" ? "staff" : "student";
+
+        let user;
+        if (credentials.register) {
+          try {
+            user = await requestAuthApi("/signup", {
+              method: "POST",
+              body: JSON.stringify({ email, full_name: fullName, role }),
+            });
+          } catch (error) {
+            // Account already exists — fall back to a normal sign-in so the
+            // action still succeeds instead of erroring on a duplicate.
+            if (error?.status !== 409) {
+              throw error;
+            }
+            user = await requestAuthApi("/signin", {
+              method: "POST",
+              body: JSON.stringify({ email, full_name: fullName }),
+            });
+          }
+        } else {
+          user = await requestAuthApi("/signin", {
+            method: "POST",
+            body: JSON.stringify({ email, full_name: fullName }),
+          });
+        }
         const normalizedUser = normalizeAuthUser(user);
         writeAuthUser(normalizedUser);
         emitAuthChange("SIGNED_IN", normalizedUser);
         return clone(normalizedUser);
+      },
+      async forgotPassword(email) {
+        const normalized = String(email || "").trim().toLowerCase();
+        if (!normalized) {
+          throw new Error("Email is required.");
+        }
+        return requestAuthApi("/forgot-password", {
+          method: "POST",
+          body: JSON.stringify({ email: normalized }),
+        });
       },
       async listUsers() {
         return requestFeatureApi("/admin/users");

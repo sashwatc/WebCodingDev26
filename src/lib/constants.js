@@ -109,8 +109,8 @@ export const DEMO_ACCOUNTS = {
     label: "Admin Demo",
   },
   staff: {
-    full_name: "Morgan Lee",
-    email: "morgan.lee@pleasantvalley.edu",
+    full_name: "Demo Staff",
+    email: "staff.demo@pleasantvalley.edu",
     role: "staff",
     label: "Staff Demo",
   },

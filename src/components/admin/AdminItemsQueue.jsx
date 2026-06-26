@@ -41,6 +41,7 @@ import { appClient } from "@/api/appClient";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import StatusBadge from "@/components/ui/StatusBadge";
 import { formatLocalizedDate, translateLocation, translateStatus } from "@/lib/i18n-helpers";
+import { canonicalFoundItemStatus } from "@/lib/found-items";
 import {
   CheckCircle2,
   XCircle,
@@ -50,6 +51,9 @@ import {
   Trash2,
   Eye,
 } from "lucide-react";
+
+// Found items carry canonical statuses (FOUND/CLAIM_PENDING/VERIFIED/ARCHIVED).
+const ITEM_STATUS_OPTIONS = ["FOUND", "CLAIM_PENDING", "VERIFIED", "ARCHIVED"];
 
 export default function AdminItemsQueue({ items = [], filterStatus = "all" }) {
   const { t } = useTranslation();
@@ -126,7 +130,7 @@ export default function AdminItemsQueue({ items = [], filterStatus = "all" }) {
   });
 
   const filtered = items
-    .filter((item) => statusFilter === "all" || item.status === statusFilter)
+    .filter((item) => statusFilter === "all" || canonicalFoundItemStatus(item.status) === statusFilter)
     .filter((item) => {
       if (!search.trim()) return true;
       const query = search.toLowerCase();
@@ -157,11 +161,9 @@ export default function AdminItemsQueue({ items = [], filterStatus = "all" }) {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">{t("admin_items_queue.all_statuses")}</SelectItem>
-              <SelectItem value="pending_review">{translateStatus(t, "pending_review")}</SelectItem>
-              <SelectItem value="approved">{translateStatus(t, "approved")}</SelectItem>
-              <SelectItem value="claimed">{translateStatus(t, "claimed")}</SelectItem>
-              <SelectItem value="returned">{translateStatus(t, "returned")}</SelectItem>
-              <SelectItem value="archived">{translateStatus(t, "archived")}</SelectItem>
+              {ITEM_STATUS_OPTIONS.map((s) => (
+                <SelectItem key={s} value={s}>{translateStatus(t, s)}</SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
@@ -296,7 +298,7 @@ export default function AdminItemsQueue({ items = [], filterStatus = "all" }) {
                 <div className="space-y-1.5">
                   <label className="section-label">{t("admin_items_queue.update_status", "Update Status")}</label>
                   <Select
-                    value={selectedItem.status}
+                    value={canonicalFoundItemStatus(selectedItem.status)}
                     onValueChange={(val) => {
                       updateMutation.mutate({
                         id: selectedItem.id,
@@ -310,11 +312,9 @@ export default function AdminItemsQueue({ items = [], filterStatus = "all" }) {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="pending_review">{translateStatus(t, "pending_review")}</SelectItem>
-                      <SelectItem value="approved">{translateStatus(t, "approved")}</SelectItem>
-                      <SelectItem value="claimed">{translateStatus(t, "claimed")}</SelectItem>
-                      <SelectItem value="returned">{translateStatus(t, "returned")}</SelectItem>
-                      <SelectItem value="archived">{translateStatus(t, "archived")}</SelectItem>
+                      {ITEM_STATUS_OPTIONS.map((s) => (
+                        <SelectItem key={s} value={s}>{translateStatus(t, s)}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>

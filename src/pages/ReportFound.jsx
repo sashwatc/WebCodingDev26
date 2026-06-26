@@ -28,10 +28,8 @@ import {
   Loader2,
   CheckCircle2,
   CalendarClock,
-  MapPin,
   Package,
   ShieldCheck,
-  Tag,
   Shield,
   LockKeyhole,
   Sparkles,
@@ -127,6 +125,16 @@ export default function ReportFound() {
       setForm((current) => ({ ...current, location_found: nextLocation }));
     }
   }, [campusZones, form.campus_zone_id, form.location_found]);
+
+  // Auto-populate finder fields from the logged-in user.
+  useEffect(() => {
+    if (!user) return;
+    setForm((prev) => ({
+      ...prev,
+      finder_email: prev.finder_email || user.email || "",
+      finder_name:  prev.finder_name  || user.full_name || "",
+    }));
+  }, [user]);
 
   useEffect(() => {
     if (!linkedLostReport || prefilledReportId === linkedLostReport.id) {

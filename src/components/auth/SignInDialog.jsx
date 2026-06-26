@@ -112,11 +112,17 @@ export default function SignInDialog() {
 
   const handleForgotPassword = async () => {
     try {
-      await appClient.auth.resetPassword?.(forgotEmail);
-    } catch {} // ignore — even if method doesn't exist
-    toast({ title: "Reset link sent", description: `Check ${forgotEmail} for a reset link.` });
-    setForgotMode(false);
-    setRegisterMode(false);
+      await appClient.auth.forgotPassword(forgotEmail);
+      toast({ title: "Reset link sent", description: `If an account exists for ${forgotEmail}, a reset link is on its way.` });
+      setForgotMode(false);
+      setRegisterMode(false);
+    } catch (error) {
+      toast({
+        title: t("sign_in_dialog.sign_in_failed", "Something went wrong"),
+        description: error.message || "Could not send a reset link. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   const showStrength = isAppwriteEnabled && (registerMode || form.password.length > 0);

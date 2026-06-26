@@ -27,20 +27,26 @@ import {
   Cell,
 } from "recharts";
 import { CATEGORIES } from "@/lib/constants";
-import { formatLocalizedDate, translateCategory } from "@/lib/i18n-helpers";
+import { formatLocalizedDate, translateCategory, translateStatus } from "@/lib/i18n-helpers";
+import { canonicalFoundItemStatus } from "@/lib/found-items";
 
 export default function AdminOverview({ foundItems, lostReports, claims, auditLogs }) {
   const { t } = useTranslation();
+  // Found items use canonical statuses (FOUND/CLAIM_PENDING/VERIFIED/ARCHIVED),
+  // so count against the canonical value rather than legacy lowercase strings.
+  const canonicalCount = (status) =>
+    foundItems.filter((item) => canonicalFoundItemStatus(item.status) === status).length;
   const stats = {
     total: foundItems.length,
-    pending: foundItems.filter((item) => item.status === "pending_review").length,
-    approved: foundItems.filter((item) => item.status === "approved").length,
-    returned: foundItems.filter((item) => item.status === "returned").length,
-    claimed: foundItems.filter((item) => item.status === "claimed").length,
+    pending: canonicalCount("FOUND"),
+    approved: canonicalCount("FOUND"),
+    claimPending: canonicalCount("CLAIM_PENDING"),
+    claimed: canonicalCount("VERIFIED"),
+    returned: canonicalCount("ARCHIVED"),
     activeClaims: claims.filter((claim) => ["submitted", "under_review"].includes(claim.status)).length,
     openReports: lostReports.filter((report) => report.status === "open").length,
     returnRate: foundItems.length > 0
-      ? Math.round((foundItems.filter((item) => item.status === "returned").length / foundItems.length) * 100)
+      ? Math.round((canonicalCount("ARCHIVED") / foundItems.length) * 100)
       : 0,
   };
 
@@ -53,10 +59,10 @@ export default function AdminOverview({ foundItems, lostReports, claims, auditLo
     .slice(0, 6);
 
   const statusData = [
-    { name: t("statuses.pending_review"), value: stats.pending, color: "#c98b12" },
-    { name: t("statuses.approved"), value: stats.approved, color: "#17315f" },
-    { name: t("statuses.claimed"), value: stats.claimed, color: "#2b5aa5" },
-    { name: t("statuses.returned"), value: stats.returned, color: "#64748b" },
+    { name: translateStatus(t, "FOUND"), value: stats.approved, color: "#10b981" },
+    { name: translateStatus(t, "CLAIM_PENDING"), value: stats.claimPending, color: "#c98b12" },
+    { name: translateStatus(t, "VERIFIED"), value: stats.claimed, color: "#2b5aa5" },
+    { name: translateStatus(t, "ARCHIVED"), value: stats.returned, color: "#64748b" },
   ].filter((entry) => entry.value > 0);
 
   const recentLogs = auditLogs.slice(0, 8);

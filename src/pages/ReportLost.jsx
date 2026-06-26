@@ -5,6 +5,7 @@
 
 import React, { useEffect, useState } from "react";
 import { useLocation, useNavigate, Link } from "react-router-dom";
+import { useAuth } from "@/lib/AuthContext";
 import FloatingItemsCanvas from "@/components/shared/FloatingItemsCanvas";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -56,6 +57,7 @@ export default function ReportLost() {
   const location = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
 
   const [step, setStep] = useState(1);
   const [matches, setMatches] = useState([]);
@@ -85,6 +87,7 @@ export default function ReportLost() {
     const errs = {};
     if (formStep === 1) {
       if (!form.item_type.trim()) errs.item_type = t("report_lost.item_type_required");
+      if (!form.category) errs.category = t("report_lost.category_required", "Please select a category.");
     } else if (formStep === 2) {
       if (!form.date_lost) errs.date_lost = t("report_lost.date_lost_required");
     }
@@ -126,6 +129,17 @@ export default function ReportLost() {
       setForm((current) => ({ ...current, last_seen_location: nextLocation }));
     }
   }, [campusZones, form.campus_zone_id, form.last_seen_location]);
+
+  // Auto-populate contact fields from the logged-in user so the report
+  // is always associated with their account in the dashboard.
+  useEffect(() => {
+    if (!user) return;
+    setForm((prev) => ({
+      ...prev,
+      contact_email: prev.contact_email || user.email || "",
+      contact_name:  prev.contact_name  || user.full_name || "",
+    }));
+  }, [user]);
 
   useEffect(() => {
     const hasDraft = form.urgency !== "medium" || form.description.trim() !== "";
@@ -378,11 +392,12 @@ export default function ReportLost() {
                 <div>
                   <Label>{t("common.category")}</Label>
                   <Select value={form.category} onValueChange={(value) => updateField("category", value)}>
-                    <SelectTrigger><SelectValue placeholder={t("report_found.select_category")} /></SelectTrigger>
+                    <SelectTrigger className={errors.category ? "border-red-400" : ""}><SelectValue placeholder={t("report_found.select_category")} /></SelectTrigger>
                     <SelectContent>
                       {CATEGORIES.map((category) => <SelectItem key={category.value} value={category.value}>{translateCategory(t, category.value)}</SelectItem>)}
                     </SelectContent>
                   </Select>
+                  {errors.category && <p className="mt-1 text-xs text-red-500">{errors.category}</p>}
                 </div>
               </div>
 

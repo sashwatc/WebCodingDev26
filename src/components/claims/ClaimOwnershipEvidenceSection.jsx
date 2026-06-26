@@ -57,7 +57,10 @@ export default function ClaimOwnershipEvidenceSection({
           placeholder={t("claim_item.identifying_placeholder")}
           value={form.identifying_details}
           onChange={(event) => updateField("identifying_details", event.target.value)}
+          className={errors.identifying_details ? "border-red-400" : ""}
+          aria-invalid={Boolean(errors.identifying_details)}
         />
+        {errors.identifying_details && <p className="mt-1 text-xs text-red-500">{errors.identifying_details}</p>}
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">

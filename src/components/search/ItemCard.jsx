@@ -7,12 +7,11 @@ import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { motion } from "framer-motion";
-import { Badge } from "@/components/ui/badge";
 import { Calendar, CheckCircle2, ChevronLeft, ChevronRight, MapPin, Package, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import StatusBadge from "@/components/ui/StatusBadge";
 import { staggerChildVariants } from "@/lib/motion";
-import { formatLocalizedDate, translateCategory, translateColor, translateLocation } from "@/lib/i18n-helpers";
+import { formatLocalizedDate, translateCategory, translateLocation } from "@/lib/i18n-helpers";
 
 export default function ItemCard({ item, viewMode = "list", compact = false }) {
   const { t } = useTranslation();

@@ -41,11 +41,30 @@ router.post("/:entityName", async (req, res) => {
   }
 
   try {
-    if (req.params.entityName === "Claim") {
-      await validateClaimSave(req.body || {}, null);
+    // Stamp the submitting user's email from the auth header so records are
+    // always associated with the right account even if the form field was blank.
+    const authUserEmail = String(req.headers["x-demo-user-email"] || "").trim().toLowerCase() || null;
+    let body = { ...(req.body || {}) };
+
+    if (authUserEmail) {
+      if (req.params.entityName === "LostReport" && !body.contact_email) {
+        body.contact_email = authUserEmail;
+      }
+      if (req.params.entityName === "Claim" && !body.claimant_email) {
+        body.claimant_email = authUserEmail;
+      }
+      if (req.params.entityName === "Notification" && !body.user_email) {
+        body.user_email = authUserEmail;
+      }
+      // Always record who submitted this record for ownership queries.
+      body.submitted_by_user_email = authUserEmail;
     }
 
-    let record = await store.create(req.body || {});
+    if (req.params.entityName === "Claim") {
+      await validateClaimSave(body, null);
+    }
+
+    let record = await store.create(body);
 
     if (req.params.entityName === "LostReport") {
       record = await syncMatchesForLostReport(record);
@@ -60,6 +79,29 @@ router.post("/:entityName", async (req, res) => {
     });
   }
 });
+
+// Helper used by GET filter route to match records by ownership email
+// including the submitted_by_user_email fallback field.
+function recordBelongsToUser(entityName, record, userEmail) {
+  if (!userEmail) return false;
+  const email = userEmail.trim().toLowerCase();
+  if (entityName === "LostReport") {
+    return (
+      String(record.contact_email || "").toLowerCase() === email ||
+      String(record.submitted_by_user_email || "").toLowerCase() === email
+    );
+  }
+  if (entityName === "Claim") {
+    return (
+      String(record.claimant_email || "").toLowerCase() === email ||
+      String(record.submitted_by_user_email || "").toLowerCase() === email
+    );
+  }
+  if (entityName === "Notification") {
+    return String(record.user_email || "").toLowerCase() === email;
+  }
+  return String(record.submitted_by_user_email || "").toLowerCase() === email;
+}
 
 router.patch("/:entityName/:id", async (req, res) => {
   const store = getStore(req.params.entityName);

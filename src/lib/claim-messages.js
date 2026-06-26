@@ -8,5 +8,8 @@ export function canClaimantReplyToThread(claim = {}) {
 }
 
 export function isStaffMessage(message = {}) {
-  return String(message.sender_role || "").toLowerCase() === "admin";
+  // Staff reviewers post with sender_role "staff"; admins with "admin".
+  // Both are the school side of the conversation (not the claimant).
+  const role = String(message.sender_role || "").toLowerCase();
+  return role === "admin" || role === "staff";
 }
