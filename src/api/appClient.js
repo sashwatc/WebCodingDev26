@@ -3724,12 +3724,23 @@ function createAppClient() {
           body: JSON.stringify({
             email: String(credentials.email || "").trim().toLowerCase(),
             full_name: String(credentials.full_name || credentials.fullName || "").trim(),
+            role: credentials.role || "student",
+            register: Boolean(credentials.register),
           }),
         });
         const normalizedUser = normalizeAuthUser(user);
         writeAuthUser(normalizedUser);
         emitAuthChange("SIGNED_IN", normalizedUser);
         return clone(normalizedUser);
+      },
+      async listUsers() {
+        return requestAuthApi("/users");
+      },
+      async updateUserRole(userId, role) {
+        return requestAuthApi(`/users/${userId}/role`, {
+          method: "PATCH",
+          body: JSON.stringify({ role }),
+        });
       },
       async signInWithGoogle() {
         if (!isAppwriteConfigured()) {

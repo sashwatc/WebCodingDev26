@@ -76,7 +76,7 @@ export default function SignInDialog() {
     try {
       const user = await signIn({
         ...form,
-        register: isAppwriteEnabled && registerMode,
+        register: registerMode,
         ...(registerMode ? { role: registerRole } : {}),
       });
       toast({
