@@ -12,6 +12,15 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { useToast } from "@/components/ui/use-toast";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { appClient } from "@/api/appClient";
 import AdminOverview from "@/components/admin/AdminOverview";
@@ -36,23 +45,110 @@ import {
   Settings as SettingsIcon,
 } from "lucide-react";
 
-function SupportTicketsList() {
-  const tickets = (() => { try { return JSON.parse(localStorage.getItem("ltf_support_tickets") || "[]"); } catch { return []; } })();
-  if (!tickets.length) return <div className="search-state-panel"><MessageSquare className="mx-auto mb-3 h-8 w-8 text-muted-foreground/40"/>No support tickets yet.</div>;
-  return <div className="space-y-3">{tickets.map(t=>(
-    <div key={t.id} className="archive-card p-4">
+const SUPPORT_STATUSES = ["open", "in_progress", "resolved", "closed"];
+
+function supportStatusClass(status) {
+  if (status === "open") return "border-amber-200 bg-amber-50 text-amber-800";
+  if (status === "in_progress") return "border-blue-200 bg-blue-50 text-blue-800";
+  if (status === "resolved") return "border-emerald-200 bg-emerald-50 text-emerald-800";
+  return "border-border bg-muted text-muted-foreground";
+}
+
+function SupportTicketCard({ ticket }) {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [notes, setNotes] = React.useState(ticket.staff_notes || "");
+  const [reply, setReply] = React.useState("");
+
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: ["adminSupportTickets"] });
+
+  const statusMutation = useMutation({
+    mutationFn: (status) => appClient.support.updateTicket(ticket.id, { status }),
+    onSuccess: () => { invalidate(); toast({ title: "Status updated" }); },
+    onError: () => toast({ title: "Failed to update status", variant: "destructive" }),
+  });
+
+  const notesMutation = useMutation({
+    mutationFn: () => appClient.support.updateTicket(ticket.id, { staff_notes: notes }),
+    onSuccess: () => { invalidate(); toast({ title: "Notes saved" }); },
+    onError: () => toast({ title: "Failed to save notes", variant: "destructive" }),
+  });
+
+  const replyMutation = useMutation({
+    mutationFn: () => appClient.support.replyToTicket(ticket.id, reply),
+    onSuccess: () => { setReply(""); invalidate(); toast({ title: "Reply sent" }); },
+    onError: () => toast({ title: "Failed to send reply", variant: "destructive" }),
+  });
+
+  const busy = statusMutation.isPending || notesMutation.isPending || replyMutation.isPending;
+
+  return (
+    <div className="archive-card p-4 space-y-3">
       <div className="flex items-start justify-between gap-3">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <Badge variant="outline" className="text-xs">{t.category}</Badge>
-            <Badge variant="outline" className={`text-xs ${t.status==="open" ? "border-amber-200 bg-amber-50 text-amber-800" : "border-border bg-muted text-muted-foreground"}`}>{t.status}</Badge>
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 mb-1 flex-wrap">
+            <Badge variant="outline" className="text-xs">{ticket.category}</Badge>
+            <Badge variant="outline" className={`text-xs ${supportStatusClass(ticket.status)}`}>{ticket.status}</Badge>
           </div>
-          <p className="text-sm text-foreground">{t.description}</p>
-          <p className="text-xs text-muted-foreground mt-1">{t.email} · #{t.id}</p>
+          {ticket.subject && <p className="text-sm font-semibold text-foreground">{ticket.subject}</p>}
+          <p className="text-sm text-foreground whitespace-pre-wrap">{ticket.message}</p>
+          <p className="text-xs text-muted-foreground mt-1">
+            {ticket.submitter_email || "anonymous"}
+            {ticket.ticket_number ? ` · ${ticket.ticket_number}` : ""}
+          </p>
+        </div>
+        <Select value={ticket.status} onValueChange={(v) => statusMutation.mutate(v)} disabled={busy}>
+          <SelectTrigger className="h-8 w-36 shrink-0 text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {SUPPORT_STATUSES.map((s) => (
+              <SelectItem key={s} value={s} className="text-xs">{s}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="space-y-2">
+          <Textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder="Internal staff notes…"
+            className="min-h-[70px] text-sm"
+          />
+          <Button size="sm" variant="outline" disabled={busy} onClick={() => notesMutation.mutate()}>
+            Save notes
+          </Button>
+        </div>
+        <div className="space-y-2">
+          <Textarea
+            value={reply}
+            onChange={(e) => setReply(e.target.value)}
+            placeholder="Reply to the submitter…"
+            className="min-h-[70px] text-sm"
+          />
+          <Button size="sm" disabled={busy || !reply.trim()} onClick={() => replyMutation.mutate()}>
+            Send reply
+          </Button>
         </div>
       </div>
     </div>
-  ))}</div>;
+  );
+}
+
+function SupportTicketsList() {
+  const { data: tickets = [], isLoading, isError } = useQuery({
+    queryKey: ["adminSupportTickets"],
+    queryFn: () => appClient.support.listTickets(),
+    refetchInterval: 30000,
+  });
+
+  if (isLoading) return <div className="search-state-panel"><MessageSquare className="mx-auto mb-3 h-8 w-8 text-muted-foreground/40"/>Loading support tickets…</div>;
+  if (isError) return <div className="search-state-panel"><MessageSquare className="mx-auto mb-3 h-8 w-8 text-muted-foreground/40"/>Could not load support tickets.</div>;
+  if (!tickets.length) return <div className="search-state-panel"><MessageSquare className="mx-auto mb-3 h-8 w-8 text-muted-foreground/40"/>No support tickets yet.</div>;
+
+  return <div className="space-y-3">{tickets.map((t) => <SupportTicketCard key={t.id} ticket={t} />)}</div>;
 }
 
 export default function AdminDashboard() {
@@ -89,6 +185,12 @@ export default function AdminDashboard() {
   const { data: auditLogs = [] } = useQuery({
     queryKey: ["adminAuditLogs"],
     queryFn: () => appClient.entities.AuditLog.list("-created_date", 100),
+  });
+
+  const { data: supportTickets = [] } = useQuery({
+    queryKey: ["adminSupportTickets"],
+    queryFn: () => appClient.support.listTickets(),
+    refetchInterval: 30000,
   });
 
   const { data: recoveryCases = [] } = useQuery({
@@ -146,7 +248,7 @@ export default function AdminDashboard() {
   const pendingCount = foundItems.filter((item) => ["pending_review", "FOUND"].includes(item.status)).length;
   const pendingClaims = recoverySummary?.claims_awaiting_review ?? claims.filter((claim) => claim.status === "submitted" || claim.status === "under_review").length;
   const openReports = recoverySummary?.active_cases ?? lostReports.filter((report) => report.status === "open").length;
-  const supportCount = (() => { try { return JSON.parse(localStorage.getItem("ltf_support_tickets") || "[]").filter(t=>t.status==="open").length; } catch { return 0; } })();
+  const supportCount = supportTickets.filter((t) => t.status === "open").length;
   const EmptyAdminPanel = ({ icon: Icon, title, description }) => (
     <div className="search-state-panel">
       <Icon className="mx-auto mb-3 h-9 w-9 text-muted-foreground/40" />
@@ -287,7 +389,7 @@ export default function AdminDashboard() {
                     </p>
                   </div>
                   <div className="bg-muted border border-border rounded-xl p-4 shadow-sm">
-                    <AdminItemsQueue items={foundItems} filterStatus="pending_review" />
+                    <AdminItemsQueue items={foundItems} filterStatus="all" />
                   </div>
                 </div>
 

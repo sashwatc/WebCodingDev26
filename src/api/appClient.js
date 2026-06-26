@@ -2342,7 +2342,14 @@ function createMatchApi() {
 function createRecoveryCenterApi() {
   return {
     async summary() {
-      return requestFeatureApi("/admin/recovery-center");
+      try {
+        return await requestFeatureApi("/admin/recovery-center");
+      } catch (error) {
+        // The recovery-center summary is an optional aggregation; when the backend
+        // doesn't expose it, fall back to null so the dashboard derives counts from
+        // claims/lost-reports instead of surfacing a hard error banner.
+        return backendOwnedNullFallback(error);
+      }
     },
   };
 }
@@ -3734,10 +3741,10 @@ function createAppClient() {
         return clone(normalizedUser);
       },
       async listUsers() {
-        return requestAuthApi("/users");
+        return requestFeatureApi("/admin/users");
       },
       async updateUserRole(userId, role) {
-        return requestAuthApi(`/users/${userId}/role`, {
+        return requestFeatureApi(`/admin/users/${encodeURIComponent(userId)}/role`, {
           method: "PATCH",
           body: JSON.stringify({ role }),
         });
@@ -3809,6 +3816,30 @@ function createAppClient() {
     items: foundItemApi,
     lostReports: lostReportApi,
     claims: claimApi,
+    support: {
+      async listTickets(status) {
+        const query = status ? `?status=${encodeURIComponent(status)}` : "";
+        return requestFeatureApi(`/staff/support/tickets${query}`);
+      },
+      async updateTicket(id, { status, staff_notes } = {}) {
+        return requestFeatureApi(`/staff/support/tickets/${encodeURIComponent(id)}`, {
+          method: "PATCH",
+          body: JSON.stringify({ status, staff_notes }),
+        });
+      },
+      async replyToTicket(id, message) {
+        return requestFeatureApi(`/staff/support/tickets/${encodeURIComponent(id)}/reply`, {
+          method: "POST",
+          body: JSON.stringify({ message }),
+        });
+      },
+      async createTicket(payload) {
+        return requestFeatureApi("/support/tickets", {
+          method: "POST",
+          body: JSON.stringify(payload),
+        });
+      },
+    },
     matches: featureClients.matches,
     uploads: featureClients.uploads,
     recoveryCenter: featureClients.recoveryCenter,

@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
+import { appClient } from "@/api/appClient";
 import { Clock, HelpCircle, MessageSquare } from "lucide-react";
 
 const CATEGORIES = ["Lost Item","Found Item","Account Issue","Other"];
@@ -14,30 +15,40 @@ export default function Support() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [category, setCategory] = useState("");
+  const [subject, setSubject] = useState("");
   const [description, setDescription] = useState("");
   const [linkedItem, setLinkedItem] = useState("");
   const [email, setEmail] = useState(user?.email || "");
   const [submitted, setSubmitted] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!description.trim() || !category) {
+    if (!subject.trim() || !description.trim() || !category) {
       toast({ title: "Please complete required fields", variant: "destructive" }); return;
     }
-    const ticket = {
-      id: Math.random().toString(36).slice(2,8).toUpperCase(),
-      category, description: description.trim(),
-      linkedItem: linkedItem.trim(), email: email.trim(),
-      status: "open", createdAt: new Date().toISOString(),
-    };
+    setSubmitting(true);
     try {
-      const existing = JSON.parse(localStorage.getItem("ltf_support_tickets") || "[]");
-      localStorage.setItem("ltf_support_tickets", JSON.stringify([ticket, ...existing]));
-    } catch {}
-    setSubmitted(ticket);
+      const ticket = await appClient.support.createTicket({
+        category,
+        subject: subject.trim(),
+        message: description.trim(),
+        email: email.trim(),
+        linked_item_id: linkedItem.trim() || null,
+      });
+      setSubmitted(ticket);
+    } catch (err) {
+      toast({
+        title: "Could not submit ticket",
+        description: err?.message || "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  const reset = () => { setCategory(""); setDescription(""); setLinkedItem(""); setSubmitted(null); };
+  const reset = () => { setCategory(""); setSubject(""); setDescription(""); setLinkedItem(""); setSubmitted(null); };
 
   if (submitted) {
     return (
@@ -47,7 +58,7 @@ export default function Support() {
             <MessageSquare className="h-7 w-7"/>
           </div>
           <h1 className="text-2xl font-bold text-foreground">Ticket submitted</h1>
-          <p className="mt-2 text-muted-foreground">Ticket <span className="font-mono font-bold text-foreground">#{submitted.id}</span></p>
+          <p className="mt-2 text-muted-foreground">Ticket <span className="font-mono font-bold text-foreground">{submitted.ticketNumber || submitted.ticket_number || submitted.id}</span></p>
           <p className="mt-1 text-sm text-muted-foreground">Our staff will respond within 1 school day.</p>
           <div className="mt-6 flex flex-wrap justify-center gap-3">
             <Button onClick={reset} variant="outline">Submit another</Button>
@@ -92,6 +103,10 @@ export default function Support() {
           </div>
         </div>
         <div className="space-y-1.5">
+          <Label htmlFor="ticket-subject">Subject <span className="text-red-600">*</span></Label>
+          <Input id="ticket-subject" value={subject} onChange={e=>setSubject(e.target.value)} placeholder="Brief summary of your issue"/>
+        </div>
+        <div className="space-y-1.5">
           <Label htmlFor="ticket-desc">Description <span className="text-red-600">*</span></Label>
           <Textarea id="ticket-desc" rows={4} value={description} onChange={e=>setDescription(e.target.value)} placeholder="Describe your issue in detail..."/>
         </div>
@@ -103,7 +118,7 @@ export default function Support() {
           <Label htmlFor="ticket-email">Your email <span className="text-red-600">*</span></Label>
           <Input id="ticket-email" type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="your@email.com"/>
         </div>
-        <Button type="submit" className="w-full" disabled={!category || !description.trim() || !email.trim()}>Submit ticket</Button>
+        <Button type="submit" className="w-full" disabled={submitting || !category || !subject.trim() || !description.trim() || !email.trim()}>{submitting ? "Submitting…" : "Submit ticket"}</Button>
       </form>
     </div>
   );
