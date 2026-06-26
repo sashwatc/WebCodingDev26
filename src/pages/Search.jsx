@@ -351,20 +351,20 @@ export default function Search({ recordTypeOverride = "found" }) {
           </div>
         </div>
 
-        {/* Locker wall - right side, shown at natural proportions via bg sizing */}
+        {/* Locker wall — tiled horizontally to fill the right portion of the hero */}
         <div
-          className="absolute right-0 top-0 bottom-0 w-[32%]"
+          className="absolute right-0 top-0 bottom-0 w-[62%]"
           style={{
             backgroundImage: `url(${!isLostItemsPage ? "./images/locker-warm.png" : "./images/locker-cool.png"})`,
             backgroundSize: "auto 100%",
             backgroundPosition: "right center",
-            backgroundRepeat: "no-repeat",
+            backgroundRepeat: "repeat-x",
           }}
         >
-          {/* Fade from hero background into the locker image */}
+          {/* Gradient fade — covers most of the panel so only the right edge shows clearly */}
           <div
-            className="pointer-events-none absolute inset-y-0 left-0 w-4/5"
-            style={{ background: `linear-gradient(to right, ${heroBg}, transparent)` }}
+            className="pointer-events-none absolute inset-y-0 left-0 w-[88%]"
+            style={{ background: `linear-gradient(to right, ${heroBg} 0%, ${heroBg}ee 40%, ${heroBg}99 70%, transparent 100%)` }}
           />
         </div>
 
