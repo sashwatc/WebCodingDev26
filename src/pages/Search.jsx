@@ -31,17 +31,6 @@ function isBackendUnavailable(health) {
   return !health?.status || health.status === "unavailable" || health?.backend_required === true;
 }
 
-function LockerWall({ warm = false }) {
-  return (
-    <img
-      src={warm ? "./images/locker-warm.png" : "./images/locker-cool.png"}
-      alt=""
-      aria-hidden="true"
-      className="h-full w-full object-cover object-left"
-      draggable={false}
-    />
-  );
-}
 
 export default function Search({ recordTypeOverride = "found" }) {
   const { t } = useTranslation();
@@ -360,13 +349,20 @@ export default function Search({ recordTypeOverride = "found" }) {
           </div>
         </div>
 
-        {/* Locker wall - right side */}
-        <div className="absolute right-0 top-0 bottom-0 w-[46%] sm:w-[42%]">
-          <LockerWall warm={!isLostItemsPage} />
+        {/* Locker wall - right side, shown at natural proportions via bg sizing */}
+        <div
+          className="absolute right-0 top-0 bottom-0 w-[32%]"
+          style={{
+            backgroundImage: `url(${!isLostItemsPage ? "./images/locker-warm.png" : "./images/locker-cool.png"})`,
+            backgroundSize: "auto 100%",
+            backgroundPosition: "right center",
+            backgroundRepeat: "no-repeat",
+          }}
+        >
           {/* Fade from hero background into the locker image */}
           <div
-            className="pointer-events-none absolute inset-y-0 left-0 w-2/3"
-            style={{ background: `linear-gradient(to right, ${heroBg} 0%, ${heroBg}cc 30%, transparent 100%)` }}
+            className="pointer-events-none absolute inset-y-0 left-0 w-4/5"
+            style={{ background: `linear-gradient(to right, ${heroBg}, transparent)` }}
           />
         </div>
 
