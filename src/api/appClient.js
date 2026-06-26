@@ -16,6 +16,7 @@ import {
   AUTH_STORAGE_KEY,
   clearClientAuthStorage,
   isAdminRole,
+  isStaffRole,
   shouldAttachDemoUserHeader,
 } from "@/lib/auth-session";
 
@@ -1701,6 +1702,10 @@ function isAdminUser(user = readAuthUser()) {
   return isAdminRole(user);
 }
 
+function isStaffOrAdminUser(user = readAuthUser()) {
+  return isAdminRole(user) || isStaffRole(user);
+}
+
 async function requestRecoveryMeshApi(path = "", options = {}) {
   return requestFeatureApi(path, options);
 }
@@ -2233,8 +2238,11 @@ function createClaimApi(baseApi) {
   };
 
   const requireAdmin = () => {
-    if (!isAdminUser()) {
-      const error = new Error("Admin access is required.");
+    // Claim moderation (approve/deny/request-more-info) is authorized for staff
+    // OR admin on the backend (requireStaffOrAdmin); mirror that here so the
+    // client guard doesn't block staff reviewers before the request is sent.
+    if (!isStaffOrAdminUser()) {
+      const error = new Error("Staff or admin access is required.");
       error.status = 403;
       throw error;
     }
@@ -2335,6 +2343,14 @@ function createMatchApi() {
     async refreshFoundItem(id) {
       const records = await requestFeatureApi(`/matches/found-items/${encodeURIComponent(id)}/refresh`, { method: "POST" });
       return normalizeMatches(records);
+    },
+    // Record an admin decision (confirmed | rejected | linked) on a single
+    // lost-report match. Persists without recomputing matches.
+    async decideForLostReport(reportId, foundItemId, decision) {
+      return requestFeatureApi(
+        `/admin/lost-reports/${encodeURIComponent(reportId)}/matches/${encodeURIComponent(foundItemId)}`,
+        { method: "PATCH", body: JSON.stringify({ decision }) }
+      );
     },
   };
 }
@@ -2508,13 +2524,16 @@ function createClaimCaseMessagesApi() {
       return Array.isArray(records) ? records.map((record) => normalizeCaseMessage(record)) : [];
     },
     async send(claimId, payload = {}) {
-      const body = {
-        body: payload.body || payload.message || "",
+      // Backend expects `message` (see ClaimController POST /case-messages); it
+      // derives sender_role from the authenticated caller, so message_type is
+      // advisory only.
+      const requestBody = {
+        message: payload.body || payload.message || "",
         message_type: payload.message_type || payload.messageType,
       };
       const record = await requestFeatureApi(`/claims/${encodeURIComponent(claimId)}/case-messages`, {
         method: "POST",
-        body: JSON.stringify(body),
+        body: JSON.stringify(requestBody),
       });
       return normalizeCaseMessage(record);
     },

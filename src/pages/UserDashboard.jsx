@@ -159,6 +159,19 @@ export default function UserDashboard() {
     [recoveryCases]
   );
 
+  // Map each found-item id to the caller's existing claim (if any) so suggested
+  // match cards can show a persistent "Claim submitted" state after reload.
+  const claimByFoundItemId = useMemo(
+    () =>
+      claims.reduce((byItemId, claim) => {
+        if (claim.found_item_id && !byItemId[claim.found_item_id]) {
+          byItemId[claim.found_item_id] = claim;
+        }
+        return byItemId;
+      }, {}),
+    [claims]
+  );
+
   const EmptyState = ({ icon: Icon, message }) => (
     <div className="text-center py-12">
       <Icon className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
@@ -215,7 +228,7 @@ export default function UserDashboard() {
         </div>
         <div className="flex gap-3">
           <Link to="/Search">
-            <Button className="bg-primary hover:bg-primary/95 text-white gap-2 font-medium px-5 py-2.5 rounded-lg shadow-sm transition-all hover:scale-[1.02]">
+            <Button variant="default" className="gap-2 transition-all hover:scale-[1.02]">
               <Eye className="w-4 h-4" />
               {t("user_dashboard.browse_items", "Browse Lost & Found")}
             </Button>
@@ -379,11 +392,16 @@ export default function UserDashboard() {
                             const matchId = typeof match === "string" ? match : (match?.found_item_id || match?.foundItemId);
                             const matchedItem = foundItemsById[matchId];
                             if (!matchedItem) return null;
+                            const existingClaim = claimByFoundItemId[matchId];
                             return (
                               <Link
                                 key={matchId}
-                                to={`/ItemDetails?id=${matchId}`}
-                                className="flex items-center gap-2.5 bg-card hover:bg-muted border border-border px-3 py-2 rounded-lg transition-all text-xs font-semibold text-foreground hover:border-border shadow-sm"
+                                to={existingClaim ? "/UserDashboard?tab=claims" : `/ItemDetails?id=${matchId}`}
+                                className={`flex items-center gap-2.5 border px-3 py-2 rounded-lg transition-all text-xs font-semibold shadow-sm ${
+                                  existingClaim
+                                    ? "bg-emerald-50 border-emerald-200 text-emerald-900 hover:bg-emerald-100 dark:bg-emerald-950/20 dark:border-emerald-900 dark:text-emerald-300"
+                                    : "bg-card hover:bg-muted border-border text-foreground hover:border-border"
+                                }`}
                               >
                                 <RecordThumbnail
                                   src={matchedItem.photo_urls?.[0]}
@@ -391,7 +409,16 @@ export default function UserDashboard() {
                                   className="w-6 h-6 rounded-md object-cover shrink-0 border border-border"
                                 />
                                 <span>{matchedItem.title}</span>
-                                <ArrowRight className="w-3.5 h-3.5 text-primary transition-transform group-hover:translate-x-0.5" />
+                                {existingClaim ? (
+                                  <Badge className="ml-1 border border-emerald-300 bg-emerald-100 text-emerald-800 text-[10px] font-bold dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300">
+                                    <CheckCircle2 className="w-3 h-3 mr-1" />
+                                    {existingClaim.status === "approved"
+                                      ? t("user_dashboard.claim_approved", "Approved")
+                                      : t("user_dashboard.claim_submitted", "Claim submitted")}
+                                  </Badge>
+                                ) : (
+                                  <ArrowRight className="w-3.5 h-3.5 text-primary transition-transform group-hover:translate-x-0.5" />
+                                )}
                               </Link>
                             );
                           })}
@@ -435,6 +462,25 @@ export default function UserDashboard() {
                               ))}
                             </div>
                           )}
+                          {(() => {
+                            // Surface the issued claim code here too: find an approved claim for
+                            // one of this report's matched found items that has a pickup pass.
+                            const linkedClaim = (report.matched_items || [])
+                              .map((m) => claimByFoundItemId[typeof m === "string" ? m : (m?.found_item_id || m?.foundItemId)])
+                              .find((c) => c && c.status === "approved" && (c.return_pass_id || c.returnPassId));
+                            if (!linkedClaim) return null;
+                            const passId = linkedClaim.return_pass_id || linkedClaim.returnPassId;
+                            return (
+                              <div className="mt-3">
+                                <Button asChild size="sm" variant="outline" className="border-emerald-300 bg-card text-emerald-900 hover:bg-emerald-50 gap-1.5 dark:text-emerald-300">
+                                  <Link to={getPickupPassRoute(passId)}>
+                                    <Ticket className="w-4 h-4" />
+                                    {t("pickup_pass.view_pass", "View claim code")}
+                                  </Link>
+                                </Button>
+                              </div>
+                            );
+                          })()}
                         </div>
                         <Button
                           variant="outline"
@@ -524,7 +570,9 @@ export default function UserDashboard() {
                             </div>
                             {(() => {
                               const passNotification = findReturnPassNotificationForClaim(notifications, claim);
-                              const passId = getReturnPassIdFromNotification(passNotification || {});
+                              // Prefer the pass linked directly to the claim (set when the
+                              // claim is approved); fall back to the notification link.
+                              const passId = claim.return_pass_id || claim.returnPassId || getReturnPassIdFromNotification(passNotification || {});
                               if (!passId) {
                                 return null;
                               }

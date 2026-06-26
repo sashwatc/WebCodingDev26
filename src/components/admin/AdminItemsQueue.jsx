@@ -64,13 +64,19 @@ export default function AdminItemsQueue({ items = [], filterStatus = "all" }) {
   const updateMutation = useMutation({
     mutationFn: async ({ id, data, action }) => {
       await appClient.entities.FoundItem.update(id, data);
-      await appClient.entities.AuditLog.create({
-        action,
-        entity_type: "found_item",
-        entity_id: id,
-        performed_by: "admin",
-        details: `Status changed to ${data.status || "updated"}`,
-      });
+      // Audit logging is best-effort: never let a logging failure make the
+      // approve/reject action appear broken to the admin.
+      try {
+        await appClient.entities.AuditLog.create({
+          action,
+          entity_type: "found_item",
+          entity_id: id,
+          performed_by: "admin",
+          details: `Status changed to ${data.status || "updated"}`,
+        });
+      } catch (auditError) {
+        console.warn("Audit log failed (non-fatal):", auditError);
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["adminFoundItems"] });

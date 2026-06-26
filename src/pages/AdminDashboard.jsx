@@ -137,18 +137,136 @@ function SupportTicketCard({ ticket }) {
   );
 }
 
+// The admin Support tab is scoped to lost-item case chats only: tickets in the
+// "Lost Item" category or any ticket linked to a specific item case.
+function isLostItemTicket(ticket = {}) {
+  const category = String(ticket.category || "").toLowerCase();
+  const linkedItemId = ticket.linked_item_id || ticket.linkedItemId;
+  return category.includes("lost") || Boolean(linkedItemId);
+}
+
 function SupportTicketsList() {
-  const { data: tickets = [], isLoading, isError } = useQuery({
+  const { data: allTickets = [], isLoading, isError } = useQuery({
     queryKey: ["adminSupportTickets"],
     queryFn: () => appClient.support.listTickets(),
     refetchInterval: 30000,
   });
 
+  const tickets = allTickets.filter(isLostItemTicket);
+
   if (isLoading) return <div className="search-state-panel"><MessageSquare className="mx-auto mb-3 h-8 w-8 text-muted-foreground/40"/>Loading support tickets…</div>;
   if (isError) return <div className="search-state-panel"><MessageSquare className="mx-auto mb-3 h-8 w-8 text-muted-foreground/40"/>Could not load support tickets.</div>;
-  if (!tickets.length) return <div className="search-state-panel"><MessageSquare className="mx-auto mb-3 h-8 w-8 text-muted-foreground/40"/>No support tickets yet.</div>;
+  if (!tickets.length) return <div className="search-state-panel"><MessageSquare className="mx-auto mb-3 h-8 w-8 text-muted-foreground/40"/>No lost-item support chats yet.</div>;
 
   return <div className="space-y-3">{tickets.map((t) => <SupportTicketCard key={t.id} ticket={t} />)}</div>;
+}
+
+function matchFoundItemId(match) {
+  return typeof match === "string" ? match : (match?.found_item_id || match?.foundItemId || "");
+}
+
+// Admin view of a lost report's AI-suggested found-item matches, with actions to
+// approve (confirm), reject, or link a match. Decisions persist onto the report's
+// matched_items array via the LostReport entity.
+function LostReportMatches({ report }) {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const matches = Array.isArray(report.matched_items) ? report.matched_items : [];
+
+  const decisionMutation = useMutation({
+    mutationFn: ({ foundItemId, decision }) =>
+      appClient.matches.decideForLostReport(report.id, foundItemId, decision),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["adminLostReports"] });
+      toast({ title: "Match updated" });
+    },
+    onError: (error) =>
+      toast({ title: "Failed to update match", description: error?.message, variant: "destructive" }),
+  });
+
+  if (matches.length === 0) {
+    return (
+      <p className="mt-4 border-t border-border pt-4 text-xs text-muted-foreground">
+        No suggested matches for this report yet.
+      </p>
+    );
+  }
+
+  return (
+    <div className="mt-4 space-y-3 border-t border-border pt-4">
+      <p className="text-xs font-bold uppercase tracking-wider text-foreground">
+        Suggested matches ({matches.length})
+      </p>
+      {matches.map((match) => {
+        const foundItemId = matchFoundItemId(match);
+        const title = match?.found_item_title || foundItemId;
+        const confidence = match?.confidence;
+        const reasons = Array.isArray(match?.reasons) ? match.reasons : [];
+        const decision = match?.status && match.status !== "suggested" ? match.status : null;
+        const isLinked = decision === "linked" || decision === "confirmed";
+        const decisionLabel = isLinked ? "Linked" : decision === "rejected" ? "Not a match" : decision;
+        return (
+          <div key={foundItemId} className="rounded-xl border border-border bg-card p-3">
+            <div className="flex items-start gap-3">
+              <RecordThumbnail
+                src={match?.photo_urls?.[0]}
+                alt={title}
+                className="h-12 w-12 shrink-0 rounded-md border border-border object-cover"
+              />
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="truncate text-sm font-semibold text-foreground">{title}</p>
+                  {typeof confidence === "number" && (
+                    <Badge variant="outline" className="border-primary/30 text-primary">{confidence}% match</Badge>
+                  )}
+                  {decision && (
+                    <Badge
+                      className={
+                        isLinked
+                          ? "border border-emerald-200 bg-emerald-100 text-emerald-800"
+                          : "border border-red-200 bg-red-100 text-red-700"
+                      }
+                    >
+                      {decisionLabel}
+                    </Badge>
+                  )}
+                </div>
+                {reasons.length > 0 && (
+                  <div className="mt-1.5 flex flex-wrap gap-1">
+                    {reasons.slice(0, 6).map((reason) => (
+                      <Badge key={reason} variant="outline" className="text-[10px] text-muted-foreground">{reason}</Badge>
+                    ))}
+                  </div>
+                )}
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <Button asChild size="sm" variant="outline">
+                    <Link to={`/ItemDetails?id=${foundItemId}`}>View item</Link>
+                  </Button>
+                  <Button
+                    size="sm"
+                    className="bg-emerald-600 text-white hover:bg-emerald-500"
+                    disabled={decisionMutation.isPending}
+                    onClick={() => decisionMutation.mutate({ foundItemId, decision: "linked" })}
+                  >
+                    Link Items
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="border-red-200 bg-red-50 text-red-600 hover:bg-red-100"
+                    disabled={decisionMutation.isPending}
+                    onClick={() => decisionMutation.mutate({ foundItemId, decision: "rejected" })}
+                  >
+                    Not a Match
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
 }
 
 export default function AdminDashboard() {
@@ -248,7 +366,7 @@ export default function AdminDashboard() {
   const pendingCount = foundItems.filter((item) => ["pending_review", "FOUND"].includes(item.status)).length;
   const pendingClaims = recoverySummary?.claims_awaiting_review ?? claims.filter((claim) => claim.status === "submitted" || claim.status === "under_review").length;
   const openReports = recoverySummary?.active_cases ?? lostReports.filter((report) => report.status === "open").length;
-  const supportCount = supportTickets.filter((t) => t.status === "open").length;
+  const supportCount = supportTickets.filter(isLostItemTicket).filter((t) => t.status === "open").length;
   const EmptyAdminPanel = ({ icon: Icon, title, description }) => (
     <div className="search-state-panel">
       <Icon className="mx-auto mb-3 h-9 w-9 text-muted-foreground/40" />
@@ -451,6 +569,7 @@ export default function AdminDashboard() {
                           </div>
                           <Badge variant="outline" className="capitalize self-start text-primary border-primary/20">{translateUrgency(t, report.urgency)}</Badge>
                         </div>
+                        <LostReportMatches report={report} />
                       </div>
                     ))}
                   </div>

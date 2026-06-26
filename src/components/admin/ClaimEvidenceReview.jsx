@@ -1,17 +1,13 @@
-import React, { useState } from "react";
+import React from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useToast } from "@/components/ui/use-toast";
-import { Loader2, ShieldAlert } from "lucide-react";
-import { useClaimEvidenceReview, useSubmitClaimEvidenceReview } from "@/hooks/useClaimWorkflow";
+import { ShieldAlert } from "lucide-react";
+import { useClaimEvidenceReview } from "@/hooks/useClaimWorkflow";
 
 export default function ClaimEvidenceReview({ claimId, className = "" }) {
   const { t } = useTranslation();
-  const { toast } = useToast();
-  const [summaryDraft, setSummaryDraft] = useState("");
 
   const {
     data: evidence,
@@ -20,32 +16,6 @@ export default function ClaimEvidenceReview({ claimId, className = "" }) {
     refetch,
     isFetching,
   } = useClaimEvidenceReview(claimId, { enabled: Boolean(claimId), includeVaultClues: true });
-
-  const submitReviewMutation = useSubmitClaimEvidenceReview(claimId);
-
-  const handleSaveReview = async () => {
-    if (submitReviewMutation.isPending) {
-      return;
-    }
-
-    try {
-      await submitReviewMutation.mutateAsync({
-        verification_score: evidence?.verification_score,
-        verification_flags: evidence?.verification_flags || [],
-        verification_summary: summaryDraft.trim() || evidence?.verification_summary || "",
-      });
-      toast({
-        title: t("claim_evidence.review_saved_title"),
-        description: t("claim_evidence.review_saved_description"),
-      });
-    } catch (reviewError) {
-      toast({
-        title: t("claim_evidence.review_failed_title"),
-        description: reviewError.message || t("claim_evidence.review_failed_description"),
-        variant: "destructive",
-      });
-    }
-  };
 
   if (isLoading) {
     return (
@@ -133,43 +103,6 @@ export default function ClaimEvidenceReview({ claimId, className = "" }) {
             <li>{t("claim_evidence.no_sealed_clues")}</li>
           )}
         </ul>
-      </div>
-
-      <div className="rounded-xl border border-border bg-background px-4 py-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <p className="text-sm font-semibold text-foreground">
-            {t("claim_evidence.verification_score", { score: evidence.verification_score ?? "—" })}
-          </p>
-          {(evidence.verification_flags || []).map((flag) => (
-            <Badge key={flag} variant="outline" className="border-border text-muted-foreground">
-              {flag}
-            </Badge>
-          ))}
-        </div>
-        <p className="mt-2 text-sm leading-6 text-muted-foreground">
-          {evidence.verification_summary || t("claim_evidence.no_summary")}
-        </p>
-        <div className="mt-3 space-y-2">
-          <label htmlFor={`evidence-summary-${claimId}`} className="text-xs font-semibold text-muted-foreground">
-            {t("claim_evidence.staff_summary_label")}
-          </label>
-          <Textarea
-            id={`evidence-summary-${claimId}`}
-            rows={3}
-            value={summaryDraft || evidence.verification_summary || ""}
-            onChange={(event) => setSummaryDraft(event.target.value)}
-            className="bg-card border-border text-foreground"
-          />
-          <Button
-            type="button"
-            size="sm"
-            onClick={handleSaveReview}
-            disabled={submitReviewMutation.isPending}
-          >
-            {submitReviewMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {t("claim_evidence.save_review")}
-          </Button>
-        </div>
       </div>
     </section>
   );

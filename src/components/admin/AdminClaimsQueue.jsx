@@ -96,17 +96,23 @@ export default function AdminClaimsQueue({ claims = [], foundItems = [] }) {
         });
       }
 
-      await appClient.entities.AuditLog.create({
-        action,
-        entity_type: "claim",
-        entity_id: updatedClaim?.id || updatedClaim?._id || claim.id,
-        performed_by: "admin",
-        details: data.status
-          ? `Claim status: ${data.status}`
-          : data.review_status
-            ? `Review status: ${data.review_status}`
-            : "Claim updated",
-      });
+      // Audit logging is best-effort: a logging failure must not surface as a
+      // failed approve/reject when the claim action itself succeeded.
+      try {
+        await appClient.entities.AuditLog.create({
+          action,
+          entity_type: "claim",
+          entity_id: updatedClaim?.id || updatedClaim?._id || claim.id,
+          performed_by: "admin",
+          details: data.status
+            ? `Claim status: ${data.status}`
+            : data.review_status
+              ? `Review status: ${data.review_status}`
+              : "Claim updated",
+        });
+      } catch (auditError) {
+        console.warn("Audit log failed (non-fatal):", auditError);
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["adminClaims"] });
@@ -238,6 +244,61 @@ export default function AdminClaimsQueue({ claims = [], foundItems = [] }) {
                       <Eye className="h-3.5 w-3.5" />
                       {t("admin_dashboard.review", "Review")}
                     </Button>
+                    {["submitted", "under_review", "need_more_info", "pending_review"].includes(claim.status) && (
+                      <>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button size="sm" className="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold gap-1" disabled={updateMutation.isPending}>
+                              <CheckCircle2 className="h-3.5 w-3.5" />
+                              {t("admin_claims_queue.approve")}
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Approve this claim?</AlertDialogTitle>
+                              <AlertDialogDescription>The claim will be approved. You can then issue a claim code for pickup.</AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction
+                                className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                                onClick={() => updateMutation.mutate({ claim, data: { status: "approved" }, action: "Claim approved" })}
+                              >
+                                Approve
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="border-red-200 bg-red-50 text-red-600 hover:bg-red-100 dark:border-red-900 dark:bg-red-950/20 dark:text-red-400 dark:hover:bg-red-950/40 gap-1"
+                              disabled={updateMutation.isPending}
+                            >
+                              <XCircle className="h-3.5 w-3.5" />
+                              {t("admin_claims_queue.reject")}
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Disapprove this claim?</AlertDialogTitle>
+                              <AlertDialogDescription>The student will be notified their claim was not approved.</AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction
+                                className="bg-red-600 hover:bg-red-700 text-white"
+                                onClick={() => updateMutation.mutate({ claim, data: { status: "rejected" }, action: "Claim rejected" })}
+                              >
+                                Disapprove
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </>
+                    )}
                   </div>
                 </div>
               </CardContent>
@@ -296,7 +357,7 @@ export default function AdminClaimsQueue({ claims = [], foundItems = [] }) {
 
               <ClaimEvidenceReview claimId={detailDialog.id} />
 
-              <IssueReturnPassPanel claim={detailDialog} />
+              <IssueReturnPassPanel claim={detailDialog} existingPassId={detailDialog.return_pass_id || ""} />
 
               <ClaimCaseMessageThread claim={detailDialog} viewerRole="admin" />
 
@@ -306,59 +367,27 @@ export default function AdminClaimsQueue({ claims = [], foundItems = [] }) {
                 <div className="flex flex-wrap gap-2">
                   {detailDialog.status === "submitted" && (
                     <>
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button
-                            size="sm"
-                            className="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold"
-                          >
-                            <CheckCircle2 className="h-3.5 w-3.5 mr-1" />
-                            {t("admin_claims_queue.approve")}
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Approve this claim?</AlertDialogTitle>
-                            <AlertDialogDescription>A one-time pickup pass will be issued to the student.</AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction
-                              className="bg-emerald-600 hover:bg-emerald-700 text-white"
-                              onClick={() => updateMutation.mutate({ claim: detailDialog, data: { status: "approved" }, action: "Claim approved" })}
-                            >
-                              Approve
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="border-red-200 bg-red-50 text-red-600 hover:bg-red-100 dark:border-red-900 dark:bg-red-950/20 dark:text-red-400 dark:hover:bg-red-950/40"
-                          >
-                            <XCircle className="h-3.5 w-3.5 mr-1" />
-                            {t("admin_claims_queue.reject")}
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Reject this claim?</AlertDialogTitle>
-                            <AlertDialogDescription>The student will be notified their claim was not approved.</AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction
-                              className="bg-red-600 hover:bg-red-700 text-white"
-                              onClick={() => updateMutation.mutate({ claim: detailDialog, data: { status: "rejected" }, action: "Claim rejected" })}
-                            >
-                              Reject
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
+                      {/* Direct actions (no nested AlertDialog inside this Dialog, which
+                          could swallow the click). The card-level confirm covers intent. */}
+                      <Button
+                        size="sm"
+                        className="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold"
+                        disabled={updateMutation.isPending}
+                        onClick={() => updateMutation.mutate({ claim: detailDialog, data: { status: "approved" }, action: "Claim approved" })}
+                      >
+                        <CheckCircle2 className="h-3.5 w-3.5 mr-1" />
+                        {t("admin_claims_queue.approve")}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="border-red-200 bg-red-50 text-red-600 hover:bg-red-100 dark:border-red-900 dark:bg-red-950/20 dark:text-red-400 dark:hover:bg-red-950/40"
+                        disabled={updateMutation.isPending}
+                        onClick={() => updateMutation.mutate({ claim: detailDialog, data: { status: "rejected" }, action: "Claim rejected" })}
+                      >
+                        <XCircle className="h-3.5 w-3.5 mr-1" />
+                        {t("admin_claims_queue.reject")}
+                      </Button>
                     </>
                   )}
                   {detailDialog.status !== "under_review" && detailDialog.status !== "completed" && detailDialog.status !== "rejected" && (
@@ -581,7 +610,7 @@ export default function AdminClaimsQueue({ claims = [], foundItems = [] }) {
               {t("common.close")}
             </Button>
             <Button
-              className="bg-primary hover:bg-primary/90 text-white"
+              variant="default"
               onClick={async () => {
                 if (detailDialog) {
                   await appClient.claims.updateWorkflow(detailDialog, { admin_notes: adminNotes });
