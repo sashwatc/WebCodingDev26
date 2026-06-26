@@ -112,6 +112,7 @@
     "search_step_title": "Busca primero",
     "search_step_description": "Busca una coincidencia en el inventario aprobado antes de enviar un nuevo reporte.",
     "search_inventory": "Buscar en el inventario",
+    "search_button": "Buscar",
     "search_placeholder": "AirPods, botella, biblioteca",
     "search_aria": "Buscar en el inventario de objetos encontrados",
     "search_help": "Usa pocas palabras, como el tipo de artículo, marca, color o lugar donde se encontró.",

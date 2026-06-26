@@ -164,6 +164,9 @@ export default function ReportLost() {
     if (!form.date_lost) nextErrors.date_lost = t("report_lost.date_lost_required");
     if (!form.contact_name.trim()) nextErrors.contact_name = t("report_lost.contact_name_required");
     if (!form.contact_email.trim()) nextErrors.contact_email = t("report_lost.contact_email_required");
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.contact_email.trim())) {
+      nextErrors.contact_email = t("claim_item.email_invalid", "Enter a valid email address.");
+    }
     if (!form.confirm_accuracy) nextErrors.confirm_accuracy = t("report_lost.confirm_required");
     setErrors(nextErrors);
     return Object.keys(nextErrors).length === 0;
@@ -239,7 +242,7 @@ export default function ReportLost() {
             <div className="mb-2 flex items-center gap-2">
               <Sparkles className="w-5 h-5 text-primary" />
               <h3 className="text-lg font-semibold text-foreground">
-                {t("report_lost.potential_matches", { count: matches.length })}
+                {t("report_lost.potential_matches", { count: matches.filter((match) => foundItems.some((foundItem) => foundItem.id === match.found_item_id)).length })}
               </h3>
             </div>
             {matches.map((match, index) => {

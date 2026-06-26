@@ -2730,10 +2730,12 @@ function createRecoveryPulseApi() {
     },
     async markNotificationRead(id) {
       try {
-        const record = await requestEntityApi("Notification", `/${encodeURIComponent(id)}`, {
-          method: "PATCH",
-          body: JSON.stringify({ is_read: true }),
-        });
+        // Ownership-checked endpoint; the generic entity PATCH had no per-user guard.
+        const record = normalizeNotificationRecord(
+          await requestFeatureApi(`/recovery-pulse/notifications/${encodeURIComponent(id)}/read`, {
+            method: "POST",
+          }),
+        );
         upsertCachedRecord("Notification", record);
         return clone(record);
       } catch (error) {

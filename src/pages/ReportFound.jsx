@@ -210,6 +210,9 @@ export default function ReportFound() {
     if (!form.location_found) errs.location_found = t("report_found.location_required");
     if (!user && !form.finder_name.trim()) errs.finder_name = t("report_found.your_name_required");
     if (!user && !form.finder_email.trim()) errs.finder_email = t("report_found.email_required");
+    else if (!user && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.finder_email.trim())) {
+      errs.finder_email = t("report_found.email_invalid", "Enter a valid email address.");
+    }
     if (!form.privacy_consent) errs.privacy_consent = t("report_found.privacy_consent_required");
     if (!form.terms_acknowledged) errs.terms_acknowledged = t("report_found.terms_required");
     setErrors(errs);

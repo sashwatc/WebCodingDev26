@@ -13,6 +13,7 @@ import {
   translateCondition,
   translateLocation,
 } from "@/lib/i18n-helpers";
+import { isClaimableFoundItemStatus } from "@/lib/found-items";
 import {
   ArrowLeft, MapPin, Calendar, Clock, Tag, Package,
   Shield, Printer, Share2, ChevronLeft, ChevronRight,
@@ -339,7 +340,7 @@ export default function ItemDetails() {
           }}>
             {statusBadge.label}
           </span>
-          {!isLostReport && item.status === "approved" && (
+          {!isLostReport && isClaimableFoundItemStatus(item.status) && (
             <span style={{
               background: "#0f2d4a", color: "#38bdf8", font: "600 10px Inter,sans-serif",
               padding: "4px 10px", borderRadius: "20px", letterSpacing: ".5px", border: "1px solid #164060",

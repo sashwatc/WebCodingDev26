@@ -112,6 +112,7 @@
     "search_step_title": "Rechercher d'abord",
     "search_step_description": "Cherchez une correspondance dans l'inventaire approuvé avant de déposer un nouveau signalement.",
     "search_inventory": "Rechercher dans l'inventaire",
+    "search_button": "Rechercher",
     "search_placeholder": "AirPods, bouteille, bibliothèque",
     "search_aria": "Rechercher dans l'inventaire des objets trouvés",
     "search_help": "Utilisez quelques mots, comme le type d'article, la marque, la couleur ou le lieu.",

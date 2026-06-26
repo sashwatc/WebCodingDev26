@@ -1,10 +1,16 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/lib/AuthContext";
 
 export default function StaffRouteGuard({ children }) {
   const { isLoadingAuth, isAuthenticated, isAdmin, isStaff, navigateToLogin } = useAuth();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!isLoadingAuth && !isAuthenticated) {
+      navigateToLogin();
+    }
+  }, [isLoadingAuth, isAuthenticated, navigateToLogin]);
 
   if (isLoadingAuth) {
     return (
@@ -17,7 +23,6 @@ export default function StaffRouteGuard({ children }) {
   }
 
   if (!isAuthenticated) {
-    navigateToLogin();
     return null;
   }
 

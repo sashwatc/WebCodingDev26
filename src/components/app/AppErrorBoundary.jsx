@@ -34,7 +34,9 @@ export default class AppErrorBoundary extends React.Component {
             getting a blank page.
           </p>
           <pre className="mt-6 overflow-x-auto rounded-xl bg-muted p-4 text-sm leading-6 text-foreground">
-            {this.state.error?.stack || this.state.error?.message || "Unknown runtime error"}
+            {import.meta.env.DEV
+              ? (this.state.error?.stack || this.state.error?.message || "Unknown runtime error")
+              : (this.state.error?.message || "Unknown runtime error")}
           </pre>
           <button
             type="button"
