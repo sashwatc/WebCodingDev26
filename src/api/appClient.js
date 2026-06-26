@@ -2266,6 +2266,17 @@ function createClaimApi(baseApi) {
         Array.isArray(records) ? records.map(normalizeClaim) : []
       );
     },
+    // Claimant withdraws their own pending claim (dedicated endpoint, not the
+    // admin-only entity update path).
+    cancel(claimOrId) {
+      const id = typeof claimOrId === "string" ? claimOrId : getRecordId(claimOrId);
+      if (!id) {
+        throw new Error("Claim ID is required.");
+      }
+      return requestFeatureApi(`/claims/${encodeURIComponent(id)}/cancel`, {
+        method: "POST",
+      }).then((record) => normalizeClaim(record));
+    },
     // Claimant-authorized rating submission. Uses the dedicated endpoint so a
     // normal user does not hit the admin-only entity list (which 403s) via the
     // generic update path. The backend also records the rating on the FoundItem.

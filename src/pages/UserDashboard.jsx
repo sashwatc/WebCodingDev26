@@ -145,6 +145,17 @@ export default function UserDashboard() {
     onSuccess: () => queryClient.invalidateQueries(),
   });
 
+  const withdrawMutation = useMutation({
+    mutationFn: (claim) => appClient.claims.cancel(claim),
+    onSuccess: () => {
+      queryClient.invalidateQueries();
+      toast({ title: t("user_dashboard.claim_withdrawn", "Claim withdrawn") });
+    },
+    onError: (error) => {
+      toast({ variant: "destructive", title: t("user_dashboard.claim_withdraw_failed", "Could not withdraw claim"), description: error?.message });
+    },
+  });
+
   const submitReviewMutation = useMutation({
     mutationFn: async ({ claim, rating, review }) => {
       // Use the dedicated claimant-authorized rating endpoint. It persists the
@@ -631,6 +642,25 @@ export default function UserDashboard() {
 
                         {["need_more_info", "under_review", "submitted", "pending_review"].includes(claim.status) && (
                           <ClaimCaseMessageThread claim={claim} viewerRole="claimant" className="mt-4" />
+                        )}
+
+                        {["need_more_info", "under_review", "submitted", "pending_review"].includes(claim.status) && (
+                          <div className="pt-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-destructive hover:text-destructive"
+                              disabled={withdrawMutation.isPending}
+                              onClick={() => {
+                                if (window.confirm(t("user_dashboard.withdraw_confirm", "Withdraw this claim? This cannot be undone."))) {
+                                  withdrawMutation.mutate(claim);
+                                }
+                              }}
+                            >
+                              <Trash2 className="w-3.5 h-3.5 mr-1.5" />
+                              {t("user_dashboard.withdraw_claim", "Withdraw claim")}
+                            </Button>
+                          </div>
                         )}
 
                         {/* Approved claims requiring pickup confirmation */}
