@@ -324,13 +324,15 @@ export default function Search({ recordTypeOverride = "found" }) {
     </div>
   );
 
-  const heroBg = isLostItemsPage ? "#08090f" : "#08090d";
+  // Top (hero) is the lighter shade; content below is the darker shade
+  const heroBg = "#0d1117";
+  const contentBg = "#08090f";
 
   return (
-    <div>
+    <div style={{ background: contentBg }}>
       {/* Full-bleed hero with locker graphic */}
       <div
-        className="relative -mt-0 mb-0 overflow-hidden"
+        className="relative mb-0 overflow-hidden"
         style={{ background: heroBg, minHeight: "220px" }}
       >
         <div className="mx-auto flex max-w-7xl items-center px-4 py-12 sm:px-6 lg:px-8" style={{ paddingRight: "clamp(2rem, 38%, 520px)" }}>
@@ -370,7 +372,7 @@ export default function Search({ recordTypeOverride = "found" }) {
         <div className="absolute inset-x-0 bottom-0 h-px bg-white/[0.06]" />
       </div>
 
-      <div className="page-shell py-8">
+      <div className="page-shell py-8" style={{ background: contentBg }}>
       <div className="mb-6 flex flex-wrap gap-2">
         <Button asChild variant={!isLostItemsPage ? "default" : "outline"} size="sm">
           <Link to="/Search">{t("search.found_items_tag", "Found Items")}</Link>
