@@ -19,17 +19,21 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/AuthContext";
+import { useQuery } from "@tanstack/react-query";
+import { appClient } from "@/api/appClient";
+import { isPublicFoundItemStatus } from "@/lib/found-items";
 import { staggerChildVariants, staggerContainerProps } from "@/lib/motion";
 
 /* ─── Data ──────────────────────────────────────────────────────────────── */
-const SHOWCASE_ITEMS = [
-  { src: "/items/airpods-pro-case.png",  label: "AirPods Pro Case",   location: "Library",     daysAgo: 1 },
-  { src: "/items/rayban-sunglasses.png", label: "Ray-Ban Sunglasses", location: "Gymnasium",   daysAgo: 2 },
-  { src: "/items/casio-watch.png",       label: "Casio Watch",        location: "Cafeteria",   daysAgo: 3 },
-  { src: "/items/black-hydro-flask.jpg", label: "Hydro Flask",        location: "Hallway B",   daysAgo: 4 },
-  { src: "/items/nike-hoodie.png",       label: "Nike Hoodie",        location: "Locker Room", daysAgo: 5 },
-  { src: "/items/ti-calculator.png",     label: "TI-84 Calculator",   location: "Room 204",    daysAgo: 6 },
-];
+function daysAgoLabel(dateStr) {
+  if (!dateStr) return "";
+  const parsed = new Date(dateStr);
+  if (Number.isNaN(parsed.getTime())) return "";
+  const days = Math.floor((Date.now() - parsed.getTime()) / 86400000);
+  if (days <= 0) return "Today";
+  if (days === 1) return "Yesterday";
+  return `${days}d ago`;
+}
 
 const HOW_IT_WORKS = [
   { step: "01", icon: Search,   title: "Search the archive", desc: "Browse logged found items by keyword, brand, color, or location." },
@@ -63,6 +67,15 @@ export default function Home() {
   const { t }    = useTranslation();
   const navigate = useNavigate();
   const { user, isAdmin, isLoadingAuth } = useAuth();
+
+  // Real "recently found" inventory for the marquee (same source as Search).
+  const { data: recentRaw = [], isLoading: recentLoading } = useQuery({
+    queryKey: ["homeRecentFound"],
+    queryFn: () => appClient.entities.FoundItem.list("-created_date", 12),
+    enabled: !!user,
+    staleTime: 60_000,
+  });
+  const recentFound = recentRaw.filter((it) => it.record_type !== "lost" && isPublicFoundItemStatus(it.status));
 
   /* refs — cinematic */
   const containerRef      = useRef(null);
@@ -666,44 +679,60 @@ export default function Home() {
                 <div className="page-shell mb-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h2 className="text-sm font-bold" style={{ color: "#fff", letterSpacing: "-0.02em" }}>Recently found nearby</h2>
-                      <p className="mt-0.5 text-xs" style={{ color: "rgba(255,255,255,0.38)" }}>Items logged and waiting to be claimed</p>
+                      <h2 className="text-sm font-bold" style={{ color: "#fff", letterSpacing: "-0.02em" }}>{t("home.recently_found_title")}</h2>
+                      <p className="mt-0.5 text-xs" style={{ color: "rgba(255,255,255,0.38)" }}>{t("home.recently_found_helper")}</p>
                     </div>
                     <Link to="/Search" style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12.5, fontWeight: 600, color: "rgba(255,255,255,0.45)", textDecoration: "none" }}
                       onMouseEnter={(e) => { e.currentTarget.style.color = "rgba(255,255,255,0.85)"; }}
                       onMouseLeave={(e) => { e.currentTarget.style.color = "rgba(255,255,255,0.45)"; }}
                     >
-                      View all <ArrowRight style={{ width: 12, height: 12 }} aria-hidden="true" />
+                      {t("home.view_all_found")} <ArrowRight style={{ width: 12, height: 12 }} aria-hidden="true" />
                     </Link>
                   </div>
                 </div>
                 {/* Marquee track */}
                 <div style={{ overflow: "hidden", position: "relative" }}>
                   <div style={{ position: "absolute", inset: 0, pointerEvents: "none", zIndex: 1, background: "linear-gradient(to right, #0b1628 0%, transparent 8%, transparent 92%, #0b1628 100%)" }} aria-hidden="true" />
+                  {recentLoading ? (
+                    <div className="page-shell" style={{ color: "rgba(255,255,255,0.45)", fontSize: 12.5, padding: "8px 0" }}>
+                      {t("home.loading_recent")}
+                    </div>
+                  ) : recentFound.length === 0 ? (
+                    <div className="page-shell" style={{ fontSize: 12.5, padding: "8px 0" }}>
+                      <Link to="/ReportFound" style={{ color: "rgba(255,255,255,0.7)", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 6 }}>
+                        <PlusCircle style={{ width: 14, height: 14 }} aria-hidden="true" /> {t("home.submit_report")}
+                      </Link>
+                    </div>
+                  ) : (
                   <div className="marquee-track" style={{ display: "flex", gap: 12, width: "max-content" }}>
-                    {Array(4).fill(null).flatMap(() => SHOWCASE_ITEMS).map((item, i) => (
-                      <Link key={i} to={`/Search?q=${encodeURIComponent(item.label)}`} aria-label={`Search for ${item.label}, found at ${item.location}`}
+                    {Array(Math.max(2, Math.ceil(8 / recentFound.length))).fill(null).flatMap(() => recentFound).map((item, i) => (
+                      <Link key={`${item.id}-${i}`} to={`/ItemDetails?id=${encodeURIComponent(item.id)}`} aria-label={`${item.title}${item.location_found ? `, ${item.location_found}` : ""}`}
                         style={{ display: "flex", flexDirection: "column", width: 160, borderRadius: 11, overflow: "hidden", background: "#111e30", border: "1px solid rgba(255,255,255,0.07)", flexShrink: 0, textDecoration: "none", transition: "border-color 0.15s" }}
                         onMouseEnter={(e) => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.18)"; }}
                         onMouseLeave={(e) => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.07)"; }}
                       >
                         <div style={{ width: 160, height: 120, background: "linear-gradient(135deg, #0f1f35 0%, #1a2f4a 100%)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                          <Package style={{ width: 28, height: 28, color: "rgba(255,255,255,0.12)" }} aria-hidden="true" />
+                          {item.imageUrl ? (
+                            <img src={item.imageUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={(e) => { e.currentTarget.style.display = "none"; }} />
+                          ) : (
+                            <Package style={{ width: 28, height: 28, color: "rgba(255,255,255,0.12)" }} aria-hidden="true" />
+                          )}
                         </div>
                         <div style={{ padding: "10px 12px" }}>
-                          <p style={{ fontSize: 12.5, fontWeight: 600, color: "#fff", marginBottom: 5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{item.label}</p>
+                          <p style={{ fontSize: 12.5, fontWeight: 600, color: "#fff", marginBottom: 5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{item.title}</p>
                           <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 2 }}>
                             <MapPin style={{ width: 10, height: 10, color: "rgba(255,255,255,0.32)", flexShrink: 0 }} aria-hidden="true" />
-                            <span style={{ fontSize: 11, color: "rgba(255,255,255,0.32)" }}>{item.location}</span>
+                            <span style={{ fontSize: 11, color: "rgba(255,255,255,0.32)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 120 }}>{item.location_found || t("common.unknown_location")}</span>
                           </div>
                           <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                             <Clock style={{ width: 10, height: 10, color: "rgba(255,255,255,0.32)", flexShrink: 0 }} aria-hidden="true" />
-                            <span style={{ fontSize: 11, color: "rgba(255,255,255,0.32)" }}>{item.daysAgo === 1 ? "Yesterday" : `${item.daysAgo}d ago`}</span>
+                            <span style={{ fontSize: 11, color: "rgba(255,255,255,0.32)" }}>{daysAgoLabel(item.created_date)}</span>
                           </div>
                         </div>
                       </Link>
                     ))}
                   </div>
+                  )}
                 </div>
               </div>
             )}
