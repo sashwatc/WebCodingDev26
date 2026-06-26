@@ -22,13 +22,21 @@ import { translateCategory, translateColor, translateLocation, translateUrgency 
 import { ConsentCheckboxField } from "@/components/shared/ConsentCheckboxField";
 import PhotoUploader from "@/components/shared/PhotoUploader";
 import {
-  AlertTriangle,
   Brain,
+  Briefcase,
+  CalendarClock,
   Eye,
   Loader2,
   LockKeyhole,
+  ShieldCheck,
   Sparkles,
 } from "lucide-react";
+
+const STEPS = [
+  { step: 1, labelKey: "report_found.step_identity", fallback: "Item Identity", icon: Briefcase, sectionTitle: "Lost Item Details", sectionSub: "Tell us what the item is" },
+  { step: 2, labelKey: "report_found.step_location", fallback: "Time & Place",  icon: CalendarClock, sectionTitle: "When & Where", sectionSub: "Help us narrow down the search" },
+  { step: 3, labelKey: "report_found.step_details", fallback: "Verification & Contact", icon: ShieldCheck, sectionTitle: "Verify & Contact", sectionSub: "Your private contact information" },
+];
 
 function locationFromZoneLabel(label = "") {
   const normalized = label.toLowerCase();
@@ -295,55 +303,68 @@ export default function ReportLost() {
       )}
 
       {/* Progress Tracker */}
-      <div className="mb-8 bg-card border border-border rounded-xl p-5 shadow-sm">
-        <div className="flex justify-between items-center relative">
-          {/* Progress bar background line */}
-          <div className="absolute left-0 right-0 h-0.5 bg-muted top-1/2 -translate-y-1/2 z-0" />
-          {/* Active progress bar line */}
-          <div 
-            className="absolute left-0 h-0.5 bg-primary top-1/2 -translate-y-1/2 z-0 transition-all duration-300"
-            style={{ width: `${((formStep - 1) / 2) * 100}%` }}
-          />
-
-          {[
-            { step: 1, label: t("report_found.step_identity", "Item Identity") },
-            { step: 2, label: t("report_found.step_location", "Time & Place") },
-            { step: 3, label: t("report_found.step_details", "Verification & Contact") }
-          ].map((item) => {
-            const isCompleted = formStep > item.step;
-            const isActive = formStep === item.step;
+      <div className="mb-4 bg-card border border-border rounded-xl px-6 py-5">
+        <div className="flex items-center justify-between">
+          {STEPS.map((s, idx) => {
+            const isCompleted = formStep > s.step;
+            const isActive = formStep === s.step;
+            const Icon = s.icon;
             return (
-              <div key={item.step} className="flex flex-col items-center relative z-10">
-                <div 
-                  className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300 ${
-                    isCompleted 
-                      ? "bg-emerald-600 text-white" 
-                      : isActive 
-                        ? "bg-primary text-white ring-4 ring-primary/20" 
-                        : "bg-muted text-muted-foreground border border-border"
-                  }`}
-                >
-                  {isCompleted ? "✓" : item.step}
+              <React.Fragment key={s.step}>
+                <div className="flex flex-col items-center gap-2 min-w-0">
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 ${
+                    isCompleted
+                      ? "bg-emerald-600/20 border-2 border-emerald-500"
+                      : isActive
+                        ? "bg-primary/10 border-2 border-primary ring-4 ring-primary/15"
+                        : "bg-muted border border-border"
+                  }`}>
+                    {isCompleted
+                      ? <span className="text-emerald-400 text-sm font-bold">✓</span>
+                      : isActive
+                        ? <Icon className="w-4 h-4 text-primary" />
+                        : <span className="text-xs font-bold text-muted-foreground">{s.step}</span>
+                    }
+                  </div>
+                  <span className={`text-xs font-medium whitespace-nowrap ${isActive ? "text-primary font-semibold" : "text-muted-foreground"}`}>
+                    {t(s.labelKey, s.fallback)}
+                  </span>
                 </div>
-                <span className={`text-xs font-medium mt-2 ${isActive ? "text-primary font-semibold" : "text-muted-foreground"}`}>
-                  {item.label}
-                </span>
-              </div>
+                {idx < STEPS.length - 1 && (
+                  <div className="flex-1 mx-3 h-px bg-border relative -mt-5">
+                    <div
+                      className="absolute inset-y-0 left-0 bg-primary/60 transition-all duration-500"
+                      style={{ width: isCompleted ? "100%" : "0%" }}
+                    />
+                  </div>
+                )}
+              </React.Fragment>
             );
           })}
         </div>
       </div>
 
+      {/* Section header */}
+      {(() => {
+        const current = STEPS[formStep - 1];
+        const Icon = current.icon;
+        return (
+          <div className="mb-6 bg-card border border-border rounded-xl px-5 py-4 flex items-center gap-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+              <Icon className="w-4 h-4 text-primary" />
+            </div>
+            <div>
+              <p className="text-[15px] font-bold leading-none text-foreground">{current.sectionTitle}</p>
+              <p className="mt-1 text-xs text-muted-foreground">{current.sectionSub}</p>
+            </div>
+          </div>
+        );
+      })()}
+
       <form onSubmit={handleSubmit} className="space-y-6" noValidate>
         <div className="form-shell">
           {formStep === 1 && (
             <section className="space-y-6 animate-in fade-in duration-300 p-6 sm:p-8">
-              <div className="space-y-2">
-                <h2 className="flex items-center gap-2 text-lg font-semibold text-foreground">
-                  <AlertTriangle className="w-5 h-5 text-primary" />
-                  {t("report_lost.details")}
-                </h2>
-              </div>
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
@@ -390,12 +411,6 @@ export default function ReportLost() {
 
           {formStep === 2 && (
             <section className="space-y-6 animate-in fade-in duration-300 p-6 sm:p-8">
-              <div className="space-y-2">
-                <h2 className="flex items-center gap-2 text-lg font-semibold text-foreground">
-                  <AlertTriangle className="w-5 h-5 text-primary" />
-                  {t("report_lost.details")}
-                </h2>
-              </div>
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
@@ -442,12 +457,6 @@ export default function ReportLost() {
 
           {formStep === 3 && (
             <section className="space-y-6 animate-in fade-in duration-300 p-6 sm:p-8">
-              <div className="space-y-2">
-                <h2 className="flex items-center gap-2 text-lg font-semibold text-foreground">
-                  <AlertTriangle className="w-5 h-5 text-primary" />
-                  {t("report_lost.contact_information")}
-                </h2>
-              </div>
 
               <div>
                 <Label htmlFor="lost_desc">{t("report_lost.description_label")}</Label>

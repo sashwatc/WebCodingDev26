@@ -30,8 +30,8 @@ export default function Footer() {
   return (
     <footer className="mt-20 border-t border-border" role="contentinfo">
 
-      {/* Navy brand strip */}
-      <div style={{ background: "hsl(var(--primary))" }}>
+      {/* Brand strip */}
+      <div className="bg-card border-b border-border">
         <div className="page-shell py-7">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-3">
