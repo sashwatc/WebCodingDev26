@@ -427,7 +427,7 @@
   }
 
   .search-toolbar-input {
-    @apply h-12 w-full border-0 bg-transparent pl-11 text-sm shadow-none placeholder:text-muted-foreground/60 focus-visible:outline-none focus-visible:ring-0;
+    @apply h-12 w-full border-0 bg-transparent pl-12 text-sm shadow-none placeholder:text-muted-foreground/60 focus-visible:outline-none focus-visible:ring-0;
   }
 
   .search-toolbar-filter {
