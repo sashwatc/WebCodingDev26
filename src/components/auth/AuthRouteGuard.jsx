@@ -1,8 +1,18 @@
-import React from "react";
+import React, { useEffect } from "react";
+import { Navigate } from "react-router-dom";
 import { useAuth } from "@/lib/AuthContext";
 
 export default function AuthRouteGuard({ children }) {
-  const { isLoadingAuth, isAuthenticated, navigateToLogin } = useAuth();
+  const { isLoadingAuth, isAuthenticated, openSignIn } = useAuth();
+
+  // Open the sign-in dialog once when an unauthenticated user hits a guarded
+  // route. Doing this in an effect (not during render) avoids re-forcing the
+  // dialog open on every render, which would make its close button appear dead.
+  useEffect(() => {
+    if (!isLoadingAuth && !isAuthenticated) {
+      openSignIn();
+    }
+  }, [isLoadingAuth, isAuthenticated, openSignIn]);
 
   if (isLoadingAuth) {
     return (
@@ -15,8 +25,8 @@ export default function AuthRouteGuard({ children }) {
   }
 
   if (!isAuthenticated) {
-    navigateToLogin();
-    return null;
+    // Send them to a real page so closing the dialog doesn't re-trigger the guard.
+    return <Navigate to="/Home" replace />;
   }
 
   return children;
