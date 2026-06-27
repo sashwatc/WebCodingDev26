@@ -104,6 +104,18 @@ export const DEMO_ACCOUNTS = {
     role: "student",
     label: "Student Demo",
   },
+  averyChen: {
+    full_name: "Avery Chen",
+    email: "avery.chen@pleasantvalley.edu",
+    role: "student",
+    label: "Avery Chen — Main Demo Case",
+  },
+  jordanLee: {
+    full_name: "Jordan Lee",
+    email: "jordan.lee@pleasantvalley.edu",
+    role: "student",
+    label: "Jordan Lee — Case 041",
+  },
   admin: {
     full_name: "Avery Patel",
     email: "avery.patel@pleasantvalley.edu",

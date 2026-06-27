@@ -18,7 +18,9 @@ import { evaluatePasswordStrength } from "@/lib/passwordStrength";
 import { appClient } from "@/api/appClient";
 import { Briefcase, ChevronLeft, Mail, Shield, User, User2, Lock } from "lucide-react";
 
-const DEMO_ACCOUNT = DEMO_ACCOUNTS.student;
+const DEMO_ACCOUNT = DEMO_ACCOUNTS.averyChen;
+const AVERY_DEMO_ACCOUNT = DEMO_ACCOUNTS.averyChen;
+const JORDAN_LEE_DEMO_ACCOUNT = DEMO_ACCOUNTS.jordanLee;
 const ADMIN_DEMO_ACCOUNT = DEMO_ACCOUNTS.admin;
 const STAFF_DEMO_ACCOUNT = DEMO_ACCOUNTS.staff;
 
@@ -181,15 +183,24 @@ export default function SignInDialog() {
             )}
 
             {!isAppwriteEnabled && !registerMode && (
-              <div className="grid gap-2 grid-cols-1 sm:grid-cols-3">
+              <div className="grid gap-2 grid-cols-1 sm:grid-cols-2">
                 <button
                   type="button"
-                  onClick={() => applyDemoAccount(DEMO_ACCOUNT)}
+                  onClick={() => applyDemoAccount(AVERY_DEMO_ACCOUNT)}
+                  className="rounded-xl border border-primary/40 bg-muted px-4 py-3 text-left transition hover:border-primary/60 hover:bg-accent"
+                >
+                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Student · Main Demo</p>
+                  <p className="mt-1 text-sm font-semibold text-foreground">{AVERY_DEMO_ACCOUNT.full_name}</p>
+                  <p className="text-xs text-muted-foreground truncate">{AVERY_DEMO_ACCOUNT.email}</p>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => applyDemoAccount(JORDAN_LEE_DEMO_ACCOUNT)}
                   className="rounded-xl border border-border bg-muted px-4 py-3 text-left transition hover:border-primary/40 hover:bg-accent"
                 >
-                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">{t("sign_in_dialog.student_demo")}</p>
-                  <p className="mt-1 text-sm font-semibold text-foreground">{DEMO_ACCOUNT.full_name}</p>
-                  <p className="text-xs text-muted-foreground truncate">{DEMO_ACCOUNT.email}</p>
+                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Student · Case 041</p>
+                  <p className="mt-1 text-sm font-semibold text-foreground">{JORDAN_LEE_DEMO_ACCOUNT.full_name}</p>
+                  <p className="text-xs text-muted-foreground truncate">{JORDAN_LEE_DEMO_ACCOUNT.email}</p>
                 </button>
                 <button
                   type="button"
