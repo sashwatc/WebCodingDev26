@@ -14,6 +14,7 @@ export function useClaimCaseMessages(claimId, { enabled = true } = {}) {
     queryKey: claimCaseMessagesQueryKey(claimId),
     queryFn: () => appClient.claimCaseMessages.list(claimId),
     enabled: Boolean(claimId) && enabled,
+    refetchInterval: 30_000,
     retry: 1,
   });
 }

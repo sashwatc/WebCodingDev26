@@ -31,7 +31,7 @@ export default function Navbar() {
   const navigate = useNavigate();
   const searchRef = useRef(null);
   const { theme, setTheme } = useMode();
-  const { user, isAdmin, isLoadingAuth, navigateToLogin, logout } = useAuth();
+  const { user, isAdmin, isStaff, isLoadingAuth, navigateToLogin, logout } = useAuth();
   const { toast } = useToast();
 
   useEffect(() => { setMobileOpen(false); }, [location.pathname]);
@@ -67,6 +67,9 @@ export default function Navbar() {
   });
 
   const showAdminNav = !isLoadingAuth && user && isAdmin;
+  // Staff share the dashboard (scoped) with admins, so they get an entry point too.
+  const showStaffPanel = !isLoadingAuth && user && (isAdmin || isStaff);
+  const panelLabel = isAdmin ? t("navbar.admin_panel") : t("navbar.staff_panel", "Staff Panel");
 
   const isActive = (path) => location.pathname === path;
   const isSearchActive = isActive("/Search") || isActive("/LostItems");
@@ -214,7 +217,7 @@ export default function Navbar() {
 
             {/* Global search bar — covers both found + lost */}
             <form onSubmit={handleSearch} role="search">
-              <div className="flex h-8 w-[210px] items-center gap-2 rounded-md border border-border bg-muted/60 px-2.5 transition-[width,border-color,background] duration-200 focus-within:w-[270px] focus-within:border-ring/50 focus-within:bg-background">
+              <div className="flex h-8 w-[150px] items-center gap-2 rounded-md border border-border bg-muted/60 px-2.5 transition-[width,border-color,background] duration-200 focus-within:w-[210px] focus-within:border-ring/50 focus-within:bg-background 2xl:w-[210px] 2xl:focus-within:w-[280px]">
                 <Search className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
                 <input
                   ref={searchRef}
@@ -224,7 +227,7 @@ export default function Navbar() {
                   aria-label="Search all items"
                   className="h-full flex-1 bg-transparent text-[13px] text-foreground outline-none placeholder:text-muted-foreground"
                 />
-                <kbd className="hidden shrink-0 items-center rounded border border-border px-1 py-0.5 text-[10px] font-medium text-muted-foreground sm:flex">
+                <kbd className="hidden shrink-0 items-center rounded border border-border px-1 py-0.5 text-[10px] font-medium text-muted-foreground 2xl:flex">
                   ⌘K
                 </kbd>
               </div>
@@ -243,12 +246,12 @@ export default function Navbar() {
                 : <Moon className="h-[16px] w-[16px]" />}
             </Button>
 
-            {/* Admin Panel */}
-            {showAdminNav && (
+            {/* Admin / Staff Panel */}
+            {showStaffPanel && (
               <Link to="/AdminDashboard">
                 <Button size="sm" variant="outline" className="h-8 gap-1.5 text-[13px] px-3">
                   <Shield className="h-3.5 w-3.5" aria-hidden="true" />
-                  {t("navbar.admin_panel")}
+                  {panelLabel}
                 </Button>
               </Link>
             )}
@@ -299,11 +302,11 @@ export default function Navbar() {
                       {t("navbar.my_dashboard")}
                     </Link>
                   </DropdownMenuItem>
-                  {showAdminNav && (
+                  {showStaffPanel && (
                     <DropdownMenuItem asChild>
                       <Link to="/AdminDashboard" className="flex items-center gap-2">
                         <Shield className="h-4 w-4" aria-hidden="true" />
-                        {t("navbar.admin_panel")}
+                        {panelLabel}
                       </Link>
                     </DropdownMenuItem>
                   )}
@@ -423,10 +426,10 @@ export default function Navbar() {
                   <LayoutDashboard className="h-4 w-4" aria-hidden="true" />
                   {t("navbar.my_dashboard")}
                 </Link>
-                {showAdminNav && (
+                {showStaffPanel && (
                   <Link to="/AdminDashboard" className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-[14px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground">
                     <Shield className="h-4 w-4" aria-hidden="true" />
-                    {t("navbar.admin_dashboard")}
+                    {isAdmin ? t("navbar.admin_dashboard") : t("navbar.staff_panel", "Staff Panel")}
                   </Link>
                 )}
                 <Link to="/Settings" className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-[14px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground">

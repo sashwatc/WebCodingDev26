@@ -47,9 +47,24 @@ export default function UserDashboard() {
   const activeTab = searchParams.get("tab") || "reports";
   const [reviewDrafts, setReviewDrafts] = useState({});
   const [savedItemData, setSavedItemData] = useState([]);
-  const [savedSearches, setSavedSearches] = useState(
-    () => JSON.parse(localStorage.getItem("ltf_saved_searches") || "[]")
-  );
+  // Saved searches are persisted server-side (/api/saved-searches); fall back to
+  // any legacy localStorage entries if the backend call fails.
+  const { data: savedSearches = [] } = useQuery({
+    queryKey: ["savedSearches", user?.email],
+    queryFn: async () => {
+      try {
+        const list = await appClient.savedSearches.list();
+        return (Array.isArray(list) ? list : []).map((s) => ({
+          id: s.id,
+          name: s.name,
+          query: s.filters?.query || s.query || "",
+          filters: s.filters || {},
+        }));
+      } catch {
+        return JSON.parse(localStorage.getItem("ltf_saved_searches") || "[]");
+      }
+    },
+  });
 
   useEffect(() => {
     const ids = JSON.parse(localStorage.getItem("ltf_saved_items") || "[]");
@@ -58,10 +73,14 @@ export default function UserDashboard() {
       .then(items => setSavedItemData(items.filter(Boolean)));
   }, []);
 
-  const deleteSavedSearch = (id) => {
-    const updated = savedSearches.filter(s => s.id !== id);
-    localStorage.setItem("ltf_saved_searches", JSON.stringify(updated));
-    setSavedSearches(updated);
+  const deleteSavedSearch = async (id) => {
+    try {
+      await appClient.savedSearches.delete(id);
+    } catch {
+      const updated = JSON.parse(localStorage.getItem("ltf_saved_searches") || "[]").filter(s => s.id !== id);
+      localStorage.setItem("ltf_saved_searches", JSON.stringify(updated));
+    }
+    queryClient.invalidateQueries({ queryKey: ["savedSearches"] });
   };
 
   // Fetch user's lost reports — match by contact_email OR submitted_by_user_email
@@ -369,7 +388,7 @@ export default function UserDashboard() {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={(v) => setSearchParams({ tab: v })} className="w-full">
-        <TabsList className="responsive-tabs bg-muted/80 rounded-xl border border-border/50 p-1">
+        <TabsList className="flex w-full justify-start gap-1 overflow-x-auto flex-nowrap [&>*]:shrink-0 no-scrollbar bg-muted/80 rounded-xl border border-border/50 p-1">
           <TabsTrigger
             value="reports"
             className="px-5 py-2.5 rounded-lg text-sm font-semibold transition-all data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-sm"

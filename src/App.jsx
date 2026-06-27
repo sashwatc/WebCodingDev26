@@ -49,6 +49,7 @@ import PickupPass from '@/pages/PickupPass';
 import PickupStation from '@/pages/PickupStation';
 import Support from '@/pages/Support';
 import Settings from '@/pages/Settings';
+import SupportWidget from '@/components/support/SupportWidget';
 
 const AuthenticatedApp = () => {
   const { t } = useTranslation();
@@ -147,6 +148,7 @@ function App() {
           <AdminAccessDialog />
           <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
             <AuthenticatedApp />
+            <SupportWidget />
           </Router>
         </MotionConfig>
         <Toaster />

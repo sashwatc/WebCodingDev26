@@ -50,7 +50,9 @@ export default function Search({ recordTypeOverride = "found" }) {
     color: "all",
     location: "all",
     sort: "relevance",
-    recordType,
+    // The global navbar search (type=all) must span both found and lost; only
+    // the dedicated Found/Lost pages pin the record type.
+    recordType: isAllMode ? "all" : recordType,
   });
   const [searchAssist, setSearchAssist] = useState(null);
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -69,8 +71,8 @@ export default function Search({ recordTypeOverride = "found" }) {
   }, [queryFromUrl]);
 
   useEffect(() => {
-    setFilters((curr) => ({ ...curr, recordType }));
-  }, [recordType]);
+    setFilters((curr) => ({ ...curr, recordType: isAllMode ? "all" : recordType }));
+  }, [recordType, isAllMode]);
 
   const {
     data: health,
@@ -193,6 +195,11 @@ export default function Search({ recordTypeOverride = "found" }) {
 
     if (filters.sort !== "relevance") {
       items.sort((a, b) => {
+        if (filters.sort === "updated") {
+          const firstU = new Date(a.updated_date || a.updated_at || a.created_date || 0);
+          const secondU = new Date(b.updated_date || b.updated_at || b.created_date || 0);
+          return secondU - firstU;
+        }
         const first = new Date(a.date_found || a.created_date || 0);
         const second = new Date(b.date_found || b.created_date || 0);
         return filters.sort === "oldest" ? first - second : second - first;
@@ -316,6 +323,7 @@ export default function Search({ recordTypeOverride = "found" }) {
           <SelectContent>
             <SelectItem value="relevance">Most Relevant</SelectItem>
             <SelectItem value="newest">{t("search.newest_first")}</SelectItem>
+            <SelectItem value="updated">{t("search.recently_updated", "Recently Updated")}</SelectItem>
             <SelectItem value="oldest">{t("search.oldest_first")}</SelectItem>
           </SelectContent>
         </Select>
@@ -655,17 +663,19 @@ export default function Search({ recordTypeOverride = "found" }) {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setSaveSearchOpen(false)}>Cancel</Button>
-            <Button onClick={() => {
+            <Button onClick={async () => {
               if (!saveSearchName.trim()) return;
-              const saved = JSON.parse(localStorage.getItem("ltf_saved_searches") || "[]");
-              saved.unshift({
-                id: String(Date.now()),
-                name: saveSearchName.trim(),
-                query: searchQuery,
-                filters: filters,
-                savedAt: new Date().toISOString(),
-              });
-              localStorage.setItem("ltf_saved_searches", JSON.stringify(saved));
+              try {
+                await appClient.savedSearches.create({
+                  name: saveSearchName.trim(),
+                  filters: { query: searchQuery, ...filters },
+                  alertsEnabled: true,
+                });
+              } catch {
+                const saved = JSON.parse(localStorage.getItem("ltf_saved_searches") || "[]");
+                saved.unshift({ id: String(Date.now()), name: saveSearchName.trim(), query: searchQuery, filters, savedAt: new Date().toISOString() });
+                localStorage.setItem("ltf_saved_searches", JSON.stringify(saved));
+              }
               setSaveSearchOpen(false);
               toast({ title: "Search saved", description: `Saved as "${saveSearchName.trim()}"` });
             }}>Save</Button>

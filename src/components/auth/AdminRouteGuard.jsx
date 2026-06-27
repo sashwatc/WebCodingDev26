@@ -11,6 +11,7 @@ export default function AdminRouteGuard({ children }) {
   const {
     user,
     isAdmin,
+    isStaff,
     isLoadingAuth,
     isLoadingPublicSettings,
     navigateToLogin,
@@ -73,7 +74,7 @@ export default function AdminRouteGuard({ children }) {
     );
   }
 
-  if (!isAdmin) {
+  if (!isAdmin && !isStaff) {
     return (
       <div className="page-shell max-w-2xl py-20">
         <div className="surface-card px-8 py-14 text-center">

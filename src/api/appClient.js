@@ -1165,7 +1165,7 @@ function serializeClaim(record = {}) {
 }
 
 async function fetchEntityRecords(entityName) {
-  if (entityName === "LostReport" && isAdminUser()) {
+  if (entityName === "LostReport" && isStaffOrAdminUser()) {
     try {
       return await requestFeatureApi("/admin/lost-reports");
     } catch (error) {
@@ -1175,8 +1175,15 @@ async function fetchEntityRecords(entityName) {
     }
   }
 
-  if (entityName === "Claim" && isAdminUser()) {
-    return requestFeatureApi("/admin/claims");
+  if (entityName === "Claim" && isStaffOrAdminUser()) {
+    try {
+      return await requestFeatureApi("/admin/claims");
+    } catch (error) {
+      if (error?.status !== 401 && error?.status !== 403) {
+        throw error;
+      }
+      // Fall through to the public entities endpoint on an auth failure.
+    }
   }
 
   return requestEntityApi(entityName);
@@ -1691,6 +1698,23 @@ async function requestFoundItemsApi(path = "", options = {}) {
 
 async function requestAdminFoundItemsApi(path = "", options = {}) {
   return requestApi(`${ADMIN_FOUND_ITEMS_API_URL}${path}`, options);
+}
+
+// Fetch the found-item inventory, degrading from the privileged admin endpoint
+// to the public one when the session isn't recognized as admin (401/403) so a
+// single auth hiccup never blanks the whole view.
+async function fetchFoundItemRecords(adminUser) {
+  if (!adminUser) {
+    return requestFoundItemsApi();
+  }
+  try {
+    return await requestAdminFoundItemsApi();
+  } catch (error) {
+    if (error?.status === 401 || error?.status === 403) {
+      return requestFoundItemsApi();
+    }
+    throw error;
+  }
 }
 
 async function requestEntityApi(entityName, path = "", options = {}) {
@@ -2552,7 +2576,7 @@ function normalizeCaseMessage(record = {}) {
 function createProofVaultApi() {
   return {
     async item(itemId) {
-      if (!isAdminUser()) {
+      if (!isStaffOrAdminUser()) {
         const error = new Error("Proof Vault access is restricted to staff.");
         error.status = 403;
         throw error;
@@ -2562,7 +2586,7 @@ function createProofVaultApi() {
     },
     async evidenceReview(claimId, { includeVaultClues = false } = {}) {
       const record = await requestFeatureApi(`/claims/${encodeURIComponent(claimId)}/evidence-review`);
-      return normalizeEvidenceReview(record, { includeVaultClues: includeVaultClues && isAdminUser() });
+      return normalizeEvidenceReview(record, { includeVaultClues: includeVaultClues && isStaffOrAdminUser() });
     },
     async submitEvidenceReview(claimId, review = {}) {
       const record = await requestFeatureApi(`/claims/${encodeURIComponent(claimId)}/evidence-review`, {
@@ -2570,6 +2594,32 @@ function createProofVaultApi() {
         body: JSON.stringify(review),
       });
       return normalizeEvidenceReview(record, { includeVaultClues: true });
+    },
+  };
+}
+
+function createSavedSearchesApi() {
+  return {
+    async list() {
+      const records = await requestFeatureApi("/saved-searches");
+      return Array.isArray(records) ? records : [];
+    },
+    async create(payload) {
+      return requestFeatureApi("/saved-searches", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+    },
+    async update(id, payload) {
+      return requestFeatureApi(`/saved-searches/${encodeURIComponent(id)}`, {
+        method: "PATCH",
+        body: JSON.stringify(payload),
+      });
+    },
+    async delete(id) {
+      return requestFeatureApi(`/saved-searches/${encodeURIComponent(id)}`, {
+        method: "DELETE",
+      });
     },
   };
 }
@@ -3229,12 +3279,12 @@ function serializeFoundItem(record = {}, { partial = false } = {}) {
 function createFoundItemApi() {
   return {
     async get(id) {
-      const adminUser = isAdminUser();
+      const adminUser = isStaffOrAdminUser();
 
       try {
         let record;
         if (adminUser) {
-          const records = await requestAdminFoundItemsApi();
+          const records = await fetchFoundItemRecords(true);
           record = Array.isArray(records) ? records.find((entry) => entry.id === id) : null;
         } else {
           record = await requestFoundItemsApi(`/${encodeURIComponent(id)}`);
@@ -3269,9 +3319,9 @@ function createFoundItemApi() {
     },
 
     async list(sort, limit) {
-      const adminUser = isAdminUser();
+      const adminUser = isStaffOrAdminUser();
       try {
-        const records = adminUser ? await requestAdminFoundItemsApi() : await requestFoundItemsApi();
+        const records = await fetchFoundItemRecords(adminUser);
         const normalizedRecords = records.map((record) => normalizeFoundItem(record));
         replaceCachedCollection("FoundItem", normalizedRecords);
         const visibleRecords = adminUser ? normalizedRecords : normalizedRecords.filter(isPublicFoundItem);
@@ -3289,14 +3339,14 @@ function createFoundItemApi() {
     },
 
     async filter(filters = {}, sort, limit) {
-      const adminUser = isAdminUser();
+      const adminUser = isStaffOrAdminUser();
       if (filters?.id && !sort && !limit) {
         const record = await this.get(filters.id);
         return record ? [record] : [];
       }
 
       try {
-        const records = adminUser ? await requestAdminFoundItemsApi() : await requestFoundItemsApi();
+        const records = await fetchFoundItemRecords(adminUser);
         const normalizedRecords = records.map((record) => normalizeFoundItem(record));
         replaceCachedCollection("FoundItem", normalizedRecords);
         const visibleRecords = adminUser ? normalizedRecords : normalizedRecords.filter(isPublicFoundItem);
@@ -3777,6 +3827,7 @@ function createAppClient() {
     recoveryMissions: createRecoveryMissionApi(),
     proofVault: createProofVaultApi(),
     claimCaseMessages: createClaimCaseMessagesApi(),
+    savedSearches: createSavedSearchesApi(),
     returnPasses: createReturnPassApi(),
     recoveryPulse: createRecoveryPulseApi(),
     sentinel: createSentinelApi(),
@@ -3973,6 +4024,7 @@ function createAppClient() {
     recoveryMissions: featureClients.recoveryMissions,
     proofVault: featureClients.proofVault,
     claimCaseMessages: featureClients.claimCaseMessages,
+    savedSearches: featureClients.savedSearches,
     returnPasses: featureClients.returnPasses,
     recoveryPulse: featureClients.recoveryPulse,
     sentinel: featureClients.sentinel,

@@ -82,6 +82,8 @@ export default function ReportLost() {
   });
   const [errors, setErrors] = useState({});
   const [formStep, setFormStep] = useState(1);
+  const [showDraftBanner, setShowDraftBanner] = useState(false);
+  const DRAFT_KEY = "ltf_report_lost_draft";
 
   const handleNextStep = () => {
     const errs = {};
@@ -150,6 +152,31 @@ export default function ReportLost() {
     return () => window.removeEventListener("beforeunload", h);
   }, [form.urgency, form.description]);
 
+  // Surface a restore-draft banner on mount if a prior draft exists.
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(DRAFT_KEY);
+      if (raw) {
+        const draft = JSON.parse(raw);
+        if (draft?.item_type?.trim() || draft?.description?.trim()) {
+          setShowDraftBanner(true);
+        }
+      }
+    } catch {
+      // Ignore corrupt draft
+    }
+  }, []);
+
+  // Auto-save the draft as the report is filled in.
+  useEffect(() => {
+    if (!form.item_type.trim() && !form.description.trim()) return;
+    try {
+      localStorage.setItem(DRAFT_KEY, JSON.stringify(form));
+    } catch {
+      // Ignore storage failures
+    }
+  }, [form]);
+
   const updateField = (field, value) => {
     setForm((prev) => ({ ...prev, [field]: value }));
     if (errors[field]) {
@@ -187,6 +214,8 @@ export default function ReportLost() {
       queryClient.invalidateQueries({ queryKey: ["searchRecords"] });
       queryClient.invalidateQueries({ queryKey: ["homePreviewItems"] });
       queryClient.invalidateQueries({ queryKey: ["userLostReports"] });
+      try { localStorage.removeItem(DRAFT_KEY); } catch { /* ignore */ }
+      setShowDraftBanner(false);
       setMatches(backendMatches);
       setStep(3);
     },
@@ -315,6 +344,39 @@ export default function ReportLost() {
         <h1 className="page-title">{t("report_lost.title")}</h1>
         <p className="page-subtitle">{t("report_lost.subtitle")}</p>
       </div>
+
+      {showDraftBanner && (
+        <div className="mb-4 flex items-center justify-between rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm">
+          <span className="text-foreground">You have an unsaved report draft from a previous session.</span>
+          <div className="ml-4 flex shrink-0 gap-2">
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              onClick={() => {
+                try {
+                  const raw = localStorage.getItem(DRAFT_KEY);
+                  if (raw) setForm((prev) => ({ ...prev, ...JSON.parse(raw) }));
+                } catch { /* ignore */ }
+                setShowDraftBanner(false);
+              }}
+            >
+              Restore draft
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                try { localStorage.removeItem(DRAFT_KEY); } catch { /* ignore */ }
+                setShowDraftBanner(false);
+              }}
+            >
+              Dismiss
+            </Button>
+          </div>
+        </div>
+      )}
 
       {(form.event_hub_id || form.campus_zone_id) && (
         <div className="mb-6 rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">

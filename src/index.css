@@ -682,3 +682,13 @@
 [data-hc="true"] .archive-card {
   border-color: hsl(0 0% 30%) !important;
 }
+
+/* Hide scrollbars on horizontally scrollable strips (e.g. overflowing tab bars)
+   while keeping them scrollable via trackpad/touch/wheel. */
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}

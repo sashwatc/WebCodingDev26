@@ -379,7 +379,7 @@
     "empty": "No messages yet. Staff may ask follow-up questions here.",
     "unavailable_title": "Case messages unavailable",
     "unavailable_description": "The message thread could not be loaded. Try again after the backend is running.",
-    "staff_label": "Staff",
+    "staff_label": "PVHS Staff",
     "claimant_label": "You",
     "compose_label": "Write a case message",
     "admin_placeholder": "Ask the claimant for more identifying details…",

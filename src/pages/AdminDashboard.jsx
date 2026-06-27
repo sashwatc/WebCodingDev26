@@ -9,6 +9,7 @@ import React from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useAuth } from "@/lib/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -137,12 +138,13 @@ function SupportTicketCard({ ticket }) {
   );
 }
 
-// The admin Support tab is scoped to lost-item case chats only: tickets in the
-// "Lost Item" category or any ticket linked to a specific item case.
-function isLostItemTicket(ticket = {}) {
-  const category = String(ticket.category || "").toLowerCase();
-  const linkedItemId = ticket.linked_item_id || ticket.linkedItemId;
-  return category.includes("lost") || Boolean(linkedItemId);
+// Open/active tickets should surface above resolved ones so staff see
+// outstanding questions first.
+const SUPPORT_STATUS_ORDER = { open: 0, in_progress: 1, pending: 1, resolved: 2, closed: 3 };
+
+function supportTicketSortValue(ticket = {}) {
+  const status = String(ticket.status || "").toLowerCase();
+  return SUPPORT_STATUS_ORDER[status] ?? 1;
 }
 
 function SupportTicketsList() {
@@ -152,11 +154,18 @@ function SupportTicketsList() {
     refetchInterval: 30000,
   });
 
-  const tickets = allTickets.filter(isLostItemTicket);
+  // Show every support ticket — general questions, account issues, and
+  // item-related chats alike — not just lost-item ones. Outstanding tickets
+  // float to the top.
+  const tickets = [...allTickets].sort((a, b) => {
+    const byStatus = supportTicketSortValue(a) - supportTicketSortValue(b);
+    if (byStatus !== 0) return byStatus;
+    return String(b.created_at || "").localeCompare(String(a.created_at || ""));
+  });
 
   if (isLoading) return <div className="search-state-panel"><MessageSquare className="mx-auto mb-3 h-8 w-8 text-muted-foreground/40"/>Loading support tickets…</div>;
   if (isError) return <div className="search-state-panel"><MessageSquare className="mx-auto mb-3 h-8 w-8 text-muted-foreground/40"/>Could not load support tickets.</div>;
-  if (!tickets.length) return <div className="search-state-panel"><MessageSquare className="mx-auto mb-3 h-8 w-8 text-muted-foreground/40"/>No lost-item support chats yet.</div>;
+  if (!tickets.length) return <div className="search-state-panel"><MessageSquare className="mx-auto mb-3 h-8 w-8 text-muted-foreground/40"/>No support tickets yet.</div>;
 
   return <div className="space-y-3">{tickets.map((t) => <SupportTicketCard key={t.id} ticket={t} />)}</div>;
 }
@@ -272,6 +281,9 @@ function LostReportMatches({ report }) {
 export default function AdminDashboard() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
+  // Staff get a scoped view: moderation, reports, recovery, and support — but
+  // not the admin-only governance tabs (Users, System Settings, Loss Sentinel).
+  const { isAdmin } = useAuth();
   const [activeTab, setActiveTab] = React.useState("overview");
   const { data: foundItems = [], isLoading: fiLoading } = useQuery({
     queryKey: ["adminFoundItems"],
@@ -366,7 +378,7 @@ export default function AdminDashboard() {
   const pendingCount = foundItems.filter((item) => ["pending_review", "FOUND"].includes(item.status)).length;
   const pendingClaims = recoverySummary?.claims_awaiting_review ?? claims.filter((claim) => claim.status === "submitted" || claim.status === "under_review").length;
   const openReports = recoverySummary?.active_cases ?? lostReports.filter((report) => report.status === "open").length;
-  const supportCount = supportTickets.filter(isLostItemTicket).filter((t) => t.status === "open").length;
+  const supportCount = supportTickets.filter((t) => t.status === "open").length;
   const EmptyAdminPanel = ({ icon: Icon, title, description }) => (
     <div className="search-state-panel">
       <Icon className="mx-auto mb-3 h-9 w-9 text-muted-foreground/40" />
@@ -423,7 +435,7 @@ export default function AdminDashboard() {
           </div>
         ) : (
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="responsive-tabs bg-muted border border-border p-1 rounded-xl shadow-inner">
+            <TabsList className="flex w-full justify-start gap-1 overflow-x-auto flex-nowrap [&>*]:shrink-0 no-scrollbar bg-muted border border-border p-1 rounded-xl shadow-inner">
               <TabsTrigger
                 value="overview"
                 className="px-5 py-2.5 rounded-lg text-sm font-semibold transition-all text-muted-foreground data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-sm gap-2"
@@ -462,31 +474,37 @@ export default function AdminDashboard() {
                 <Radar className="h-4 w-4" />
                 Recovery Center
               </TabsTrigger>
-              <TabsTrigger
-                value="sentinel"
-                className="px-5 py-2.5 rounded-lg text-sm font-semibold transition-all text-muted-foreground data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-sm gap-2"
-              >
-                <ShieldCheck className="h-4 w-4" />
-                Loss Sentinel
-              </TabsTrigger>
+              {isAdmin && (
+                <TabsTrigger
+                  value="sentinel"
+                  className="px-5 py-2.5 rounded-lg text-sm font-semibold transition-all text-muted-foreground data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-sm gap-2"
+                >
+                  <ShieldCheck className="h-4 w-4" />
+                  Loss Sentinel
+                </TabsTrigger>
+              )}
               <TabsTrigger
                 value="support"
                 className="px-5 py-2.5 rounded-lg text-sm font-semibold transition-all text-muted-foreground data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-sm gap-2"
               >
                 <MessageSquare className="h-4 w-4"/>Support{supportCount > 0 && <Badge className="bg-amber-500 text-white font-bold text-[10px] px-2 py-0.5 border-none shadow-sm ml-1">{supportCount}</Badge>}
               </TabsTrigger>
-              <TabsTrigger
-                value="users"
-                className="px-5 py-2.5 rounded-lg text-sm font-semibold transition-all text-muted-foreground data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-sm gap-2"
-              >
-                <Users className="h-4 w-4"/>Users
-              </TabsTrigger>
-              <TabsTrigger
-                value="sysconfig"
-                className="px-5 py-2.5 rounded-lg text-sm font-semibold transition-all text-muted-foreground data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-sm gap-2"
-              >
-                <SettingsIcon className="h-4 w-4"/>Settings
-              </TabsTrigger>
+              {isAdmin && (
+                <TabsTrigger
+                  value="users"
+                  className="px-5 py-2.5 rounded-lg text-sm font-semibold transition-all text-muted-foreground data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-sm gap-2"
+                >
+                  <Users className="h-4 w-4"/>Users
+                </TabsTrigger>
+              )}
+              {isAdmin && (
+                <TabsTrigger
+                  value="sysconfig"
+                  className="px-5 py-2.5 rounded-lg text-sm font-semibold transition-all text-muted-foreground data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-sm gap-2"
+                >
+                  <SettingsIcon className="h-4 w-4"/>Settings
+                </TabsTrigger>
+              )}
             </TabsList>
 
             <TabsContent value="overview">

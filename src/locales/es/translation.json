@@ -379,7 +379,7 @@
     "empty": "Aún no hay mensajes. El personal puede hacer preguntas de seguimiento aquí.",
     "unavailable_title": "Mensajes no disponibles",
     "unavailable_description": "No se pudo cargar el hilo de mensajes. Inténtalo de nuevo cuando el backend esté activo.",
-    "staff_label": "Personal",
+    "staff_label": "Personal de PVHS",
     "claimant_label": "Tú",
     "compose_label": "Escribir un mensaje del caso",
     "admin_placeholder": "Pide al reclamante más detalles identificativos…",

@@ -15,6 +15,10 @@ export function isStudentRole(user) {
   return String(user?.role || "").toLowerCase() === "student";
 }
 
+export function isSuspendedRole(user) {
+  return String(user?.role || "").toLowerCase() === "suspended";
+}
+
 export function stripLegacyAdminModeFromUiSettings(storage = typeof window !== "undefined" ? window.localStorage : null) {
   if (!storage) {
     return;

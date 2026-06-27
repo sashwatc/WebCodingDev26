@@ -13,7 +13,7 @@ import {
   translateCondition,
   translateLocation,
 } from "@/lib/i18n-helpers";
-import { isClaimableFoundItemStatus } from "@/lib/found-items";
+import { isClaimableFoundItemStatus, canonicalFoundItemStatus } from "@/lib/found-items";
 import {
   ArrowLeft, MapPin, Calendar, Clock, Tag, Package,
   Shield, Printer, Share2, ChevronLeft, ChevronRight,
@@ -331,6 +331,45 @@ export default function ItemDetails() {
         scrollbarWidth: "thin", scrollbarColor: `${BORDER} transparent`,
       }}>
 
+        {/* Status stepper — found-item lifecycle: Found → Claim Pending → Verified → Archived */}
+        {!isLostReport && (() => {
+          const stages = [
+            { key: "FOUND", label: "Found" },
+            { key: "CLAIM_PENDING", label: "Claim Pending" },
+            { key: "VERIFIED", label: "Verified" },
+            { key: "ARCHIVED", label: "Archived" },
+          ];
+          const currentIdx = Math.max(0, stages.findIndex((s) => s.key === canonicalFoundItemStatus(item.status)));
+          return (
+            <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "22px", flexWrap: "wrap" }}>
+              {stages.map((stage, i) => {
+                const done = i <= currentIdx;
+                const active = i === currentIdx;
+                return (
+                  <React.Fragment key={stage.key}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                      <span style={{
+                        width: "18px", height: "18px", borderRadius: "50%", flexShrink: 0,
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        background: done ? (active ? "#38bdf8" : "#1f6f43") : "#1a2230",
+                        border: `1px solid ${done ? (active ? "#38bdf8" : "#2f9e63") : BORDER}`,
+                        color: done ? "#fff" : TEXT_MUTED, font: "700 9px Inter,sans-serif",
+                      }}>{done && !active ? "✓" : i + 1}</span>
+                      <span style={{
+                        font: "600 10px Inter,sans-serif", letterSpacing: ".4px", textTransform: "uppercase",
+                        color: active ? "#38bdf8" : done ? TEXT_PRIMARY : TEXT_MUTED,
+                      }}>{stage.label}</span>
+                    </div>
+                    {i < stages.length - 1 && (
+                      <span style={{ width: "16px", height: "1px", background: i < currentIdx ? "#2f9e63" : BORDER, flexShrink: 0 }} />
+                    )}
+                  </React.Fragment>
+                );
+              })}
+            </div>
+          );
+        })()}
+
         {/* Status badges */}
         <div style={{ display: "flex", gap: "7px", marginBottom: "24px", flexWrap: "wrap" }}>
           <span style={{
@@ -386,6 +425,18 @@ export default function ItemDetails() {
             </div>
           ))}
         </div>
+
+        {/* Found by — public always sees "PVHS Staff"; finder identity is staff-only */}
+        {!isLostReport && (
+          <div style={{ ...card, marginBottom: "20px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px" }}>
+              <span style={{ font: "500 13px Inter,sans-serif", color: TEXT_MUTED }}>Found by</span>
+              <span style={{ font: "600 13px Inter,sans-serif", color: TEXT_PRIMARY }}>
+                {isAdminView ? (item.finder_name || item.finder_email || "PVHS Staff") : "PVHS Staff"}
+              </span>
+            </div>
+          </div>
+        )}
 
         {/* Attributes panel */}
         {attrRows.length > 0 && (

@@ -379,7 +379,7 @@
     "empty": "Aucun message pour l'instant. Le personnel peut poser des questions de suivi ici.",
     "unavailable_title": "Messages indisponibles",
     "unavailable_description": "Le fil de messages n'a pas pu être chargé. Réessayez lorsque le backend est actif.",
-    "staff_label": "Personnel",
+    "staff_label": "Personnel PVHS",
     "claimant_label": "Vous",
     "compose_label": "Écrire un message de dossier",
     "admin_placeholder": "Demandez au réclamant plus de détails d'identification…",

@@ -99,6 +99,8 @@ export default function ReportFound() {
 
   const [formStep, setFormStep] = useState(1);
   const [prefilledReportId, setPrefilledReportId] = useState("");
+  const [showDraftBanner, setShowDraftBanner] = useState(false);
+  const DRAFT_KEY = "ltf_report_found_draft";
 
   const { data: linkedLostReport } = useQuery({
     queryKey: ["linkedLostReport", linkedLostReportId],
@@ -162,12 +164,39 @@ export default function ReportFound() {
     return () => window.removeEventListener("beforeunload", handler);
   }, [form.title, form.description]);
 
+  // Check for a saved draft on mount
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(DRAFT_KEY);
+      if (raw) {
+        const draft = JSON.parse(raw);
+        if (draft?.title?.trim() || draft?.description?.trim()) {
+          setShowDraftBanner(true);
+        }
+      }
+    } catch {
+      // Ignore corrupt draft
+    }
+  }, []);
+
+  // Auto-save draft whenever form changes
+  useEffect(() => {
+    if (!form.title.trim() && !form.description.trim()) return;
+    try {
+      localStorage.setItem(DRAFT_KEY, JSON.stringify(form));
+    } catch {
+      // Ignore storage failures
+    }
+  }, [form]);
+
   const resetForm = () => {
     setForm(createInitialForm(new URLSearchParams(location.search)));
     setGeneratedTags([]);
     setErrors({});
     setFormStep(1);
     setPrefilledReportId("");
+    try { localStorage.removeItem(DRAFT_KEY); } catch { /* ignore */ }
+    setShowDraftBanner(false);
   };
 
   const handleNextStep = () => {
@@ -266,9 +295,24 @@ export default function ReportFound() {
     if (!intakeSuggestion) return;
     if (field === "tags") {
       setGeneratedTags(Array.isArray(intakeSuggestion.tags) ? intakeSuggestion.tags : []);
-      return;
+    } else {
+      updateField(field, intakeSuggestion[field] || "");
     }
-    updateField(field, intakeSuggestion[field] || "");
+    dismissIntakeSuggestion(field);
+  };
+
+  const dismissIntakeSuggestion = (field) => {
+    if (!intakeSuggestion) return;
+    setIntakeSuggestion((prev) => {
+      if (!prev) return prev;
+      const next = { ...prev };
+      if (field === "tags") {
+        next.tags = [];
+      } else {
+        delete next[field];
+      }
+      return next;
+    });
   };
 
   const submitMutation = useMutation({
@@ -301,6 +345,8 @@ export default function ReportFound() {
       queryClient.invalidateQueries({ queryKey: ["searchRecords"] });
       queryClient.invalidateQueries({ queryKey: ["homePreviewItems"] });
       queryClient.invalidateQueries({ queryKey: ["adminFoundItems"] });
+      try { localStorage.removeItem(DRAFT_KEY); } catch { /* ignore */ }
+      setShowDraftBanner(false);
       setStep(2);
     },
     onError: (error) => {
@@ -381,6 +427,42 @@ export default function ReportFound() {
         <h1 className="page-title">{t("report_found.title")}</h1>
         <p className="page-subtitle">{t("report_found.subtitle")}</p>
       </div>
+
+      {showDraftBanner && (
+        <div className="mb-4 flex items-center justify-between rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm">
+          <span className="text-foreground">You have an unsaved draft from a previous session.</span>
+          <div className="ml-4 flex shrink-0 gap-2">
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              onClick={() => {
+                try {
+                  const raw = localStorage.getItem(DRAFT_KEY);
+                  if (raw) {
+                    const draft = JSON.parse(raw);
+                    setForm((prev) => ({ ...prev, ...draft }));
+                  }
+                } catch { /* ignore */ }
+                setShowDraftBanner(false);
+              }}
+            >
+              Restore draft
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                try { localStorage.removeItem(DRAFT_KEY); } catch { /* ignore */ }
+                setShowDraftBanner(false);
+              }}
+            >
+              Dismiss
+            </Button>
+          </div>
+        </div>
+      )}
 
       <div className="mb-6 surface-card p-5">
         <div className="grid gap-4 md:grid-cols-2">
@@ -720,24 +802,36 @@ export default function ReportFound() {
                       </p>
                       <div className="flex flex-wrap gap-2">
                         {intakeSuggestion.category ? (
-                          <Button type="button" variant="secondary" size="sm" onClick={() => applyIntakeSuggestion("category")}>
-                            Use category: {translateCategory(t, intakeSuggestion.category)}
-                          </Button>
+                          <div className="flex items-center gap-1">
+                            <Button type="button" variant="secondary" size="sm" onClick={() => applyIntakeSuggestion("category")}>
+                              Use category: {translateCategory(t, intakeSuggestion.category)}
+                            </Button>
+                            <Button type="button" variant="ghost" size="sm" className="px-1.5 text-muted-foreground" onClick={() => dismissIntakeSuggestion("category")} aria-label="Dismiss category suggestion">✕</Button>
+                          </div>
                         ) : null}
                         {intakeSuggestion.color ? (
-                          <Button type="button" variant="secondary" size="sm" onClick={() => applyIntakeSuggestion("color")}>
-                            Use color: {translateColor(t, intakeSuggestion.color)}
-                          </Button>
+                          <div className="flex items-center gap-1">
+                            <Button type="button" variant="secondary" size="sm" onClick={() => applyIntakeSuggestion("color")}>
+                              Use color: {translateColor(t, intakeSuggestion.color)}
+                            </Button>
+                            <Button type="button" variant="ghost" size="sm" className="px-1.5 text-muted-foreground" onClick={() => dismissIntakeSuggestion("color")} aria-label="Dismiss color suggestion">✕</Button>
+                          </div>
                         ) : null}
                         {intakeSuggestion.brand ? (
-                          <Button type="button" variant="secondary" size="sm" onClick={() => applyIntakeSuggestion("brand")}>
-                            Use brand: {intakeSuggestion.brand}
-                          </Button>
+                          <div className="flex items-center gap-1">
+                            <Button type="button" variant="secondary" size="sm" onClick={() => applyIntakeSuggestion("brand")}>
+                              Use brand: {intakeSuggestion.brand}
+                            </Button>
+                            <Button type="button" variant="ghost" size="sm" className="px-1.5 text-muted-foreground" onClick={() => dismissIntakeSuggestion("brand")} aria-label="Dismiss brand suggestion">✕</Button>
+                          </div>
                         ) : null}
                         {Array.isArray(intakeSuggestion.tags) && intakeSuggestion.tags.length > 0 ? (
-                          <Button type="button" variant="secondary" size="sm" onClick={() => applyIntakeSuggestion("tags")}>
-                            Use {intakeSuggestion.tags.length} tags
-                          </Button>
+                          <div className="flex items-center gap-1">
+                            <Button type="button" variant="secondary" size="sm" onClick={() => applyIntakeSuggestion("tags")}>
+                              Use {intakeSuggestion.tags.length} tags
+                            </Button>
+                            <Button type="button" variant="ghost" size="sm" className="px-1.5 text-muted-foreground" onClick={() => dismissIntakeSuggestion("tags")} aria-label="Dismiss tags suggestion">✕</Button>
+                          </div>
                         ) : null}
                       </div>
                     </div>
