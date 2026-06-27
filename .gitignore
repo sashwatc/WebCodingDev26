@@ -18,6 +18,8 @@ dist-ssr
 *.local
 *.local.json
 test-results
+playwright-report
+/playwright/.cache
 
 # Editor directories and files
 .vscode/*
