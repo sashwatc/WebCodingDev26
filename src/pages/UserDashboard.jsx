@@ -32,7 +32,7 @@ import {
   AlertTriangle, FileCheck, Bell, Eye,
   Brain, CheckCircle2, Loader2, Star,
   ShieldAlert, Clock, Sparkles, Ticket,
-  Bookmark, Trash2, Search as SearchIcon, MessageSquare
+  Bookmark, Trash2, Search as SearchIcon, MessageSquare, X
 } from "lucide-react";
 
 export default function UserDashboard() {
@@ -41,7 +41,10 @@ export default function UserDashboard() {
   const { user, navigateToLogin } = useAuth();
   const { toast } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [activeTab, setActiveTab] = useState(searchParams.get("tab") || "reports");
+  // Derive the active tab directly from the URL (?tab=) so browser back/forward
+  // and in-app links like "Claim Approved" → ?tab=claims actually switch panels
+  // instead of leaving a stale tab from the initial mount.
+  const activeTab = searchParams.get("tab") || "reports";
   const [reviewDrafts, setReviewDrafts] = useState({});
   const [savedItemData, setSavedItemData] = useState([]);
   const [savedSearches, setSavedSearches] = useState(
@@ -145,6 +148,27 @@ export default function UserDashboard() {
     onSuccess: () => queryClient.invalidateQueries(),
   });
 
+  // Dismiss ("X out") a notification entirely.
+  const dismissNotificationMutation = useMutation({
+    mutationFn: (id) => appClient.recoveryPulse.dismissNotification(id),
+    // Optimistically drop the row so the X feels instant, then refetch.
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ queryKey: ["userNotifications", user?.email] });
+      const previous = queryClient.getQueryData(["userNotifications", user?.email]);
+      queryClient.setQueryData(["userNotifications", user?.email], (current = []) =>
+        current.filter((entry) => entry.id !== id)
+      );
+      return { previous };
+    },
+    onError: (error, _id, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(["userNotifications", user?.email], context.previous);
+      }
+      toast({ variant: "destructive", title: t("user_dashboard.notification_dismiss_failed", "Could not dismiss notification"), description: error?.message });
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ["userNotifications", user?.email] }),
+  });
+
   const withdrawMutation = useMutation({
     mutationFn: (claim) => appClient.claims.cancel(claim),
     onSuccess: () => {
@@ -153,6 +177,22 @@ export default function UserDashboard() {
     },
     onError: (error) => {
       toast({ variant: "destructive", title: t("user_dashboard.claim_withdraw_failed", "Could not withdraw claim"), description: error?.message });
+    },
+  });
+
+  // Student confirms they have the item back. Completes the claim and, per the
+  // approved+completed rule, the backend then removes the item everywhere.
+  const confirmReceiptMutation = useMutation({
+    mutationFn: (claim) => appClient.claims.confirmReceipt(claim),
+    onSuccess: () => {
+      queryClient.invalidateQueries();
+      toast({
+        title: t("user_dashboard.receipt_confirmed", "Pickup confirmed"),
+        description: t("user_dashboard.receipt_confirmed_message", "Thanks for confirming — this recovery is complete."),
+      });
+    },
+    onError: (error) => {
+      toast({ variant: "destructive", title: t("user_dashboard.receipt_confirm_failed", "Could not confirm receipt"), description: error?.message });
     },
   });
 
@@ -328,7 +368,7 @@ export default function UserDashboard() {
       </div>
 
       {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v); setSearchParams({ tab: v }); }} className="w-full">
+      <Tabs value={activeTab} onValueChange={(v) => setSearchParams({ tab: v })} className="w-full">
         <TabsList className="responsive-tabs bg-muted/80 rounded-xl border border-border/50 p-1">
           <TabsTrigger
             value="reports"
@@ -401,6 +441,12 @@ export default function UserDashboard() {
                             <StatusBadge status={report.status} />
                           </div>
                           <p className="text-sm text-muted-foreground leading-relaxed max-w-xl">{report.description}</p>
+                          {report.status === "resolved" && (
+                            <p className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300">
+                              <CheckCircle2 className="h-3.5 w-3.5" />
+                              Recovered — this item was returned to you.
+                            </p>
+                          )}
                           <div className="flex flex-wrap items-center gap-3 mt-3 text-xs text-muted-foreground font-medium">
                             <span className="bg-muted text-muted-foreground px-2 py-0.5 rounded">
                               {t("user_dashboard.reported_on_label", "Reported")}:{" "}
@@ -445,6 +491,12 @@ export default function UserDashboard() {
                             const reasons = typeof match === "object" && Array.isArray(match.reasons) ? match.reasons : [];
                             const matchedItem = foundItemsById[matchId];
                             const existingClaim = claimByFoundItemId[matchId];
+                            // Resolve a single coherent claim state — never show two at once.
+                            // Rejected/cancelled claims fall through so the item can be re-claimed.
+                            const claimStatus = String(existingClaim?.status || "").toLowerCase();
+                            const claimDone = !!existingClaim && (claimStatus === "completed" || !!existingClaim.received_confirmed_at);
+                            const claimApproved = !!existingClaim && claimStatus === "approved" && !claimDone;
+                            const claimActive = !!existingClaim && ["submitted", "pending_review", "under_review", "need_more_info"].includes(claimStatus);
                             return (
                               <div key={matchId} className="flex flex-col sm:flex-row sm:items-center gap-3 rounded-xl border border-border bg-card p-3 shadow-sm">
                                 {/* Thumbnail — placeholder box when item not yet loaded */}
@@ -460,13 +512,12 @@ export default function UserDashboard() {
                                       {matchedItem?.title ?? "Found item"}
                                     </span>
                                     {confidence != null && (
-                                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
-                                        confidence >= 80
-                                          ? "bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-900"
-                                          : confidence >= 50
-                                          ? "bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-900"
-                                          : "bg-muted text-muted-foreground border-border"
+                                      // Solid, high-contrast pill with a dot so the match strength
+                                      // is always legible (the old low-tier badge was invisible).
+                                      <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full text-white shadow-sm ${
+                                        confidence >= 80 ? "bg-emerald-600" : confidence >= 50 ? "bg-amber-500" : "bg-slate-500"
                                       }`}>
+                                        <span className="h-1.5 w-1.5 rounded-full bg-white/90" aria-hidden="true" />
                                         {confidence}% match
                                       </span>
                                     )}
@@ -483,11 +534,28 @@ export default function UserDashboard() {
                                   )}
                                 </div>
                                 <div className="shrink-0 flex gap-2 sm:flex-col sm:items-end">
-                                  {existingClaim ? (
+                                  {claimDone ? (
+                                    // Recovered: a single terminal state. (Approved+completed items
+                                    // are normally removed entirely; this covers any that linger.)
                                     <Button size="sm" variant="outline" className="gap-1.5 border-emerald-300 text-emerald-700 hover:bg-emerald-50 dark:text-emerald-400 dark:border-emerald-800 dark:hover:bg-emerald-950/40 text-xs" asChild>
                                       <Link to="/UserDashboard?tab=claims">
                                         <CheckCircle2 className="w-3.5 h-3.5" />
-                                        {existingClaim.status === "approved" ? "Claim Approved" : "Claim Submitted"}
+                                        Recovered
+                                      </Link>
+                                    </Button>
+                                  ) : claimApproved ? (
+                                    // Approved → route the student into My Claims to finish pickup.
+                                    <Button size="sm" className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold shadow-sm text-xs" asChild>
+                                      <Link to="/UserDashboard?tab=claims">
+                                        <CheckCircle2 className="w-3.5 h-3.5" />
+                                        Claim Approved — Complete Pickup
+                                      </Link>
+                                    </Button>
+                                  ) : claimActive ? (
+                                    <Button size="sm" variant="outline" className="gap-1.5 border-emerald-300 text-emerald-700 hover:bg-emerald-50 dark:text-emerald-400 dark:border-emerald-800 dark:hover:bg-emerald-950/40 text-xs" asChild>
+                                      <Link to="/UserDashboard?tab=claims">
+                                        <CheckCircle2 className="w-3.5 h-3.5" />
+                                        Claim Submitted
                                       </Link>
                                     </Button>
                                   ) : (
@@ -521,8 +589,19 @@ export default function UserDashboard() {
         </TabsContent>
 
         <TabsContent value="recovery" className="space-y-4">
+          <div className="rounded-xl border border-border bg-muted/40 p-4">
+            <h3 className="flex items-center gap-2 text-sm font-bold text-foreground">
+              <ShieldAlert className="h-4 w-4 text-primary" />
+              What are Recovery Cases?
+            </h3>
+            <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+              Every lost report opens a recovery case that tracks its journey from report to return.
+              Follow each case's progress, see where staff are most likely searching, jump to a matched
+              item to claim it, and grab your pickup code — all in one place.
+            </p>
+          </div>
           {lostReports.length === 0 ? (
-            <EmptyState icon={ShieldAlert} message="No recovery cases yet." />
+            <EmptyState icon={ShieldAlert} message="No recovery cases yet. Report a lost item to open one." />
           ) : (
             <div className="space-y-4">
               {lostReports.map((report) => {
@@ -535,14 +614,49 @@ export default function UserDashboard() {
                           <div className="flex flex-wrap items-center gap-2">
                             <h3 className="text-lg font-bold text-foreground">{report.item_type}</h3>
                             {recoveryCase ? <StatusBadge status={recoveryCase.status} /> : <Badge variant="outline">open</Badge>}
+                            {recoveryCase?.case_code && (
+                              <span className="text-[11px] font-medium text-muted-foreground">{recoveryCase.case_code}</span>
+                            )}
                           </div>
                           <p className="mt-2 text-sm text-muted-foreground">
-                            {recoveryCase?.status === "match_identified" && "A possible item match is available."}
+                            {recoveryCase?.status === "match_identified" && "A possible item match is available. Review it and submit a claim."}
                             {recoveryCase?.status === "claim_in_review" && "Your ownership claim is under review."}
-                            {recoveryCase?.status === "pickup_ready" && "Your item is ready for pickup."}
+                            {recoveryCase?.status === "pickup_ready" && "Your item is ready for pickup. Bring your claim code to the Pickup Station."}
                             {(!recoveryCase || recoveryCase?.status === "open") && "Staff are checking likely locations."}
                             {recoveryCase?.status === "returned" && "Your item has been returned."}
+                            {(recoveryCase?.status === "closed" || recoveryCase?.status === "archived") && "This recovery case is complete."}
+                            {recoveryCase?.status === "paused" && "This recovery case is paused."}
                           </p>
+                          {/* Status timeline so the case always shows where it stands. */}
+                          {(() => {
+                            const steps = [
+                              { key: "open", label: "Reported" },
+                              { key: "match_identified", label: "Match found" },
+                              { key: "claim_in_review", label: "Claim review" },
+                              { key: "pickup_ready", label: "Pickup ready" },
+                              { key: "returned", label: "Returned" },
+                            ];
+                            const order = { open: 0, match_identified: 1, claim_in_review: 2, pickup_ready: 3, returned: 4, closed: 4, archived: 4 };
+                            const current = order[recoveryCase?.status] ?? 0;
+                            return (
+                              <ol className="mt-3 flex flex-wrap items-center gap-y-1">
+                                {steps.map((step, i) => (
+                                  <li key={step.key} className="flex items-center">
+                                    <span className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold ${i <= current ? "bg-emerald-600 text-white" : "border border-border bg-muted text-muted-foreground"}`}>
+                                      {i < current ? "✓" : i + 1}
+                                    </span>
+                                    <span className={`ml-1.5 text-[11px] font-medium ${i <= current ? "text-foreground" : "text-muted-foreground"}`}>{step.label}</span>
+                                    {i < steps.length - 1 && <span className={`mx-2 h-px w-4 ${i < current ? "bg-emerald-600" : "bg-border"}`} />}
+                                  </li>
+                                ))}
+                              </ol>
+                            );
+                          })()}
+                          {recoveryCase?.recovery_plan && (
+                            <p className="mt-3 whitespace-pre-line rounded-lg border border-border bg-muted/40 p-3 text-xs leading-5 text-muted-foreground">
+                              {recoveryCase.recovery_plan}
+                            </p>
+                          )}
                           {recoveryCase?.likely_zone_summaries?.length > 0 && (
                             <div className="mt-3 flex flex-wrap gap-2">
                               {recoveryCase.likely_zone_summaries.map((zone) => (
@@ -569,6 +683,27 @@ export default function UserDashboard() {
                               </div>
                             );
                           })()}
+                          {/* Contextual next step driven by the case status. */}
+                          {recoveryCase?.status === "match_identified" && (
+                            <div className="mt-3">
+                              <Button asChild size="sm" className="gap-1.5 bg-amber-500 hover:bg-amber-600 text-white font-semibold shadow-sm text-xs">
+                                <Link to="/UserDashboard?tab=reports">
+                                  <Sparkles className="w-3.5 h-3.5" />
+                                  Review match &amp; claim
+                                </Link>
+                              </Button>
+                            </div>
+                          )}
+                          {recoveryCase?.status === "claim_in_review" && (
+                            <div className="mt-3">
+                              <Button asChild size="sm" variant="outline" className="gap-1.5 text-xs">
+                                <Link to="/UserDashboard?tab=claims">
+                                  <FileCheck className="w-3.5 h-3.5" />
+                                  View claim status
+                                </Link>
+                              </Button>
+                            </div>
+                          )}
                         </div>
                         <Button
                           variant="outline"
@@ -606,12 +741,16 @@ export default function UserDashboard() {
                   <div className="p-5">
                     <div className="flex flex-col sm:flex-row gap-5 items-start">
                       <div className="relative shrink-0 w-24 h-24 sm:w-28 sm:h-28 rounded-xl overflow-hidden border border-border bg-muted flex items-center justify-center shadow-inner">
-                        <img
-                          src={getPrimaryRecordPhoto(claim, foundItemsById[claim.found_item_id])}
-                          alt={claim.found_item_title || "Claim"}
-                          className="w-full h-full object-cover"
-                        />
-                        <div className="absolute top-2 left-2">
+                        {getPrimaryRecordPhoto(claim, foundItemsById[claim.found_item_id]) ? (
+                          <img
+                            src={getPrimaryRecordPhoto(claim, foundItemsById[claim.found_item_id])}
+                            alt={claim.found_item_title || "Claim"}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <FileCheck className="w-8 h-8 text-muted-foreground/40" />
+                        )}
+                        <div className="absolute top-2 left-2 drop-shadow-sm">
                           <StatusBadge status={claim.status} />
                         </div>
                       </div>
@@ -631,10 +770,10 @@ export default function UserDashboard() {
                         <p className="text-sm text-muted-foreground leading-relaxed">{claim.reason}</p>
 
                         {claim.admin_notes && (
-                          <div className="mt-2.5 text-xs bg-blue-50/50 border border-blue-100/50 text-blue-800 p-3 rounded-lg flex items-start gap-2.5">
-                            <ShieldAlert className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+                          <div className="mt-2.5 text-xs bg-blue-50/50 border border-blue-100/50 text-blue-800 p-3 rounded-lg flex items-start gap-2.5 dark:bg-blue-950/30 dark:border-blue-900 dark:text-blue-200">
+                            <ShieldAlert className="w-4 h-4 text-blue-600 shrink-0 mt-0.5 dark:text-blue-300" />
                             <div>
-                              <span className="font-bold text-blue-900">{t("user_dashboard.admin_note_label", "Admin Update:")}</span>{" "}
+                              <span className="font-bold text-blue-900 dark:text-blue-100">{t("user_dashboard.admin_note_label", "Admin Update:")}</span>{" "}
                               {claim.admin_notes}
                             </div>
                           </div>
@@ -665,13 +804,13 @@ export default function UserDashboard() {
 
                         {/* Approved claims requiring pickup confirmation */}
                         {claim.status === "approved" && !claim.received_confirmed_at && (
-                          <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50/30 p-4 space-y-3">
+                          <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50/30 p-4 space-y-3 dark:border-emerald-900 dark:bg-emerald-950/20">
                             <div>
-                              <p className="text-sm font-bold text-emerald-950 flex items-center gap-1.5">
-                                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                              <p className="text-sm font-bold text-emerald-950 flex items-center gap-1.5 dark:text-emerald-100">
+                                <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                                 {t("user_dashboard.received_question")}
                               </p>
-                              <p className="mt-1 text-xs text-emerald-800 leading-relaxed">
+                              <p className="mt-1 text-xs text-emerald-800 leading-relaxed dark:text-emerald-300">
                                 {t("user_dashboard.received_description")}
                               </p>
                             </div>
@@ -697,15 +836,32 @@ export default function UserDashboard() {
                                 </Button>
                               );
                             })()}
-                            <p className="rounded-lg border border-emerald-200 bg-card px-3 py-2 text-xs leading-5 text-emerald-900">
-                              Pickup completion is recorded by staff at the Pickup Station after they verify the Return Pass code.
+                            <div className="flex flex-wrap items-center gap-2">
+                              <Button
+                                size="sm"
+                                className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5"
+                                disabled={confirmReceiptMutation.isPending}
+                                onClick={() => {
+                                  if (window.confirm(t("user_dashboard.receipt_confirm_prompt", "Confirm you've received this item back? This completes the recovery."))) {
+                                    confirmReceiptMutation.mutate(claim);
+                                  }
+                                }}
+                              >
+                                {confirmReceiptMutation.isPending
+                                  ? <Loader2 className="w-4 h-4 animate-spin" />
+                                  : <CheckCircle2 className="w-4 h-4" />}
+                                {t("user_dashboard.confirm_receipt", "Yes, I've received it")}
+                              </Button>
+                            </div>
+                            <p className="rounded-lg border border-emerald-200 bg-card px-3 py-2 text-xs leading-5 text-emerald-900 dark:border-emerald-900 dark:text-emerald-200">
+                              Staff can also record pickup at the Pickup Station after verifying your Return Pass code.
                             </p>
                           </div>
                         )}
 
                         {claim.received_confirmed_at && (
-                          <div className="mt-3 bg-emerald-50/30 border border-emerald-100 text-emerald-800 px-3 py-2 rounded-lg text-xs font-semibold flex items-center gap-2">
-                            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                          <div className="mt-3 bg-emerald-50/30 border border-emerald-100 text-emerald-800 px-3 py-2 rounded-lg text-xs font-semibold flex items-center gap-2 dark:bg-emerald-950/20 dark:border-emerald-900 dark:text-emerald-300">
+                            <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                             <span>
                               {t("user_dashboard.confirmed_received", {
                                 date: formatLocalizedDate(claim.received_confirmed_at, "MMM d, yyyy"),
@@ -716,7 +872,7 @@ export default function UserDashboard() {
 
                         {/* Interactive Feedback / Star rating section */}
                         {(claim.status === "completed" || claim.received_confirmed_at) && (
-                          <div className="mt-4 rounded-xl border border-amber-100 bg-amber-50/30 p-4 space-y-3">
+                          <div className="mt-4 rounded-xl border border-amber-100 bg-amber-50/30 p-4 space-y-3 dark:border-amber-900 dark:bg-amber-950/20">
                             <div className="flex flex-wrap items-center justify-between gap-3">
                               <div>
                                 <h4 className="text-sm font-bold text-foreground flex items-center gap-1.5">
@@ -731,10 +887,10 @@ export default function UserDashboard() {
                                 <Badge
                                   className={`text-xs px-2 py-0.5 ${
                                     claim.review_status === "approved"
-                                      ? "bg-emerald-100 text-emerald-800 border-emerald-200"
+                                      ? "bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800"
                                       : claim.review_status === "rejected"
-                                        ? "bg-red-100 text-red-800 border-red-200"
-                                        : "bg-amber-100 text-amber-800 border-amber-200"
+                                        ? "bg-red-100 text-red-800 border-red-200 dark:bg-red-950/40 dark:text-red-300 dark:border-red-800"
+                                        : "bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800"
                                   }`}
                                   variant="outline"
                                 >
@@ -905,9 +1061,22 @@ export default function UserDashboard() {
                         </Button>
                       )}
                     </div>
-                    <span className="text-[10px] text-muted-foreground font-semibold shrink-0">
-                      {notif.created_date ? formatLocalizedDate(notif.created_date, "MMM d") : ""}
-                    </span>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <span className="text-[10px] text-muted-foreground font-semibold">
+                        {notif.created_date ? formatLocalizedDate(notif.created_date, "MMM d") : ""}
+                      </span>
+                      <button
+                        type="button"
+                        aria-label={t("user_dashboard.dismiss_notification", "Dismiss notification")}
+                        className="rounded-md p-1 text-muted-foreground/70 transition-colors hover:bg-muted hover:text-foreground"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          dismissNotificationMutation.mutate(notif.id);
+                        }}
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
                   </div>
                 </div>
               )})}
@@ -1004,12 +1173,16 @@ export default function UserDashboard() {
               {claims.map((claim) => (
                 <div key={claim.id} className="archive-card overflow-hidden">
                   <div className="flex items-center gap-3 border-b border-border px-5 py-3.5 bg-muted/40">
-                    <div className="relative shrink-0 h-9 w-9 rounded-lg overflow-hidden border border-border bg-muted">
-                      <img
-                        src={getPrimaryRecordPhoto(claim, foundItemsById[claim.found_item_id])}
-                        alt={claim.found_item_title || "Claim"}
-                        className="w-full h-full object-cover"
-                      />
+                    <div className="relative shrink-0 h-9 w-9 rounded-lg overflow-hidden border border-border bg-muted flex items-center justify-center">
+                      {getPrimaryRecordPhoto(claim, foundItemsById[claim.found_item_id]) ? (
+                        <img
+                          src={getPrimaryRecordPhoto(claim, foundItemsById[claim.found_item_id])}
+                          alt={claim.found_item_title || "Claim"}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <FileCheck className="w-4 h-4 text-muted-foreground/40" />
+                      )}
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-bold text-foreground truncate">

@@ -2283,6 +2283,18 @@ function createClaimApi(baseApi) {
         method: "POST",
       }).then((record) => normalizeClaim(record));
     },
+    // Claimant confirms they have received the item back. Dedicated endpoint (not
+    // the admin-only entity update) that completes the claim server-side and
+    // triggers the approved+completed cascade cleanup.
+    confirmReceipt(claimOrId) {
+      const id = typeof claimOrId === "string" ? claimOrId : getRecordId(claimOrId);
+      if (!id) {
+        throw new Error("Claim ID is required.");
+      }
+      return requestFeatureApi(`/claims/${encodeURIComponent(id)}/confirm-receipt`, {
+        method: "POST",
+      }).then((record) => normalizeClaim(record));
+    },
     // Claimant-authorized rating submission. Uses the dedicated endpoint so a
     // normal user does not hit the admin-only entity list (which 403s) via the
     // generic update path. The backend also records the rating on the FoundItem.
@@ -2342,11 +2354,15 @@ function createClaimApi(baseApi) {
       return updateClaim(claimOrId, { ...data, status: "under_review" });
     },
     complete(claimOrId, data = {}) {
-      return updateClaim(claimOrId, {
-        received_confirmed_at: data.received_confirmed_at || new Date().toISOString(),
-        ...data,
-        status: "completed",
-      });
+      // Dedicated admin endpoint so completing a hand-off runs the approved+completed
+      // cascade (archive + delete item and references), instead of a bare status PATCH
+      // that would leave the item and its references orphaned in the dashboard.
+      const id = typeof claimOrId === "string" ? claimOrId : getRecordId(claimOrId);
+      requireAdmin();
+      return requestFeatureApi(`/admin/claims/${encodeURIComponent(id)}/complete`, {
+        method: "POST",
+        body: JSON.stringify(data),
+      }).then((record) => normalizeClaim(record));
     },
     approveRating(claimOrId, data = {}) {
       return updateClaim(claimOrId, {
@@ -2766,6 +2782,21 @@ function createRecoveryPulseApi() {
           return { id, is_read: true, backend_required: true };
         }
       }
+    },
+    async dismissNotification(id) {
+      try {
+        // Ownership-checked delete; lets a user clear ("X out") a notification.
+        await requestFeatureApi(`/recovery-pulse/notifications/${encodeURIComponent(id)}`, {
+          method: "DELETE",
+        });
+      } catch (error) {
+        if (!shouldUseLocalFallback(error)) {
+          throw error;
+        }
+      }
+
+      removeCachedRecord("Notification", id);
+      return { id, dismissed: true };
     },
   };
 }
