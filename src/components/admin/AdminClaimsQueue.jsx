@@ -46,6 +46,7 @@ import {
   Search,
   Shield,
   Star,
+  Ticket,
 } from "lucide-react";
 
 export default function AdminClaimsQueue({ claims = [], foundItems = [] }) {
@@ -54,7 +55,20 @@ export default function AdminClaimsQueue({ claims = [], foundItems = [] }) {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [detailDialog, setDetailDialog] = useState(null);
+  const [passDialog, setPassDialog] = useState(null);
   const [adminNotes, setAdminNotes] = useState("");
+
+  // Shared confirm+complete so the hand-off can be triggered from the queue row
+  // or the detail dialog. Routes through claims.complete → the cascade endpoint.
+  const completeHandoff = (claim) => {
+    if (window.confirm(t("admin_claims_queue.complete_confirm", "Complete hand-off? This marks the item returned to the student and removes it from the dashboard."))) {
+      updateMutation.mutate({
+        claim,
+        data: { status: "completed", received_confirmed_at: new Date().toISOString() },
+        action: "Status → Completed",
+      });
+    }
+  };
 
   const updateMutation = useMutation({
     mutationFn: async ({ claim, data, action }) => {
@@ -175,7 +189,11 @@ export default function AdminClaimsQueue({ claims = [], foundItems = [] }) {
               className={`${claim.risk_score >= 70 ? "border-red-200 bg-red-50 dark:border-red-900/50 dark:bg-red-950/10" : "border-border bg-card/40"}`}
             >
               <CardContent className="p-5">
-                <div className="flex flex-col gap-4 xl:flex-row xl:items-start">
+                {/* Thumbnail + details on one row, actions on their own row below —
+                    keeps the card readable in the narrow Claims Verification column
+                    (the old xl:flex-row squished everything side-by-side). */}
+                <div className="flex flex-col gap-4">
+                  <div className="flex items-start gap-4">
                   <RecordThumbnail
                     src={getPrimaryRecordPhoto(
                       claim,
@@ -230,8 +248,9 @@ export default function AdminClaimsQueue({ claims = [], foundItems = [] }) {
                       </div>
                     )}
                   </div>
+                  </div>
 
-                  <div className="flex flex-wrap items-center gap-2 xl:justify-end">
+                  <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-border/40">
                     <Button
                       variant="outline"
                       size="sm"
@@ -299,6 +318,30 @@ export default function AdminClaimsQueue({ claims = [], foundItems = [] }) {
                         </AlertDialog>
                       </>
                     )}
+                    {/* Approved claims can be actioned straight from the queue —
+                        no need to open the review dialog to issue a code or complete. */}
+                    {claim.status === "approved" && (
+                      <>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="border-primary/30 text-primary hover:bg-primary/5 gap-1"
+                          onClick={() => setPassDialog(claim)}
+                        >
+                          <Ticket className="h-3.5 w-3.5" />
+                          {t("pickup_pass.issue_pass", "Issue Claim Code")}
+                        </Button>
+                        <Button
+                          size="sm"
+                          className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold gap-1"
+                          disabled={updateMutation.isPending}
+                          onClick={() => completeHandoff(claim)}
+                        >
+                          <CheckCircle2 className="h-3.5 w-3.5" />
+                          {t("admin_claims_queue.mark_completed", "Complete Hand-off")}
+                        </Button>
+                      </>
+                    )}
                   </div>
                 </div>
               </CardContent>
@@ -337,6 +380,13 @@ export default function AdminClaimsQueue({ claims = [], foundItems = [] }) {
                 <p className="text-xs font-semibold text-muted-foreground">{t("admin_claims_queue.reason")}</p>
                 <p className="mt-1.5 leading-relaxed text-foreground">{detailDialog.reason}</p>
               </div>
+
+              {detailDialog.pickup_availability && (
+                <div className="rounded-xl border border-primary/20 bg-primary/5 px-4 py-3">
+                  <p className="text-xs font-semibold text-primary">{t("claim_item.pickup_availability", "Pickup availability")}</p>
+                  <p className="mt-1.5 leading-relaxed text-foreground">{detailDialog.pickup_availability}</p>
+                </div>
+              )}
 
               {detailDialog.received_confirmed_at && (
                 <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/20 dark:text-emerald-400">
@@ -391,99 +441,57 @@ export default function AdminClaimsQueue({ claims = [], foundItems = [] }) {
                     </>
                   )}
                   {detailDialog.status !== "under_review" && detailDialog.status !== "completed" && detailDialog.status !== "rejected" && (
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="border-border bg-background text-muted-foreground hover:bg-muted"
-                        >
-                          {t("admin_claims_queue.mark_under_review", "Mark Under Review")}
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Mark claim as under review?</AlertDialogTitle>
-                          <AlertDialogDescription>The claim status will be updated to under review while you investigate further.</AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Cancel</AlertDialogCancel>
-                          <AlertDialogAction
-                            onClick={() => updateMutation.mutate({ claim: detailDialog, data: { status: "under_review" }, action: "Status → Under Review" })}
-                          >
-                            Confirm
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="border-border bg-background text-foreground hover:bg-muted"
+                      disabled={updateMutation.isPending}
+                      onClick={() => updateMutation.mutate({ claim: detailDialog, data: { status: "under_review" }, action: "Status → Under Review" })}
+                    >
+                      {t("admin_claims_queue.mark_under_review", "Mark Under Review")}
+                    </Button>
                   )}
                   {detailDialog.status !== "need_more_info" && detailDialog.status !== "completed" && detailDialog.status !== "rejected" && (
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="border-border bg-background text-muted-foreground hover:bg-muted"
-                        >
-                          {t("admin_claims_queue.request_more_info", "Request More Info")}
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Request more information?</AlertDialogTitle>
-                          <AlertDialogDescription>The student will receive a message asking for additional details.</AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Cancel</AlertDialogCancel>
-                          <AlertDialogAction
-                            onClick={() => updateMutation.mutate({
-                              claim: detailDialog,
-                              data: {
-                                status: "need_more_info",
-                                admin_notes: adminNotes.trim() || detailDialog.admin_notes || "",
-                              },
-                              action: "Status → Need More Info",
-                            })}
-                          >
-                            Request Info
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
+                    // Direct button (nested AlertDialog inside the Dialog swallowed the
+                    // click). Uses the Admin Notes field as the message to the student.
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="border-border bg-background text-foreground hover:bg-muted"
+                      disabled={updateMutation.isPending}
+                      onClick={() => {
+                        const note = adminNotes.trim() || detailDialog.admin_notes || "";
+                        if (!note) {
+                          toast({
+                            title: t("admin_claims_queue.note_required_title", "Add a note first"),
+                            description: t("admin_claims_queue.note_required_desc", "Type what you need in Admin Notes, then request more info."),
+                            variant: "destructive",
+                          });
+                          return;
+                        }
+                        updateMutation.mutate({
+                          claim: detailDialog,
+                          data: { status: "need_more_info", admin_notes: note },
+                          action: "Status → Need More Info",
+                        });
+                      }}
+                    >
+                      {t("admin_claims_queue.request_more_info", "Request More Info")}
+                    </Button>
                   )}
-                  {detailDialog.status !== "completed" && detailDialog.status === "approved" && (
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button
-                          size="sm"
-                          className="bg-primary hover:bg-primary/90 text-white font-semibold animate-pulse"
-                        >
-                          {t("admin_claims_queue.mark_completed", "Complete Hand-off")}
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Complete hand-off?</AlertDialogTitle>
-                          <AlertDialogDescription>This will mark the item as handed off to the student and close the claim.</AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Cancel</AlertDialogCancel>
-                          <AlertDialogAction
-                            className="bg-primary hover:bg-primary/90 text-white"
-                            onClick={() => updateMutation.mutate({
-                              claim: detailDialog,
-                              data: {
-                                status: "completed",
-                                received_confirmed_at: new Date().toISOString(),
-                              },
-                              action: "Status → Completed",
-                            })}
-                          >
-                            Complete
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
+                  {detailDialog.status === "approved" && (
+                    // Direct button + window.confirm: the nested AlertDialog inside this
+                    // Dialog swallowed the click. Emerald to match the other positive
+                    // actions (was off-palette primary + distracting pulse).
+                    <Button
+                      size="sm"
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold"
+                      disabled={updateMutation.isPending}
+                      onClick={() => completeHandoff(detailDialog)}
+                    >
+                      <CheckCircle2 className="h-3.5 w-3.5 mr-1" />
+                      {t("admin_claims_queue.mark_completed", "Complete Hand-off")}
+                    </Button>
                   )}
                 </div>
               </div>
@@ -623,6 +631,21 @@ export default function AdminClaimsQueue({ claims = [], foundItems = [] }) {
               {t("admin_claims_queue.save_notes", "Save & Close")}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Issue-claim-code dialog, reachable directly from an approved claim row. */}
+      <Dialog open={!!passDialog} onOpenChange={() => setPassDialog(null)}>
+        <DialogContent className="max-w-xl bg-card border-border text-foreground">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-lg font-bold text-foreground">
+              <Ticket className="h-5 w-5 text-primary" />
+              {t("pickup_pass.issue_title", "Issue Claim Code")}
+            </DialogTitle>
+          </DialogHeader>
+          {passDialog && (
+            <IssueReturnPassPanel claim={passDialog} existingPassId={passDialog.return_pass_id || passDialog.returnPassId || ""} />
+          )}
         </DialogContent>
       </Dialog>
     </div>

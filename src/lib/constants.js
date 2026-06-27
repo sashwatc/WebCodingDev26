@@ -22,9 +22,9 @@ export const BRAND_NAME = "Lost Then Found";
 export const BRAND_SHORT_NAME = "Lost Then Found";
 export const SCHOOL_NAME = "PVHS";
 export const SCHOOL_FULL_NAME = "Pleasant Valley High School";
-export const SUPPORT_EMAIL = "lostthenfound@pvhs.edu";
-export const SUPPORT_PHONE = "(555) 123-4567";
-export const SUPPORT_LOCATION = "Main Office, Room 102";
+export const SUPPORT_EMAIL = "lostthenfound@pleasval.org";
+export const SUPPORT_PHONE = "563-499-6331";
+export const SUPPORT_LOCATION = "604 Belmont Rd, Riverdale, IA, 52722";
 
 export const CATEGORIES = [
   { value: "electronics", label: "Electronics", icon: "Smartphone" },
@@ -68,7 +68,9 @@ export const CLAIM_STATUSES = {
   submitted: { label: "Submitted", color: statusColor("bg-blue-100 text-blue-800 border-blue-200", "blue") },
   under_review: { label: "Under Review", color: statusColor("bg-amber-100 text-amber-800 border-amber-200", "amber") },
   need_more_info: { label: "Need More Info", color: statusColor("bg-slate-100 text-slate-700 border-slate-200", "slate") },
-  approved: { label: "Approved", color: statusColor("bg-emerald-100 text-emerald-800 border-emerald-200", "emerald") },
+  // Approved is the key positive milestone — use a solid, high-contrast badge so
+  // it stays clearly legible (including overlaid on the claim photo).
+  approved: { label: "Approved", color: "bg-emerald-600 text-white border-emerald-700 dark:bg-emerald-600 dark:text-white dark:border-emerald-500" },
   rejected: { label: "Rejected", color: statusColor("bg-red-100 text-red-800 border-red-200", "red") },
   completed: { label: "Completed", color: statusColor("bg-slate-100 text-slate-700 border-slate-200", "slate") },
 };

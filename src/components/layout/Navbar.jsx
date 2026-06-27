@@ -141,8 +141,11 @@ export default function Navbar() {
               {isActive("/Home") && <ActiveBar />}
             </Link>
 
-            {/* Search Items dropdown — hover to open */}
-            <DropdownMenu open={searchItemsOpen} onOpenChange={setSearchItemsOpen}>
+            {/* Search Items dropdown — hover to open. modal={false} keeps Radix from
+                toggling body pointer-events (which dropped the trigger's :hover and
+                caused the open/close flicker); preventing open-autofocus stops the
+                focus-driven scroll jump on hover. */}
+            <DropdownMenu open={searchItemsOpen} onOpenChange={setSearchItemsOpen} modal={false}>
               <DropdownMenuTrigger
                 aria-current={isSearchActive ? "page" : undefined}
                 className={navTriggerCls(isSearchActive)}
@@ -156,6 +159,7 @@ export default function Navbar() {
               <DropdownMenuContent
                 align="start"
                 className="w-44"
+                onOpenAutoFocus={(e) => e.preventDefault()}
                 onMouseEnter={hoverOpen(setSearchItemsOpen, searchItemsTimer)}
                 onMouseLeave={hoverClose(setSearchItemsOpen, searchItemsTimer)}
               >
@@ -174,8 +178,8 @@ export default function Navbar() {
               </DropdownMenuContent>
             </DropdownMenu>
 
-            {/* Report dropdown — hover to open */}
-            <DropdownMenu open={reportOpen} onOpenChange={setReportOpen}>
+            {/* Report dropdown — hover to open (see Search Items note above). */}
+            <DropdownMenu open={reportOpen} onOpenChange={setReportOpen} modal={false}>
               <DropdownMenuTrigger
                 aria-current={isReportActive ? "page" : undefined}
                 className={navTriggerCls(isReportActive)}
@@ -189,6 +193,7 @@ export default function Navbar() {
               <DropdownMenuContent
                 align="start"
                 className="w-48"
+                onOpenAutoFocus={(e) => e.preventDefault()}
                 onMouseEnter={hoverOpen(setReportOpen, reportTimer)}
                 onMouseLeave={hoverClose(setReportOpen, reportTimer)}
               >
@@ -213,7 +218,7 @@ export default function Navbar() {
           <div className="flex-1" />
 
           {/* ── Desktop right actions ──────────────────────────────────────────── */}
-          <div className="hidden items-center gap-1.5 xl:flex">
+          <div className="hidden items-center gap-2 xl:flex">
 
             {/* Global search bar — covers both found + lost */}
             <form onSubmit={handleSearch} role="search">
@@ -225,8 +230,10 @@ export default function Navbar() {
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search found & lost..."
                   aria-label="Search all items"
-                  className="h-full flex-1 bg-transparent text-[13px] text-foreground outline-none placeholder:text-muted-foreground"
+                  className="h-full min-w-0 flex-1 bg-transparent text-[13px] text-foreground outline-none placeholder:text-muted-foreground"
                 />
+                {/* Only show the shortcut hint when there's room (wide screens), so it
+                    never crowds into the theme toggle on tighter xl widths. */}
                 <kbd className="hidden shrink-0 items-center rounded border border-border px-1 py-0.5 text-[10px] font-medium text-muted-foreground 2xl:flex">
                   ⌘K
                 </kbd>

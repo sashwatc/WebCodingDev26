@@ -137,6 +137,11 @@ export default function Search({ recordTypeOverride = "found" }) {
           updated_date: report.updated_date || "",
           matching_count: report.matched_items?.length || 0,
           matched_items: report.matched_items || [],
+          // Carried so the card can flag the viewer's OWN report. The backend
+          // redacts contact_email on reports the caller doesn't own, and
+          // submitted_by_user_email is the reporter — so only the owner matches.
+          contact_email: report.contact_email || "",
+          submitted_by_user_email: report.submitted_by_user_email || "",
         })),
     [lostReports, t]
   );

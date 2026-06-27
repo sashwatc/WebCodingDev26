@@ -6,7 +6,7 @@
  */
 
 import React from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/lib/AuthContext";
@@ -177,17 +177,27 @@ function matchFoundItemId(match) {
 // Admin view of a lost report's AI-suggested found-item matches, with actions to
 // approve (confirm), reject, or link a match. Decisions persist onto the report's
 // matched_items array via the LostReport entity.
-function LostReportMatches({ report }) {
+function LostReportMatches({ report, foundItemsById = {} }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const matches = Array.isArray(report.matched_items) ? report.matched_items : [];
+  const allMatches = Array.isArray(report.matched_items) ? report.matched_items : [];
+  // Hide matches the admin has dismissed ("Not a match"); the rejected status is
+  // persisted on the report server-side, so they stay hidden across refreshes.
+  const matches = allMatches.filter(
+    (match) => !match || typeof match === "string" || match.status !== "rejected"
+  );
 
   const decisionMutation = useMutation({
     mutationFn: ({ foundItemId, decision }) =>
       appClient.matches.decideForLostReport(report.id, foundItemId, decision),
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["adminLostReports"] });
-      toast({ title: "Match updated" });
+      // Linking kicks off the full return flow server-side (owner notified,
+      // recovery case advanced, report resolved out of the queue).
+      queryClient.invalidateQueries({ queryKey: ["adminRecoveryCases"] });
+      toast({
+        title: variables?.decision === "linked" ? "Match linked — owner notified" : "Match updated",
+      });
     },
     onError: (error) =>
       toast({ title: "Failed to update match", description: error?.message, variant: "destructive" }),
@@ -208,7 +218,8 @@ function LostReportMatches({ report }) {
       </p>
       {matches.map((match) => {
         const foundItemId = matchFoundItemId(match);
-        const title = match?.found_item_title || foundItemId;
+        const foundItem = foundItemsById[foundItemId];
+        const title = match?.found_item_title || foundItem?.title || foundItemId;
         const confidence = match?.confidence;
         const reasons = Array.isArray(match?.reasons) ? match.reasons : [];
         const decision = match?.status && match.status !== "suggested" ? match.status : null;
@@ -218,7 +229,7 @@ function LostReportMatches({ report }) {
           <div key={foundItemId} className="rounded-xl border border-border bg-card p-3">
             <div className="flex items-start gap-3">
               <RecordThumbnail
-                src={match?.photo_urls?.[0]}
+                src={getPrimaryRecordPhoto(foundItemsById[foundItemId] || {}, match)}
                 alt={title}
                 className="h-12 w-12 shrink-0 rounded-md border border-border object-cover"
               />
@@ -226,7 +237,12 @@ function LostReportMatches({ report }) {
                 <div className="flex flex-wrap items-center gap-2">
                   <p className="truncate text-sm font-semibold text-foreground">{title}</p>
                   {typeof confidence === "number" && (
-                    <Badge variant="outline" className="border-primary/30 text-primary">{confidence}% match</Badge>
+                    <Badge className={`gap-1 border-transparent text-white ${
+                      confidence >= 80 ? "bg-emerald-600" : confidence >= 50 ? "bg-amber-500" : "bg-slate-500"
+                    }`}>
+                      <span className="h-1.5 w-1.5 rounded-full bg-white/90" aria-hidden="true" />
+                      {confidence}% match
+                    </Badge>
                   )}
                   {decision && (
                     <Badge
@@ -284,7 +300,12 @@ export default function AdminDashboard() {
   // Staff get a scoped view: moderation, reports, recovery, and support — but
   // not the admin-only governance tabs (Users, System Settings, Loss Sentinel).
   const { isAdmin } = useAuth();
-  const [activeTab, setActiveTab] = React.useState("overview");
+  // Drive the active tab from the URL (?tab=) so each panel switch pushes a real
+  // browser history entry — the back arrow then returns to the previous panel
+  // instead of snapping back to the default Overview.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = searchParams.get("tab") || "overview";
+  const setActiveTab = (tab) => setSearchParams({ tab });
   const { data: foundItems = [], isLoading: fiLoading } = useQuery({
     queryKey: ["adminFoundItems"],
     queryFn: () => appClient.entities.FoundItem.list("-created_date", 500),
@@ -296,6 +317,21 @@ export default function AdminDashboard() {
     queryFn: () => appClient.entities.LostReport.list("-created_date", 500),
     refetchInterval: 30000,
   });
+
+  // Index found items by id so suggested-match cards can resolve the found-item
+  // photo the same way every other thumbnail does (match objects only carry the
+  // found_item_id, not the photo URLs).
+  const foundItemsById = React.useMemo(
+    () => foundItems.reduce((byId, item) => { byId[item.id] = item; return byId; }, {}),
+    [foundItems]
+  );
+
+  // A report leaves the active admin queue once a match is linked ("in_review"),
+  // or it is resolved/closed; those are tracked under Recovery, not the active desk.
+  const activeLostReports = React.useMemo(
+    () => lostReports.filter((report) => !["in_review", "resolved", "closed"].includes(report.status)),
+    [lostReports]
+  );
 
   const { data: claims = [], isLoading: clLoading, error: claimsError } = useQuery({
     queryKey: ["adminClaims"],
@@ -551,17 +587,17 @@ export default function AdminDashboard() {
               <div className="space-y-4">
                 <div className="bg-muted border border-border rounded-xl p-5 shadow-sm">
                   <p className="text-sm font-semibold text-foreground">{t("admin_dashboard.lost_reports")}</p>
-                  <p className="mt-2 text-sm text-muted-foreground">{t("admin_dashboard.reports_summary", { count: lostReports.length })}</p>
+                  <p className="mt-2 text-sm text-muted-foreground">{t("admin_dashboard.reports_summary", { count: activeLostReports.length })}</p>
                 </div>
 
-                {lostReports.length === 0 ? (
+                {activeLostReports.length === 0 ? (
                   <div className="bg-muted border border-border rounded-xl px-6 py-14 text-center">
                     <AlertTriangle className="mx-auto mb-3 h-10 w-10 text-muted-foreground/40" />
                     <p className="text-sm text-muted-foreground">{t("admin_dashboard.no_lost_reports")}</p>
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    {lostReports.map((report) => (
+                    {activeLostReports.map((report) => (
                       <div key={report.id} className="bg-card border border-border rounded-xl p-5 shadow-sm">
                         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                           <div className="flex items-start gap-4 min-w-0 flex-1">
@@ -587,7 +623,7 @@ export default function AdminDashboard() {
                           </div>
                           <Badge variant="outline" className="capitalize self-start text-primary border-primary/20">{translateUrgency(t, report.urgency)}</Badge>
                         </div>
-                        <LostReportMatches report={report} />
+                        <LostReportMatches report={report} foundItemsById={foundItemsById} />
                       </div>
                     ))}
                   </div>

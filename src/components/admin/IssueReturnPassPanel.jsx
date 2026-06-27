@@ -79,6 +79,13 @@ export default function IssueReturnPassPanel({ claim, existingPassId = "" }) {
             <p className="mt-1 text-xs leading-5 text-muted-foreground">{t("pickup_pass.issue_description")}</p>
           </div>
 
+          {(claim?.pickup_availability || claim?.pickupAvailability) && (
+            <p className="rounded-lg border border-primary/20 bg-primary/5 px-3 py-2 text-xs text-foreground">
+              <span className="font-semibold text-primary">{t("claim_item.pickup_availability", "Claimant availability")}:</span>{" "}
+              {claim.pickup_availability || claim.pickupAvailability}
+            </p>
+          )}
+
           {issuedPassId && (
             <p className="flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800 dark:border-emerald-900/40 dark:bg-emerald-950/20 dark:text-emerald-300">
               <Ticket className="h-3.5 w-3.5" />

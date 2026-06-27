@@ -130,6 +130,10 @@ export default function AdminItemsQueue({ items = [], filterStatus = "all" }) {
   });
 
   const filtered = items
+    // "I found this" items are tied to a specific lost report — they are handled
+    // as a suggested match in the Lost Reports view, NOT as standalone found items
+    // here, so they never create a duplicate entry in this review queue.
+    .filter((item) => !(item.linked_lost_report_id || item.linkedLostReportId))
     .filter((item) => statusFilter === "all" || canonicalFoundItemStatus(item.status) === statusFilter)
     .filter((item) => {
       if (!search.trim()) return true;

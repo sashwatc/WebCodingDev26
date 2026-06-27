@@ -7,8 +7,9 @@ import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { motion } from "framer-motion";
-import { Calendar, CheckCircle2, ChevronLeft, ChevronRight, MapPin, Package, ArrowRight } from "lucide-react";
+import { Calendar, CheckCircle2, ChevronLeft, ChevronRight, MapPin, Package, ArrowRight, UserCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/lib/AuthContext";
 import StatusBadge from "@/components/ui/StatusBadge";
 import { staggerChildVariants } from "@/lib/motion";
 import { formatLocalizedDate, translateCategory, translateLocation } from "@/lib/i18n-helpers";
@@ -23,6 +24,21 @@ export default function ItemCard({ item, viewMode = "list", compact = false }) {
   const isLostReport = item.record_type === "lost";
   const detailHref = isLostReport ? `/ItemDetails?type=lost&id=${item.id}` : `/ItemDetails?id=${item.id}`;
   const detailLabel = isLostReport ? t("common.view_report") : t("common.view_item");
+
+  // Flag the viewer's OWN lost report. contact_email survives only on reports the
+  // caller owns (backend redacts others); submitted_by_user_email is the reporter.
+  // So this matches for the owner only — others never see "your item".
+  const { user } = useAuth();
+  const ownerEmail = String(item.contact_email || item.submitted_by_user_email || "").trim().toLowerCase();
+  const isOwnReport = isLostReport && !!user?.email && ownerEmail !== "" && ownerEmail === user.email.trim().toLowerCase();
+
+  const OwnerBadge = () =>
+    isOwnReport ? (
+      <span className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary">
+        <UserCheck className="h-3 w-3" aria-hidden="true" />
+        {t("lost_items.your_report", "Your reported lost item")}
+      </span>
+    ) : null;
 
   const TypeChip = () => (
     <span className={`evidence-chip ${isLostReport ? "evidence-chip-lost" : "evidence-chip-found"}`}>
@@ -118,6 +134,7 @@ export default function ItemCard({ item, viewMode = "list", compact = false }) {
               <TypeChip />
               <CategoryChip />
               <StatusBadge status={item.status} />
+              <OwnerBadge />
             </div>
 
             {/* Row 2: title */}
@@ -171,9 +188,10 @@ export default function ItemCard({ item, viewMode = "list", compact = false }) {
             </div>
           )}
           {/* Badges on image */}
-          <div className="absolute left-2.5 top-2.5 flex flex-col gap-1.5">
+          <div className="absolute left-2.5 top-2.5 flex flex-col items-start gap-1.5">
             <StatusBadge status={item.status} />
             <TypeChip />
+            <OwnerBadge />
           </div>
           {/* Arrow navigation */}
           {photos.length > 1 && (

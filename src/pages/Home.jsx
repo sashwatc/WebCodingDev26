@@ -22,6 +22,7 @@ import { useAuth } from "@/lib/AuthContext";
 import { useQuery } from "@tanstack/react-query";
 import { appClient } from "@/api/appClient";
 import { isPublicFoundItemStatus } from "@/lib/found-items";
+import { getPrimaryRecordPhoto } from "@/lib/media";
 import { staggerChildVariants, staggerContainerProps } from "@/lib/motion";
 
 /* ─── Data ──────────────────────────────────────────────────────────────── */
@@ -712,8 +713,8 @@ export default function Home() {
                         onMouseLeave={(e) => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.07)"; }}
                       >
                         <div style={{ width: 160, height: 120, background: "linear-gradient(135deg, #0f1f35 0%, #1a2f4a 100%)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                          {item.imageUrl ? (
-                            <img src={item.imageUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={(e) => { e.currentTarget.style.display = "none"; }} />
+                          {getPrimaryRecordPhoto(item) ? (
+                            <img src={getPrimaryRecordPhoto(item)} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={(e) => { e.currentTarget.style.display = "none"; }} />
                           ) : (
                             <Package style={{ width: 28, height: 28, color: "rgba(255,255,255,0.12)" }} aria-hidden="true" />
                           )}
@@ -757,44 +758,7 @@ export default function Home() {
         <div className="home-section pb-20">
           <div className="space-y-14 pt-10">
 
-            {/* ── How it works */}
-            <motion.section
-              aria-labelledby="how-title"
-              {...staggerContainerProps}
-              whileInView="visible"
-              viewport={{ once: true, margin: "-60px" }}
-            >
-              <div className="mb-8">
-                <h2 id="how-title" className="text-xl font-bold tracking-tight text-foreground" style={{ letterSpacing: "-0.02em" }}>
-                  How it works
-                </h2>
-                <p className="mt-1 text-sm text-muted-foreground">Three steps to reuniting you with your belongings</p>
-              </div>
-              <div className="grid gap-4 sm:grid-cols-3">
-                {HOW_IT_WORKS.map(({ step, icon: Icon, title, desc }) => (
-                  <motion.div
-                    key={step}
-                    variants={staggerChildVariants}
-                    whileHover={{ y: -4 }}
-                    transition={spring}
-                    className="archive-card p-6"
-                  >
-                    <div className="mb-5 flex items-start justify-between">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-muted">
-                        <Icon className="h-4 w-4 text-foreground" aria-hidden="true" />
-                      </div>
-                      <span className="font-black tracking-tighter text-border select-none" style={{ fontSize: "2rem", lineHeight: 1 }} aria-hidden="true">
-                        {step}
-                      </span>
-                    </div>
-                    <h3 className="text-sm font-semibold text-foreground">{title}</h3>
-                    <p className="mt-2 text-sm leading-6 text-muted-foreground">{desc}</p>
-                  </motion.div>
-                ))}
-              </div>
-            </motion.section>
-
-            {/* ── Dashboard / project documentation */}
+            {/* ── Dashboard / project documentation (placed above How it works) */}
             <motion.section
               initial={{ opacity: 0, y: 16 }}
               whileInView={{ opacity: 1, y: 0 }}
@@ -830,6 +794,43 @@ export default function Home() {
                     </Link>
                   </Button>
                 </div>
+              </div>
+            </motion.section>
+
+            {/* ── How it works */}
+            <motion.section
+              aria-labelledby="how-title"
+              {...staggerContainerProps}
+              whileInView="visible"
+              viewport={{ once: true, margin: "-60px" }}
+            >
+              <div className="mb-8">
+                <h2 id="how-title" className="text-xl font-bold tracking-tight text-foreground" style={{ letterSpacing: "-0.02em" }}>
+                  How it works
+                </h2>
+                <p className="mt-1 text-sm text-muted-foreground">Three steps to reuniting you with your belongings</p>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-3">
+                {HOW_IT_WORKS.map(({ step, icon: Icon, title, desc }) => (
+                  <motion.div
+                    key={step}
+                    variants={staggerChildVariants}
+                    whileHover={{ y: -4 }}
+                    transition={spring}
+                    className="archive-card p-6"
+                  >
+                    <div className="mb-5 flex items-start justify-between">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-muted">
+                        <Icon className="h-4 w-4 text-foreground" aria-hidden="true" />
+                      </div>
+                      <span className="font-black tracking-tighter text-border select-none" style={{ fontSize: "2rem", lineHeight: 1 }} aria-hidden="true">
+                        {step}
+                      </span>
+                    </div>
+                    <h3 className="text-sm font-semibold text-foreground">{title}</h3>
+                    <p className="mt-2 text-sm leading-6 text-muted-foreground">{desc}</p>
+                  </motion.div>
+                ))}
               </div>
             </motion.section>
 
