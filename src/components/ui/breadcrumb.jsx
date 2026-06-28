@@ -1,14 +1,20 @@
+// Breadcrumb: navigation trail showing the user's location in the hierarchy.
+// Composed of semantic primitives (nav > ol > li...) rather than a Radix wrapper.
+// Typical: Breadcrumb > BreadcrumbList > BreadcrumbItem(s) with
+// BreadcrumbLink/BreadcrumbPage, separated by BreadcrumbSeparator.
 import * as React from "react"
 import { Slot } from "@radix-ui/react-slot"
 import { ChevronRight, MoreHorizontal } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 
+// Breadcrumb: the <nav aria-label="breadcrumb"> landmark wrapper. forwardRef.
 const Breadcrumb = React.forwardRef(
   ({ ...props }, ref) => <nav ref={ref} aria-label="breadcrumb" {...props} />
 )
 Breadcrumb.displayName = "Breadcrumb"
 
+// BreadcrumbList: the ordered list (ol) holding the crumb items. forwardRef.
 const BreadcrumbList = React.forwardRef(({ className, ...props }, ref) => (
   <ol
     ref={ref}
@@ -20,6 +26,7 @@ const BreadcrumbList = React.forwardRef(({ className, ...props }, ref) => (
 ))
 BreadcrumbList.displayName = "BreadcrumbList"
 
+// BreadcrumbItem: a single list item (li) wrapping a link/page/separator. forwardRef.
 const BreadcrumbItem = React.forwardRef(({ className, ...props }, ref) => (
   <li
     ref={ref}
@@ -28,6 +35,8 @@ const BreadcrumbItem = React.forwardRef(({ className, ...props }, ref) => (
 ))
 BreadcrumbItem.displayName = "BreadcrumbItem"
 
+// BreadcrumbLink: clickable crumb for an ancestor page. With `asChild` it renders
+// as a Slot so you can pass a router Link; otherwise a plain <a>. forwardRef.
 const BreadcrumbLink = React.forwardRef(({ asChild, className, ...props }, ref) => {
   const Comp = asChild ? Slot : "a"
 
@@ -40,6 +49,7 @@ const BreadcrumbLink = React.forwardRef(({ asChild, className, ...props }, ref) 
 })
 BreadcrumbLink.displayName = "BreadcrumbLink"
 
+// BreadcrumbPage: the current page crumb (non-link span, aria-current="page"). forwardRef.
 const BreadcrumbPage = React.forwardRef(({ className, ...props }, ref) => (
   <span
     ref={ref}
@@ -51,6 +61,8 @@ const BreadcrumbPage = React.forwardRef(({ className, ...props }, ref) => (
 ))
 BreadcrumbPage.displayName = "BreadcrumbPage"
 
+// BreadcrumbSeparator: decorative divider between crumbs; defaults to a
+// ChevronRight icon but accepts custom `children`. aria-hidden (no ref).
 const BreadcrumbSeparator = ({
   children,
   className,
@@ -66,6 +78,8 @@ const BreadcrumbSeparator = ({
 )
 BreadcrumbSeparator.displayName = "BreadcrumbSeparator"
 
+// BreadcrumbEllipsis: collapsed-crumbs indicator ("..." icon) for long trails;
+// includes sr-only "More" text for screen readers. aria-hidden (no ref).
 const BreadcrumbEllipsis = ({
   className,
   ...props

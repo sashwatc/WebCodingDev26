@@ -1,10 +1,14 @@
 "use client"
 
+// Avatar: circular user image with a graceful fallback, built on
+// @radix-ui/react-avatar. Compose as Avatar > AvatarImage + AvatarFallback;
+// Radix swaps to the fallback automatically when the image fails/while loading.
 import * as React from "react"
 import * as AvatarPrimitive from "@radix-ui/react-avatar"
 
 import { cn } from "@/lib/utils"
 
+// Avatar: the rounded, fixed-size container that clips its children. forwardRef.
 const Avatar = React.forwardRef(({ className, ...props }, ref) => (
   <AvatarPrimitive.Root
     ref={ref}
@@ -13,6 +17,7 @@ const Avatar = React.forwardRef(({ className, ...props }, ref) => (
 ))
 Avatar.displayName = AvatarPrimitive.Root.displayName
 
+// AvatarImage: the actual <img> (pass `src`/`alt`); hidden if it can't load. forwardRef.
 const AvatarImage = React.forwardRef(({ className, ...props }, ref) => (
   <AvatarPrimitive.Image
     ref={ref}
@@ -21,6 +26,7 @@ const AvatarImage = React.forwardRef(({ className, ...props }, ref) => (
 ))
 AvatarImage.displayName = AvatarPrimitive.Image.displayName
 
+// AvatarFallback: placeholder (e.g. initials) shown when the image is missing. forwardRef.
 const AvatarFallback = React.forwardRef(({ className, ...props }, ref) => (
   <AvatarPrimitive.Fallback
     ref={ref}

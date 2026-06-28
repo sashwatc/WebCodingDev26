@@ -1,3 +1,6 @@
+// Calendar: date picker built on react-day-picker's <DayPicker>. This wrapper
+// only restyles it to match the design system (buttons, nav arrows, selected/
+// today states) and supports single/range modes. All DayPicker props pass through.
 import * as React from "react"
 import { ChevronLeft, ChevronRight } from "lucide-react"
 import { DayPicker } from "react-day-picker"
@@ -5,6 +8,8 @@ import { DayPicker } from "react-day-picker"
 import { cn } from "@/lib/utils"
 import { buttonVariants } from "@/components/ui/button"
 
+// Calendar: render DayPicker. `showOutsideDays` shows leading/trailing days of
+// adjacent months; `classNames` is merged so callers can override any slot.
 function Calendar({
   className,
   classNames,
@@ -15,6 +20,8 @@ function Calendar({
     (<DayPicker
       showOutsideDays={showOutsideDays}
       className={cn("p-3", className)}
+      // classNames maps each DayPicker slot (caption, nav, day, etc.) to Tailwind
+      // classes; nav buttons reuse buttonVariants and day cells adapt for range mode.
       classNames={{
         months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
         month: "space-y-4",
@@ -55,6 +62,7 @@ function Calendar({
         day_hidden: "invisible",
         ...classNames,
       }}
+      // Override DayPicker's prev/next nav arrows with lucide chevron icons.
       components={{
         IconLeft: ({ className, ...props }) => (
           <ChevronLeft className={cn("h-4 w-4", className)} {...props} />

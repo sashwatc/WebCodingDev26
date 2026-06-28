@@ -2,6 +2,32 @@
  * FindBack AI - User Dashboard
  * Students/staff can track submitted lost reports, claim history,
  * advisory match suggestions, and notification updates.
+ *
+ * OVERVIEW (what the page does):
+ *   The signed-in user's personal hub for the lost-and-found workflow. If no
+ *   user is signed in, it renders a sign-in prompt instead. Otherwise it shows:
+ *     - A header (with a decorative ConstellationCanvas background) and a
+ *       "Browse Lost & Found" button.
+ *     - Three quick-stat tiles: # of lost reports, # of active claims, # of
+ *       unread notification alerts.
+ *     - A tabbed area (tab is driven by the ?tab= URL param) with six tabs:
+ *         reports        — the user's lost reports + AI "potential match" cards
+ *                          from which they can claim/view matched found items.
+ *         claims         — the user's ownership claims, with admin notes, a
+ *                          message thread, withdraw action, pickup-confirmation
+ *                          flow, and a post-completion star-rating/review form.
+ *         recovery       — one recovery case per lost report, with a status
+ *                          timeline, recovery plan, likely-zone tags, claim code,
+ *                          and contextual next-step buttons.
+ *         notifications  — the user's notifications; click to mark read, X to
+ *                          dismiss, with optional links to a secure pickup pass.
+ *         saved          — locally/remotely saved items and saved searches.
+ *         messages       — per-claim staff message threads.
+ *
+ * DATA: most data is loaded via TanStack Query (useQuery) keyed on the user's
+ *   email; user actions (mark read, dismiss, withdraw, confirm receipt, submit
+ *   rating) are useMutation calls that invalidate queries to refetch. Text is
+ *   internationalized via react-i18next (t()).
  */
 
 import React, { useMemo, useState, useEffect } from "react";
@@ -36,16 +62,18 @@ import {
 } from "lucide-react";
 
 export default function UserDashboard() {
-  const { t } = useTranslation();
-  const queryClient = useQueryClient();
-  const { user, navigateToLogin } = useAuth();
-  const { toast } = useToast();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const { t } = useTranslation();              // i18n translator
+  const queryClient = useQueryClient();        // used to invalidate/refetch cached queries
+  const { user, navigateToLogin } = useAuth(); // current user + redirect-to-login helper
+  const { toast } = useToast();                // toast notifications for action feedback
+  const [searchParams, setSearchParams] = useSearchParams(); // URL query params (drives active tab)
   // Derive the active tab directly from the URL (?tab=) so browser back/forward
   // and in-app links like "Claim Approved" → ?tab=claims actually switch panels
   // instead of leaving a stale tab from the initial mount.
   const activeTab = searchParams.get("tab") || "reports";
+  // In-progress star-rating/review edits, keyed by claim id ({ rating, review }).
   const [reviewDrafts, setReviewDrafts] = useState({});
+  // Full FoundItem records for the user's locally-saved item ids (loaded in the effect below).
   const [savedItemData, setSavedItemData] = useState([]);
   // Saved searches are persisted server-side (/api/saved-searches); fall back to
   // any legacy localStorage entries if the backend call fails.
@@ -66,6 +94,8 @@ export default function UserDashboard() {
     },
   });
 
+  // On mount: read the locally-saved found-item ids from localStorage and fetch
+  // the full records for each (ignoring any that fail to load), for the Saved tab.
   useEffect(() => {
     const ids = JSON.parse(localStorage.getItem("ltf_saved_items") || "[]");
     if (!ids.length) return;
@@ -73,6 +103,8 @@ export default function UserDashboard() {
       .then(items => setSavedItemData(items.filter(Boolean)));
   }, []);
 
+  // Delete a saved search server-side; if that fails, fall back to removing it
+  // from the legacy localStorage list. Always invalidate so the list refetches.
   const deleteSavedSearch = async (id) => {
     try {
       await appClient.savedSearches.delete(id);
@@ -117,6 +149,8 @@ export default function UserDashboard() {
     enabled: !!user?.email,
   });
 
+  // Fetch a broad slice of found items (newest 500) used to resolve match
+  // suggestions and claim thumbnails by id.
   const { data: foundItems = [] } = useQuery({
     queryKey: ["dashboardFoundItems"],
     queryFn: () => appClient.entities.FoundItem.list("-created_date", 500),
@@ -137,12 +171,16 @@ export default function UserDashboard() {
     return [...ids];
   }, [lostReports, foundItems]);
 
+  // Fetch the matched found items that weren't in the 500-item list above, so
+  // every match suggestion can be fully rendered. Keyed on the missing id set.
   const { data: extraMatchedItems = [] } = useQuery({
     queryKey: ["matchedFoundItems", missingMatchIds.join(",")],
     queryFn: () => Promise.all(missingMatchIds.map(id => appClient.entities.FoundItem.get(id).catch(() => null))).then(r => r.filter(Boolean)),
     enabled: missingMatchIds.length > 0,
   });
 
+  // Fetch the recovery case for each of the user's lost reports (one per report),
+  // dropping any that don't resolve. Re-keyed when the set of report ids changes.
   const { data: recoveryCases = [] } = useQuery({
     queryKey: ["userRecoveryCases", user?.email, lostReports.map((report) => report.id).join(",")],
     queryFn: async () => {
@@ -161,7 +199,8 @@ export default function UserDashboard() {
     enabled: !!user?.email,
   });
 
-  // Mark notification as read
+  // Mark a single notification as read, then refetch all queries to refresh
+  // unread counts/badges.
   const markReadMutation = useMutation({
     mutationFn: (id) => appClient.recoveryPulse.markNotificationRead(id),
     onSuccess: () => queryClient.invalidateQueries(),
@@ -188,6 +227,7 @@ export default function UserDashboard() {
     onSettled: () => queryClient.invalidateQueries({ queryKey: ["userNotifications", user?.email] }),
   });
 
+  // Withdraw (cancel) a pending claim, then refetch and toast confirmation.
   const withdrawMutation = useMutation({
     mutationFn: (claim) => appClient.claims.cancel(claim),
     onSuccess: () => {
@@ -215,6 +255,7 @@ export default function UserDashboard() {
     },
   });
 
+  // Submit the claimant's star rating + written review for a completed claim.
   const submitReviewMutation = useMutation({
     mutationFn: async ({ claim, rating, review }) => {
       // Use the dedicated claimant-authorized rating endpoint. It persists the
@@ -239,6 +280,8 @@ export default function UserDashboard() {
     },
   });
 
+  // Lookup map: found-item id -> FoundItem record, merging the broad list with
+  // the extra fetched matches. Used to resolve match/claim thumbnails by id.
   const foundItemsById = useMemo(
     () =>
       [...foundItems, ...extraMatchedItems].reduce((itemsById, item) => {
@@ -248,6 +291,7 @@ export default function UserDashboard() {
     [foundItems, extraMatchedItems]
   );
 
+  // Lookup map: lost-report id -> its recovery case (for the Recovery tab).
   const recoveryCasesByReportId = useMemo(
     () =>
       recoveryCases.reduce((casesByReportId, recoveryCase) => {
@@ -270,6 +314,7 @@ export default function UserDashboard() {
     [claims]
   );
 
+  // Small reusable placeholder shown when a tab/list has no data: centered icon + message.
   const EmptyState = ({ icon: Icon, message }) => (
     <div className="text-center py-12">
       <Icon className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
@@ -277,6 +322,9 @@ export default function UserDashboard() {
     </div>
   );
 
+  // SIGNED-OUT VIEW: if there is no authenticated user, show a sign-in prompt
+  // (clicking the button kicks off navigateToLogin, with error feedback via toast)
+  // instead of the dashboard.
   if (!user) {
     return (
       <div className="max-w-xl mx-auto px-4 py-16">
@@ -309,9 +357,11 @@ export default function UserDashboard() {
     );
   }
 
+  // SIGNED-IN VIEW: the full dashboard.
   return (
     <div className="page-shell max-w-6xl py-10 space-y-8">
-      {/* Page Header */}
+      {/* Page Header — decorative animated ConstellationCanvas backdrop with the
+          title block (kicker/title/personalized welcome) and a Browse button layered on top */}
       <div style={{ position: "relative", overflow: "hidden", minHeight: 180, borderBottom: "1px solid hsl(var(--border))" }}>
         <ConstellationCanvas />
         <div className="page-header flex flex-col md:flex-row md:items-center md:justify-between gap-4 pb-4" style={{ position: "relative", zIndex: 2 }}>
@@ -337,9 +387,9 @@ export default function UserDashboard() {
         </div>
       </div>
 
-      {/* Quick Stats Grid */}
+      {/* Quick Stats Grid — three live count tiles derived from the fetched data */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Stat 1: Reports */}
+        {/* Stat 1: Reports — total number of the user's lost reports */}
         <div className="stat-panel relative overflow-hidden group hover:scale-[1.02] hover:shadow-md transition-all duration-300">
           <div className="absolute top-0 right-0 w-24 h-24 bg-amber-500/10 rounded-bl-full translate-x-4 -translate-y-4 group-hover:scale-110 transition-transform duration-300" />
           <div className="flex items-center gap-4 relative z-10">
@@ -353,7 +403,7 @@ export default function UserDashboard() {
           </div>
         </div>
 
-        {/* Stat 2: Claims */}
+        {/* Stat 2: Claims — count of claims that are neither completed nor rejected (i.e. active) */}
         <div className="stat-panel relative overflow-hidden group hover:scale-[1.02] hover:shadow-md transition-all duration-300">
           <div className="absolute top-0 right-0 w-24 h-24 bg-blue-500/10 rounded-bl-full translate-x-4 -translate-y-4 group-hover:scale-110 transition-transform duration-300" />
           <div className="flex items-center gap-4 relative z-10">
@@ -369,7 +419,7 @@ export default function UserDashboard() {
           </div>
         </div>
 
-        {/* Stat 3: Alerts */}
+        {/* Stat 3: Alerts — count of unread notifications */}
         <div className="stat-panel relative overflow-hidden group hover:scale-[1.02] hover:shadow-md transition-all duration-300">
           <div className="absolute top-0 right-0 w-24 h-24 bg-rose-500/10 rounded-bl-full translate-x-4 -translate-y-4 group-hover:scale-110 transition-transform duration-300" />
           <div className="flex items-center gap-4 relative z-10">
@@ -386,8 +436,9 @@ export default function UserDashboard() {
         </div>
       </div>
 
-      {/* Tabs */}
+      {/* Tabs — changing a tab writes ?tab= to the URL (so navigation/back-forward work) */}
       <Tabs value={activeTab} onValueChange={(v) => setSearchParams({ tab: v })} className="w-full">
+        {/* Tab triggers row (horizontally scrollable). The notifications trigger shows a ping dot when unread alerts exist. */}
         <TabsList className="flex w-full justify-start gap-1 overflow-x-auto flex-nowrap [&>*]:shrink-0 no-scrollbar bg-muted/80 rounded-xl border border-border/50 p-1">
           <TabsTrigger
             value="reports"
@@ -430,8 +481,9 @@ export default function UserDashboard() {
           </TabsTrigger>
         </TabsList>
 
-        {/* Lost Reports Tab */}
+        {/* ===== Lost Reports Tab: the user's lost reports, each with AI match cards ===== */}
         <TabsContent value="reports" className="space-y-4">
+          {/* While loading show skeletons; if there are no reports show an empty state; otherwise list the reports */}
           {lrLoading ? (
             <div className="space-y-4">
               {Array(3).fill(0).map((_, i) => (
@@ -442,6 +494,7 @@ export default function UserDashboard() {
             <EmptyState icon={AlertTriangle} message={t("user_dashboard.no_lost_reports")} />
           ) : (
             <div className="space-y-4">
+              {/* One card per lost report */}
               {lostReports.map(report => (
                 <div key={report.id} className="archive-card hover:shadow-md transition-all duration-300 overflow-hidden">
                   <div className="p-5">
@@ -460,6 +513,7 @@ export default function UserDashboard() {
                             <StatusBadge status={report.status} />
                           </div>
                           <p className="text-sm text-muted-foreground leading-relaxed max-w-xl">{report.description}</p>
+                          {/* "Recovered" banner shown only when the report has been resolved */}
                           {report.status === "resolved" && (
                             <p className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300">
                               <CheckCircle2 className="h-3.5 w-3.5" />
@@ -478,6 +532,7 @@ export default function UserDashboard() {
                         </div>
                       </div>
 
+                      {/* "N matches" badge on the report header when AI suggested matches exist */}
                       {report.matched_items?.length > 0 && (
                         <div className="shrink-0 flex items-center md:self-center">
                           <Badge className="bg-muted hover:bg-muted text-primary font-bold border border-border flex items-center gap-1.5 py-1 px-3 rounded-full text-xs shadow-sm transition-all duration-300">
@@ -503,13 +558,15 @@ export default function UserDashboard() {
                         <p className="text-xs text-muted-foreground mb-3">
                           A found item in our inventory closely matches your report. Review it and submit a claim if it's yours.
                         </p>
+                        {/* One row per suggested matched found item */}
                         <div className="space-y-2.5">
                           {report.matched_items.map(match => {
+                            // A match may be a bare id string or an object carrying id + confidence + reasons.
                             const matchId = typeof match === "string" ? match : (match?.found_item_id || match?.foundItemId);
                             const confidence = typeof match === "object" ? match.confidence : null;
                             const reasons = typeof match === "object" && Array.isArray(match.reasons) ? match.reasons : [];
-                            const matchedItem = foundItemsById[matchId];
-                            const existingClaim = claimByFoundItemId[matchId];
+                            const matchedItem = foundItemsById[matchId];      // resolved FoundItem record (may be undefined while loading)
+                            const existingClaim = claimByFoundItemId[matchId]; // the user's existing claim on this item, if any
                             // Resolve a single coherent claim state — never show two at once.
                             // Rejected/cancelled claims fall through so the item can be re-claimed.
                             const claimStatus = String(existingClaim?.status || "").toLowerCase();
@@ -552,6 +609,9 @@ export default function UserDashboard() {
                                     </div>
                                   )}
                                 </div>
+                                {/* Action column — exactly one CTA based on the resolved claim state:
+                                    claimDone -> "Recovered"; claimApproved -> "Complete Pickup";
+                                    claimActive -> "Claim Submitted"; otherwise -> Claim / View buttons */}
                                 <div className="shrink-0 flex gap-2 sm:flex-col sm:items-end">
                                   {claimDone ? (
                                     // Recovered: a single terminal state. (Approved+completed items
@@ -607,7 +667,9 @@ export default function UserDashboard() {
           )}
         </TabsContent>
 
+        {/* ===== Recovery Cases Tab: one tracked case per lost report ===== */}
         <TabsContent value="recovery" className="space-y-4">
+          {/* Explanatory intro box describing what recovery cases are */}
           <div className="rounded-xl border border-border bg-muted/40 p-4">
             <h3 className="flex items-center gap-2 text-sm font-bold text-foreground">
               <ShieldAlert className="h-4 w-4 text-primary" />
@@ -619,10 +681,12 @@ export default function UserDashboard() {
               item to claim it, and grab your pickup code — all in one place.
             </p>
           </div>
+          {/* Empty state when the user has no lost reports (and therefore no cases) */}
           {lostReports.length === 0 ? (
             <EmptyState icon={ShieldAlert} message="No recovery cases yet. Report a lost item to open one." />
           ) : (
             <div className="space-y-4">
+              {/* One card per lost report; recoveryCase may be absent (treated as "open") */}
               {lostReports.map((report) => {
                 const recoveryCase = recoveryCasesByReportId[report.id];
                 return (
@@ -637,6 +701,7 @@ export default function UserDashboard() {
                               <span className="text-[11px] font-medium text-muted-foreground">{recoveryCase.case_code}</span>
                             )}
                           </div>
+                          {/* Human-readable status line: exactly one message renders based on the case status */}
                           <p className="mt-2 text-sm text-muted-foreground">
                             {recoveryCase?.status === "match_identified" && "A possible item match is available. Review it and submit a claim."}
                             {recoveryCase?.status === "claim_in_review" && "Your ownership claim is under review."}
@@ -648,6 +713,9 @@ export default function UserDashboard() {
                           </p>
                           {/* Status timeline so the case always shows where it stands. */}
                           {(() => {
+                            // Build a 5-step progress timeline. `order` maps a case status to its
+                            // index; `current` is the furthest reached step (closed/archived count as
+                            // the final "Returned" step). Steps at/below current render as completed.
                             const steps = [
                               { key: "open", label: "Reported" },
                               { key: "match_identified", label: "Match found" },
@@ -671,11 +739,13 @@ export default function UserDashboard() {
                               </ol>
                             );
                           })()}
+                          {/* Optional staff-authored recovery plan text */}
                           {recoveryCase?.recovery_plan && (
                             <p className="mt-3 whitespace-pre-line rounded-lg border border-border bg-muted/40 p-3 text-xs leading-5 text-muted-foreground">
                               {recoveryCase.recovery_plan}
                             </p>
                           )}
+                          {/* Optional tags for the zones staff are most likely searching */}
                           {recoveryCase?.likely_zone_summaries?.length > 0 && (
                             <div className="mt-3 flex flex-wrap gap-2">
                               {recoveryCase.likely_zone_summaries.map((zone) => (
@@ -724,6 +794,7 @@ export default function UserDashboard() {
                             </div>
                           )}
                         </div>
+                        {/* Re-run the server-side recovery analysis for this report, then refetch cases */}
                         <Button
                           variant="outline"
                           size="sm"
@@ -743,8 +814,9 @@ export default function UserDashboard() {
           )}
         </TabsContent>
 
-        {/* Claims Tab */}
+        {/* ===== Claims Tab: the user's ownership claims and their lifecycle actions ===== */}
         <TabsContent value="claims" className="space-y-4">
+          {/* Loading skeletons, empty state, then the list of claim cards */}
           {clLoading ? (
             <div className="space-y-4">
               {Array(3).fill(0).map((_, i) => (
@@ -755,10 +827,12 @@ export default function UserDashboard() {
             <EmptyState icon={FileCheck} message={t("user_dashboard.no_claims")} />
           ) : (
             <div className="space-y-4">
+              {/* One card per claim */}
               {claims.map(claim => (
                 <div key={claim.id} className="archive-card hover:shadow-md transition-all duration-300 overflow-hidden">
                   <div className="p-5">
                     <div className="flex flex-col sm:flex-row gap-5 items-start">
+                      {/* Claimed item photo (falls back to an icon) with the claim status badge overlaid */}
                       <div className="relative shrink-0 w-24 h-24 sm:w-28 sm:h-28 rounded-xl overflow-hidden border border-border bg-muted flex items-center justify-center shadow-inner">
                         {getPrimaryRecordPhoto(claim, foundItemsById[claim.found_item_id]) ? (
                           <img
@@ -788,6 +862,7 @@ export default function UserDashboard() {
 
                         <p className="text-sm text-muted-foreground leading-relaxed">{claim.reason}</p>
 
+                        {/* Admin update note, shown only when staff have added one */}
                         {claim.admin_notes && (
                           <div className="mt-2.5 text-xs bg-blue-50/50 border border-blue-100/50 text-blue-800 p-3 rounded-lg flex items-start gap-2.5 dark:bg-blue-950/30 dark:border-blue-900 dark:text-blue-200">
                             <ShieldAlert className="w-4 h-4 text-blue-600 shrink-0 mt-0.5 dark:text-blue-300" />
@@ -798,10 +873,12 @@ export default function UserDashboard() {
                           </div>
                         )}
 
+                        {/* While the claim is still in-review, show the staff<->claimant message thread */}
                         {["need_more_info", "under_review", "submitted", "pending_review"].includes(claim.status) && (
                           <ClaimCaseMessageThread claim={claim} viewerRole="claimant" className="mt-4" />
                         )}
 
+                        {/* ...and allow the user to withdraw the still-pending claim (with confirm prompt) */}
                         {["need_more_info", "under_review", "submitted", "pending_review"].includes(claim.status) && (
                           <div className="pt-1">
                             <Button
@@ -821,7 +898,8 @@ export default function UserDashboard() {
                           </div>
                         )}
 
-                        {/* Approved claims requiring pickup confirmation */}
+                        {/* Approved-but-not-yet-picked-up: prompts the user to confirm receipt,
+                            with an optional "View claim code" pickup-pass link and a confirm button */}
                         {claim.status === "approved" && !claim.received_confirmed_at && (
                           <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50/30 p-4 space-y-3 dark:border-emerald-900 dark:bg-emerald-950/20">
                             <div>
@@ -861,6 +939,7 @@ export default function UserDashboard() {
                                 className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5"
                                 disabled={confirmReceiptMutation.isPending}
                                 onClick={() => {
+                                  // Confirm receipt -> completes the claim (backend then removes the item everywhere)
                                   if (window.confirm(t("user_dashboard.receipt_confirm_prompt", "Confirm you've received this item back? This completes the recovery."))) {
                                     confirmReceiptMutation.mutate(claim);
                                   }
@@ -878,6 +957,7 @@ export default function UserDashboard() {
                           </div>
                         )}
 
+                        {/* Confirmation receipt line once the user has confirmed pickup */}
                         {claim.received_confirmed_at && (
                           <div className="mt-3 bg-emerald-50/30 border border-emerald-100 text-emerald-800 px-3 py-2 rounded-lg text-xs font-semibold flex items-center gap-2 dark:bg-emerald-950/20 dark:border-emerald-900 dark:text-emerald-300">
                             <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
@@ -889,7 +969,10 @@ export default function UserDashboard() {
                           </div>
                         )}
 
-                        {/* Interactive Feedback / Star rating section */}
+                        {/* Star-rating + written review form, shown only after a claim is completed/received.
+                            The clickable star row and textarea write into reviewDrafts (keyed by claim id);
+                            inputs lock once a review is pending/approved, and a review_status badge reflects
+                            moderation state. The submit button fires submitReviewMutation. */}
                         {(claim.status === "completed" || claim.received_confirmed_at) && (
                           <div className="mt-4 rounded-xl border border-amber-100 bg-amber-50/30 p-4 space-y-3 dark:border-amber-900 dark:bg-amber-950/20">
                             <div className="flex flex-wrap items-center justify-between gap-3">
@@ -920,13 +1003,14 @@ export default function UserDashboard() {
                               )}
                             </div>
 
+                            {/* Five clickable stars; `draft` is the working value (falling back to any saved rating/review) */}
                             <div className="flex gap-1">
                               {Array.from({ length: 5 }).map((_, index) => {
                                 const draft = reviewDrafts[claim.id] || {
                                   rating: claim.claimant_rating || 0,
                                   review: claim.claimant_review || "",
                                 };
-                                const filled = index < draft.rating;
+                                const filled = index < draft.rating; // this star is lit if its index is below the chosen rating
                                 return (
                                   <button
                                     key={index}
@@ -990,6 +1074,7 @@ export default function UserDashboard() {
                               </p>
                             )}
 
+                            {/* Submit button — hidden once a review is pending, or already approved with a rating */}
                             {claim.review_status !== "pending" && (claim.review_status !== "approved" || !claim.claimant_rating) && (
                               <Button
                                 size="sm"
@@ -1018,6 +1103,7 @@ export default function UserDashboard() {
                         )}
                       </div>
 
+                      {/* Link to the full details page for the claimed found item */}
                       <Link to={`/ItemDetails?id=${claim.found_item_id}`} className="self-start">
                         <Button variant="outline" size="sm" className="gap-1.5 border-border text-muted-foreground hover:text-foreground transition-colors">
                           <Eye className="w-3.5 h-3.5" />
@@ -1032,8 +1118,9 @@ export default function UserDashboard() {
           )}
         </TabsContent>
 
-        {/* Notifications Tab */}
+        {/* ===== Notifications Tab: click a row to mark read, X to dismiss ===== */}
         <TabsContent value="notifications" className="space-y-4">
+          {/* Loading skeletons, empty state, then the notification list */}
           {notifLoading ? (
             <div className="space-y-3">
               {Array(3).fill(0).map((_, i) => (
@@ -1045,6 +1132,7 @@ export default function UserDashboard() {
           ) : (
             <div className="space-y-2">
               {notifications.map(notif => {
+                // Derive optional pickup-pass routing and sanitize the message text for each notification.
                 const passId = getReturnPassIdFromNotification(notif);
                 const pickupRoute = passId ? getPickupPassRoute(passId) : "";
                 const safeMessage = sanitizeNotificationMessage(notif.message);
@@ -1060,6 +1148,7 @@ export default function UserDashboard() {
                       : "bg-blue-50/30 border-blue-100 hover:bg-blue-50/50 shadow-sm"
                   }`}
                   onClick={() => {
+                    // Clicking an unread notification marks it read (unread rows are visually highlighted).
                     if (!notif.is_read) {
                       markReadMutation.mutate(notif.id);
                     }
@@ -1072,6 +1161,7 @@ export default function UserDashboard() {
                     <div className="flex-1">
                       <p className={`text-sm ${notif.is_read ? "text-muted-foreground" : "text-foreground font-bold"}`}>{notif.title}</p>
                       <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{safeMessage}</p>
+                      {/* Optional deep-link to the secure pickup pass; stopPropagation so it doesn't also mark-read */}
                       {pickupRoute && (
                         <Button asChild size="sm" variant="link" className="mt-2 h-auto p-0 text-emerald-700">
                           <Link to={pickupRoute} onClick={(event) => event.stopPropagation()}>
@@ -1089,6 +1179,7 @@ export default function UserDashboard() {
                         aria-label={t("user_dashboard.dismiss_notification", "Dismiss notification")}
                         className="rounded-md p-1 text-muted-foreground/70 transition-colors hover:bg-muted hover:text-foreground"
                         onClick={(event) => {
+                          // Dismiss (remove) the notification; stopPropagation so the row's mark-read doesn't fire.
                           event.stopPropagation();
                           dismissNotificationMutation.mutate(notif.id);
                         }}
@@ -1103,9 +1194,9 @@ export default function UserDashboard() {
           )}
         </TabsContent>
 
-        {/* Saved Tab */}
+        {/* ===== Saved Tab: bookmarked items and saved searches ===== */}
         <TabsContent value="saved" className="space-y-6">
-          {/* Saved Items */}
+          {/* Saved Items — found items the user bookmarked (loaded from localStorage ids on mount) */}
           <div className="space-y-3">
             <h3 className="text-sm font-bold text-foreground uppercase tracking-wide">Saved Items</h3>
             {savedItemData.length === 0 ? (
@@ -1139,7 +1230,7 @@ export default function UserDashboard() {
             )}
           </div>
 
-          {/* Saved Searches */}
+          {/* Saved Searches — named saved queries; each can be re-run or deleted */}
           <div className="space-y-3">
             <h3 className="text-sm font-bold text-foreground uppercase tracking-wide">Saved Searches</h3>
             {savedSearches.length === 0 ? (
@@ -1174,8 +1265,9 @@ export default function UserDashboard() {
             )}
           </div>
         </TabsContent>
-        {/* Messages Tab */}
+        {/* ===== Messages Tab: per-claim staff<->claimant message threads ===== */}
         <TabsContent value="messages" className="space-y-4">
+          {/* Reuses the claims data: loading skeletons, empty state, then one thread card per claim */}
           {clLoading ? (
             <div className="space-y-4">
               {Array(3).fill(0).map((_, i) => (
@@ -1189,6 +1281,7 @@ export default function UserDashboard() {
               <p className="text-sm text-muted-foreground">
                 Messages between you and staff about your active claims. Staff may request more information or share updates here.
               </p>
+              {/* One thread card per claim: header (thumbnail, title, date, status) + the message thread */}
               {claims.map((claim) => (
                 <div key={claim.id} className="archive-card overflow-hidden">
                   <div className="flex items-center gap-3 border-b border-border px-5 py-3.5 bg-muted/40">

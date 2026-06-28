@@ -1,3 +1,13 @@
+/**
+ * About page
+ *
+ * A static, content-only marketing/info page that explains what the
+ * lost-and-found platform is, who it is for, and how it is built. The user
+ * lands here to read: a hero intro, a grid of product "highlights", a
+ * technical snapshot list, and a navy CTA card linking to the Documentation
+ * and Sources pages. There is no data fetching, state, or interactivity
+ * beyond the navigation links/buttons.
+ */
 import React from "react";
 import { Link } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +24,9 @@ import {
 } from "lucide-react";
 import { BRAND_NAME, SCHOOL_NAME } from "@/lib/constants";
 
+// Product "highlight" cards rendered in the top 2-column grid. Each entry
+// pairs a lucide icon with a short title/description selling one aspect of
+// the platform (workflow, matching, privacy, deployment).
 const highlights = [
   {
     icon: Workflow,
@@ -37,6 +50,8 @@ const highlights = [
   },
 ];
 
+// Bullet points listed in the "Technical Snapshot" card describing the
+// frontend/backend stack. Rendered as a simple dot-prefixed list.
 const technicalNotes = [
   "React 18 with React Router for the application shell and page routing",
   "TanStack Query for cached entity reads, invalidation, and async UI refresh",
@@ -46,8 +61,10 @@ const technicalNotes = [
 ];
 
 export default function About() {
+  // Pure presentational component — renders static content only.
   return (
     <div className="page-shell max-w-5xl py-16">
+      {/* Hero: page badge, title, and intro paragraph */}
       <div className="text-center mb-12">
         <Badge variant="outline" className="mb-3">About</Badge>
         <h1 className="text-4xl font-bold text-foreground mb-4">About {BRAND_NAME}</h1>
@@ -57,6 +74,7 @@ export default function About() {
         </p>
       </div>
 
+      {/* Highlights grid: one card per entry in the `highlights` array */}
       <div className="grid md:grid-cols-2 gap-6 mb-10">
         {highlights.map((item) => (
           <div key={item.title} className="archive-card">
@@ -71,7 +89,9 @@ export default function About() {
         ))}
       </div>
 
+      {/* Lower section: technical snapshot (left) + navy CTA card (right) */}
       <div className="grid lg:grid-cols-[1.15fr_0.85fr] gap-6 mb-10">
+        {/* Technical Snapshot card: intro copy + bulleted technicalNotes list */}
         <div className="surface-card p-7 space-y-4">
           <div className="flex items-center gap-2">
             <Code className="w-5 h-5 text-primary" />
@@ -81,6 +101,7 @@ export default function About() {
             The project emphasizes original workflows and application logic rather than relying on a premade site template.
             The frontend stays focused on the user experience while a separate Spring Boot service owns persistence and API workflows.
           </p>
+          {/* Dot-prefixed list of stack notes */}
           <div className="space-y-3">
             {technicalNotes.map((note) => (
               <div key={note} className="flex items-start gap-3">
@@ -109,6 +130,7 @@ export default function About() {
               <span>Priorities: findability, trust, privacy, and clear ownership verification</span>
             </div>
           </div>
+          {/* CTA buttons: navigate to Documentation and Sources pages */}
           <div className="mt-6 flex flex-wrap gap-3">
             <Link to="/Documentation">
               <Button size="sm" className="bg-white text-primary hover:bg-white/90 gap-2">

@@ -1,3 +1,26 @@
+/**
+ * Sidebar — a full collapsible application sidebar system (the shadcn/ui
+ * sidebar). It is not a single Radix primitive but a composition: a React
+ * context (SidebarProvider/useSidebar) drives open/collapsed state, desktop
+ * rendering uses styled divs with data-* attributes for Tailwind styling, and
+ * the mobile rendering reuses the Sheet (Radix Dialog) drawer. `Slot` enables
+ * `asChild` polymorphism, and Button/Input/Separator/Skeleton/Tooltip are
+ * reused for the sub-parts.
+ *
+ * Typical usage:
+ *   <SidebarProvider>
+ *     <Sidebar>
+ *       <SidebarHeader/> <SidebarContent>
+ *         <SidebarGroup><SidebarMenu>
+ *           <SidebarMenuItem><SidebarMenuButton/></SidebarMenuItem>
+ *         </SidebarMenu></SidebarGroup>
+ *       </SidebarContent> <SidebarFooter/>
+ *       <SidebarRail/>
+ *     </Sidebar>
+ *     <SidebarInset>...page...<SidebarTrigger/></SidebarInset>
+ *   </SidebarProvider>
+ */
+
 import * as React from "react"
 import { Slot } from "@radix-ui/react-slot"
 import { cva } from "class-variance-authority";
@@ -17,15 +40,18 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 
+// Cookie used to persist the expanded/collapsed choice across page loads.
 const SIDEBAR_COOKIE_NAME = "sidebar_state"
-const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7
-const SIDEBAR_WIDTH = "16rem"
-const SIDEBAR_WIDTH_MOBILE = "18rem"
-const SIDEBAR_WIDTH_ICON = "3rem"
-const SIDEBAR_KEYBOARD_SHORTCUT = "b"
+const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7 // 7 days, in seconds
+const SIDEBAR_WIDTH = "16rem"        // expanded width (desktop)
+const SIDEBAR_WIDTH_MOBILE = "18rem" // width of the mobile Sheet drawer
+const SIDEBAR_WIDTH_ICON = "3rem"    // width when collapsed to icons only
+const SIDEBAR_KEYBOARD_SHORTCUT = "b" // Cmd/Ctrl+B toggles the sidebar
 
+// Context carrying the sidebar's open/collapsed state and control helpers.
 const SidebarContext = React.createContext(null)
 
+// Hook to read sidebar state; throws if used outside a SidebarProvider.
 function useSidebar() {
   const context = React.useContext(SidebarContext)
   if (!context) {
@@ -35,6 +61,10 @@ function useSidebar() {
   return context
 }
 
+// Top-level provider: owns sidebar state and must wrap any Sidebar usage.
+// Supports controlled (open/onOpenChange) or uncontrolled (defaultOpen) modes,
+// tracks a separate mobile-open state, persists the choice to a cookie, and
+// registers the keyboard shortcut. Wraps children in a TooltipProvider too.
 const SidebarProvider = React.forwardRef((
   {
     defaultOpen = true,
@@ -48,12 +78,16 @@ const SidebarProvider = React.forwardRef((
   ref
 ) => {
   const isMobile = useIsMobile()
+  // Separate open state for the mobile Sheet drawer (independent of desktop).
   const [openMobile, setOpenMobile] = React.useState(false)
 
   // This is the internal state of the sidebar.
   // We use openProp and setOpenProp for control from outside the component.
   const [_open, _setOpen] = React.useState(defaultOpen)
+  // Prefer the controlled prop when provided, else the internal state.
   const open = openProp ?? _open
+  // Updates open state (supports a function updater), routes to the controlled
+  // handler when present, and persists the new value to the cookie.
   const setOpen = React.useCallback((value) => {
     const openState = typeof value === "function" ? value(open) : value
     if (setOpenProp) {
@@ -93,6 +127,8 @@ const SidebarProvider = React.forwardRef((
   // This makes it easier to style the sidebar with Tailwind classes.
   const state = open ? "expanded" : "collapsed"
 
+  // Memoized context value (toggles between mobile/desktop setters) shared to
+  // every descendant via useSidebar().
   const contextValue = React.useMemo(() => ({
     state,
     open,
@@ -128,6 +164,12 @@ const SidebarProvider = React.forwardRef((
 })
 SidebarProvider.displayName = "SidebarProvider"
 
+// The sidebar shell. Renders one of three ways based on context/props:
+//  - collapsible="none": a plain always-visible column.
+//  - mobile: a Sheet drawer sliding in from `side`.
+//  - desktop: a fixed panel plus a spacer div, animating width on collapse.
+// Props: `side` (left/right), `variant` (sidebar/floating/inset),
+// `collapsible` (offcanvas/icon/none).
 const Sidebar = React.forwardRef((
   {
     side = "left",
@@ -216,6 +258,7 @@ const Sidebar = React.forwardRef((
 })
 Sidebar.displayName = "Sidebar"
 
+// Button (PanelLeft icon) that toggles the sidebar; preserves any passed onClick.
 const SidebarTrigger = React.forwardRef(({ className, onClick, asChild = false, ...props }, ref) => {
   const { toggleSidebar } = useSidebar()
 
@@ -245,6 +288,8 @@ const SidebarTrigger = React.forwardRef(({ className, onClick, asChild = false, 
 })
 SidebarTrigger.displayName = "SidebarTrigger"
 
+// Thin draggable/clickable strip along the sidebar's edge that toggles it
+// (the resize-cursor handle on desktop).
 const SidebarRail = React.forwardRef(({ className, ...props }, ref) => {
   const { toggleSidebar } = useSidebar()
 
@@ -270,6 +315,8 @@ const SidebarRail = React.forwardRef(({ className, ...props }, ref) => {
 })
 SidebarRail.displayName = "SidebarRail"
 
+// The main content area next to the sidebar (<main>); shifts/insets to match
+// the sidebar's variant and collapsed state.
 const SidebarInset = React.forwardRef(({ className, ...props }, ref) => {
   return (
     (<main
@@ -284,6 +331,7 @@ const SidebarInset = React.forwardRef(({ className, ...props }, ref) => {
 })
 SidebarInset.displayName = "SidebarInset"
 
+// A search/text Input styled to sit inside the sidebar.
 const SidebarInput = React.forwardRef(({ className, ...props }, ref) => {
   return (
     (<Input
@@ -298,6 +346,7 @@ const SidebarInput = React.forwardRef(({ className, ...props }, ref) => {
 })
 SidebarInput.displayName = "SidebarInput"
 
+// Sticky top region of the sidebar (logo, title, etc.).
 const SidebarHeader = React.forwardRef(({ className, ...props }, ref) => {
   return (
     (<div
@@ -309,6 +358,7 @@ const SidebarHeader = React.forwardRef(({ className, ...props }, ref) => {
 })
 SidebarHeader.displayName = "SidebarHeader"
 
+// Bottom region of the sidebar (user menu, settings, etc.).
 const SidebarFooter = React.forwardRef(({ className, ...props }, ref) => {
   return (
     (<div
@@ -320,6 +370,7 @@ const SidebarFooter = React.forwardRef(({ className, ...props }, ref) => {
 })
 SidebarFooter.displayName = "SidebarFooter"
 
+// A Separator divider tuned to the sidebar's spacing/border color.
 const SidebarSeparator = React.forwardRef(({ className, ...props }, ref) => {
   return (
     (<Separator
@@ -331,6 +382,7 @@ const SidebarSeparator = React.forwardRef(({ className, ...props }, ref) => {
 })
 SidebarSeparator.displayName = "SidebarSeparator"
 
+// Scrollable middle region holding the menu groups.
 const SidebarContent = React.forwardRef(({ className, ...props }, ref) => {
   return (
     (<div
@@ -345,6 +397,7 @@ const SidebarContent = React.forwardRef(({ className, ...props }, ref) => {
 })
 SidebarContent.displayName = "SidebarContent"
 
+// A titled section within the content (wraps a label + menu).
 const SidebarGroup = React.forwardRef(({ className, ...props }, ref) => {
   return (
     (<div
@@ -356,6 +409,8 @@ const SidebarGroup = React.forwardRef(({ className, ...props }, ref) => {
 })
 SidebarGroup.displayName = "SidebarGroup"
 
+// Heading for a SidebarGroup; fades/collapses away in icon mode. `asChild`
+// (via Slot) lets you render it as a custom element instead of a div.
 const SidebarGroupLabel = React.forwardRef(({ className, asChild = false, ...props }, ref) => {
   const Comp = asChild ? Slot : "div"
 
@@ -373,6 +428,8 @@ const SidebarGroupLabel = React.forwardRef(({ className, asChild = false, ...pro
 })
 SidebarGroupLabel.displayName = "SidebarGroupLabel"
 
+// An action button (e.g. "+") docked to a group's top-right corner. `asChild`
+// renders a custom element via Slot.
 const SidebarGroupAction = React.forwardRef(({ className, asChild = false, ...props }, ref) => {
   const Comp = asChild ? Slot : "button"
 
@@ -392,6 +449,7 @@ const SidebarGroupAction = React.forwardRef(({ className, asChild = false, ...pr
 })
 SidebarGroupAction.displayName = "SidebarGroupAction"
 
+// Wrapper for the body of a group (usually a SidebarMenu).
 const SidebarGroupContent = React.forwardRef(({ className, ...props }, ref) => (
   <div
     ref={ref}
@@ -401,6 +459,7 @@ const SidebarGroupContent = React.forwardRef(({ className, ...props }, ref) => (
 ))
 SidebarGroupContent.displayName = "SidebarGroupContent"
 
+// The <ul> list of menu items.
 const SidebarMenu = React.forwardRef(({ className, ...props }, ref) => (
   <ul
     ref={ref}
@@ -410,6 +469,7 @@ const SidebarMenu = React.forwardRef(({ className, ...props }, ref) => (
 ))
 SidebarMenu.displayName = "SidebarMenu"
 
+// A single <li> menu row; hosts a button plus optional action/badge.
 const SidebarMenuItem = React.forwardRef(({ className, ...props }, ref) => (
   <li
     ref={ref}
@@ -419,6 +479,8 @@ const SidebarMenuItem = React.forwardRef(({ className, ...props }, ref) => (
 ))
 SidebarMenuItem.displayName = "SidebarMenuItem"
 
+// cva style map for menu buttons: `variant` (default/outline) and
+// `size` (default/sm/lg); also handles icon-collapsed and active states.
 const sidebarMenuButtonVariants = cva(
   "peer/menu-button flex w-full items-center gap-2 overflow-hidden rounded-md p-2 text-left text-sm outline-none ring-sidebar-ring transition-[width,height,padding] hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 active:bg-sidebar-accent active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50 group-has-[[data-sidebar=menu-action]]/menu-item:pr-8 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-[active=true]:bg-sidebar-accent data-[active=true]:font-medium data-[active=true]:text-sidebar-accent-foreground data-[state=open]:hover:bg-sidebar-accent data-[state=open]:hover:text-sidebar-accent-foreground group-data-[collapsible=icon]:!size-8 group-data-[collapsible=icon]:!p-2 [&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0",
   {
@@ -441,6 +503,9 @@ const sidebarMenuButtonVariants = cva(
   }
 )
 
+// The primary clickable item in a menu row. `asChild` lets it wrap a link;
+// `isActive` highlights the current page. When `tooltip` is given, the label is
+// shown as a Tooltip only while the sidebar is collapsed on desktop.
 const SidebarMenuButton = React.forwardRef((
   {
     asChild = false,
@@ -456,6 +521,8 @@ const SidebarMenuButton = React.forwardRef((
   const Comp = asChild ? Slot : "button"
   const { isMobile, state } = useSidebar()
 
+  // Base button element (styled via the cva variants).
+
   const button = (
     <Comp
       ref={ref}
@@ -466,15 +533,19 @@ const SidebarMenuButton = React.forwardRef((
       {...props} />
   )
 
+  // No tooltip requested: return the bare button.
   if (!tooltip) {
     return button
   }
 
+  // Allow passing tooltip as a plain string shorthand for { children }.
   if (typeof tooltip === "string") {
     tooltip = {
       children: tooltip,
     }
   }
+
+  // Wrap in a Tooltip; hidden unless the sidebar is collapsed (and not mobile).
 
   return (
     (<Tooltip>
@@ -489,6 +560,8 @@ const SidebarMenuButton = React.forwardRef((
 })
 SidebarMenuButton.displayName = "SidebarMenuButton"
 
+// Secondary action button on a menu row (e.g. a "..." menu). `showOnHover`
+// hides it until the row is hovered/focused; `asChild` renders a custom element.
 const SidebarMenuAction = React.forwardRef(({ className, asChild = false, showOnHover = false, ...props }, ref) => {
   const Comp = asChild ? Slot : "button"
 
@@ -513,6 +586,7 @@ const SidebarMenuAction = React.forwardRef(({ className, asChild = false, showOn
 })
 SidebarMenuAction.displayName = "SidebarMenuAction"
 
+// Small count/status badge pinned to the right of a menu row.
 const SidebarMenuBadge = React.forwardRef(({ className, ...props }, ref) => (
   <div
     ref={ref}
@@ -530,8 +604,10 @@ const SidebarMenuBadge = React.forwardRef(({ className, ...props }, ref) => (
 ))
 SidebarMenuBadge.displayName = "SidebarMenuBadge"
 
+// Loading placeholder shaped like a menu row (optional icon + text bar);
+// useful while menu data is fetching. `showIcon` adds a square icon skeleton.
 const SidebarMenuSkeleton = React.forwardRef(({ className, showIcon = false, ...props }, ref) => {
-  // Random width between 50 to 90%.
+  // Random width between 50 to 90% (memoized so it stays stable per render).
   const width = React.useMemo(() => {
     return `${Math.floor(Math.random() * 40) + 50}%`;
   }, [])
@@ -558,6 +634,7 @@ const SidebarMenuSkeleton = React.forwardRef(({ className, showIcon = false, ...
 })
 SidebarMenuSkeleton.displayName = "SidebarMenuSkeleton"
 
+// Nested <ul> for a submenu under a menu item; hidden in icon-collapsed mode.
 const SidebarMenuSub = React.forwardRef(({ className, ...props }, ref) => (
   <ul
     ref={ref}
@@ -571,9 +648,12 @@ const SidebarMenuSub = React.forwardRef(({ className, ...props }, ref) => (
 ))
 SidebarMenuSub.displayName = "SidebarMenuSub"
 
+// A single <li> within a submenu.
 const SidebarMenuSubItem = React.forwardRef(({ ...props }, ref) => <li ref={ref} {...props} />)
 SidebarMenuSubItem.displayName = "SidebarMenuSubItem"
 
+// A submenu link (renders an <a> by default, or a custom element via `asChild`).
+// `size` ("sm"|"md") sets text scale; `isActive` highlights the current entry.
 const SidebarMenuSubButton = React.forwardRef(
   ({ asChild = false, size = "md", isActive, className, ...props }, ref) => {
     const Comp = asChild ? Slot : "a"

@@ -1,8 +1,16 @@
+/**
+ * Slider — a draggable range input, wrapping Radix UI's
+ * `@radix-ui/react-slider`. Supports value/defaultValue/onValueChange,
+ * min/max/step props (forwarded to the Radix Root).
+ */
+
 import * as React from "react"
 import * as SliderPrimitive from "@radix-ui/react-slider"
 
 import { cn } from "@/lib/utils"
 
+// Single self-contained component: Root holds the Track (full rail) with a
+// filled Range, plus a draggable Thumb. forwardRef forwards to the Radix Root.
 const Slider = React.forwardRef(({ className, ...props }, ref) => (
   <SliderPrimitive.Root
     ref={ref}

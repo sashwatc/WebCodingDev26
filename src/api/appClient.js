@@ -1,5 +1,29 @@
-import { BRAND_NAME } from "@/lib/constants";
-import { findMatches } from "@/lib/ai-services";
+/**
+ * appClient.js - The single data-access layer for the whole frontend.
+ *
+ * Everything the UI does (auth, found items, lost reports, claims, recovery-mesh
+ * features, AI assistance, uploads, notifications) goes through the `appClient`
+ * object exported at the bottom of this file.
+ *
+ * Core design: OFFLINE-FIRST WITH GRACEFUL DEGRADATION.
+ *   - Each operation first tries the real HTTP backend (via requestApi/fetch).
+ *   - On certain failures it falls back to a seeded browser-local "database"
+ *     kept in localStorage (see createSeedData/readDb/writeDb), so the demo app
+ *     still works with no backend running.
+ *   - `shouldUseLocalFallback` decides when a fallback is allowed; core workflow
+ *     entities (FoundItem/LostReport/Claim) deliberately do NOT fall back on
+ *     auth/validation errors so real backend errors surface.
+ *
+ * Other responsibilities:
+ *   - Building all API base URLs from the VITE_API_URL env var.
+ *   - Attaching auth headers (Appwrite JWT and/or demo-user email) to requests.
+ *   - Normalizing/serializing records so the UI always sees consistent
+ *     snake_case shapes regardless of backend/camelCase variations.
+ *   - Local-only side effects (notifications, audit logs, status cascades) that
+ *     mirror what the backend would do, used when running on local fallback.
+ */
+import { BRAND_NAME } from "@/lib/constants"; // Product display name (used in seeded welcome notifications).
+import { findMatches } from "@/lib/ai-services"; // Lightweight client-side matcher used in local fallback mode.
 import { canonicalFoundItemStatus, isPublicFoundItemStatus } from "@/lib/found-items";
 import {
   OAUTH_RETURN_PARAM,
@@ -20,14 +44,21 @@ import {
   shouldAttachDemoUserHeader,
 } from "@/lib/auth-session";
 
+// localStorage key for the offline fallback "database" (v2 schema).
 const STORAGE_KEY = "findback-app-db-v2";
+// Base URL handling: read VITE_API_URL (build-time env), coerce to string, and
+// strip any trailing slash so the path concatenations below never double up "/".
+// When VITE_API_URL is empty the URLs become relative ("/api/...") and rely on
+// the Vite dev-server proxy (see vite.config.js).
 const API_BASE_URL = String(import.meta.env.VITE_API_URL || "").replace(/\/$/, "");
-const FOUND_ITEMS_API_URL = `${API_BASE_URL}/api/items`;
-const ADMIN_FOUND_ITEMS_API_URL = `${API_BASE_URL}/api/admin/items`;
-const ENTITY_API_BASE_URL = `${API_BASE_URL}/api/entities`;
-const AUTH_API_BASE_URL = `${API_BASE_URL}/api/auth`;
-const UPLOAD_API_URL = `${API_BASE_URL}/api/uploads`;
-const API_ROOT_URL = `${API_BASE_URL}/api`;
+// Pre-built endpoint roots derived from the base URL, grouped by concern:
+const FOUND_ITEMS_API_URL = `${API_BASE_URL}/api/items`; // Public found-item endpoints.
+const ADMIN_FOUND_ITEMS_API_URL = `${API_BASE_URL}/api/admin/items`; // Privileged found-item endpoints (full inventory).
+const ENTITY_API_BASE_URL = `${API_BASE_URL}/api/entities`; // Generic CRUD entities (LostReport/Claim/Notification/AuditLog).
+const AUTH_API_BASE_URL = `${API_BASE_URL}/api/auth`; // Authentication endpoints (/me, /signin, /signup, ...).
+const UPLOAD_API_URL = `${API_BASE_URL}/api/uploads`; // File upload endpoint.
+const API_ROOT_URL = `${API_BASE_URL}/api`; // Root for all other "feature" endpoints.
+// Static demo image paths for the seeded sample items below.
 const BLACK_HYDRO_FLASK_PHOTO = "/items/black-hydro-flask.jpg";
 const BLUE_BACKPACK_PHOTO = "/images/blue-backpack.png";
 const AIRPODS_PRO_PHOTO = "/items/airpods-pro-case.png";
@@ -36,10 +67,13 @@ const NIKE_HOODIE_PHOTO = "/items/nike-hoodie.png";
 const PVHS_LANYARD_PHOTO = "/items/pvhs-lanyard.png";
 const USBC_CHARGER_PHOTO = "/items/usbc-charger.png";
 const VOLLEYBALL_KNEEPADS_PHOTO = "/items/volleyball-kneepads.png";
-const authListeners = new Set();
-let recoveryMeshUsesLocalData = false;
+const authListeners = new Set(); // Subscribers notified on SIGNED_IN/SIGNED_OUT (see emitAuthChange/onAuthStateChange).
+let recoveryMeshUsesLocalData = false; // Sticky flag: once a recovery-mesh call fails, stay on local data for the session.
+// Entities whose errors must NOT silently fall back to local data (so genuine
+// auth/validation/server errors on the primary workflow surface to the user).
 const CORE_WORKFLOW_ENTITIES = new Set(["FoundItem", "LostReport", "Claim"]);
 
+// Maps internal category keys to human-readable labels (used by the local AI search parser).
 const CATEGORY_LABELS = {
   electronics: "electronics",
   clothing: "clothing",
@@ -53,6 +87,8 @@ const CATEGORY_LABELS = {
   other: "other",
 };
 
+// Generate an inline SVG data-URL placeholder image (gradient + label text),
+// avoiding any network request for demo items that lack a real photo.
 function createPlaceholderImage(label, colorA, colorB) {
   const svg = `
     <svg xmlns="http://www.w3.org/2000/svg" width="640" height="480" viewBox="0 0 640 480">
@@ -77,12 +113,18 @@ function createPlaceholderImage(label, colorA, colorB) {
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 }
 
+// Build the full seeded dataset for the offline/local fallback "database".
+// Returns one array per entity type (FoundItem, LostReport, Claim, Notification,
+// AuditLog, plus all the recovery-mesh collections). This is what the demo shows
+// when no backend is reachable, and is also merged into any partial saved DB.
 function createSeedData() {
   const now = Date.now();
+  // Helper to produce ISO timestamps relative to "now" (N days ago at a given hour),
+  // keeping the seeded data looking recent each time the app loads.
   const daysAgo = (days, hours = 10) => new Date(now - days * 24 * 60 * 60 * 1000 + hours * 60 * 60 * 1000).toISOString();
 
   return {
-    FoundItem: [
+    FoundItem: [ // Sample found-item inventory in various lifecycle statuses.
       {
         id: "found_001",
         title: "Black Hydro Flask Water Bottle",
@@ -315,7 +357,7 @@ function createSeedData() {
         updated_date: daysAgo(6),
       },
     ],
-    LostReport: [
+    LostReport: [ // Sample lost reports, some already linked to matched found items.
       {
         id: "lost_001",
         item_type: "AirPods Pro case",
@@ -415,7 +457,7 @@ function createSeedData() {
         updated_date: daysAgo(4, 11),
       },
     ],
-    Claim: [
+    Claim: [ // Sample ownership claims against found items, in assorted review states.
       {
         id: "claim_001",
         found_item_id: "found_003",
@@ -495,7 +537,7 @@ function createSeedData() {
         updated_date: daysAgo(1, 13),
       },
     ],
-    Notification: [
+    Notification: [ // Sample per-user notifications (matches, claim updates, system).
       {
         id: "notif_001",
         user_email: "mia.rodriguez@pleasantvalley.edu",
@@ -557,7 +599,7 @@ function createSeedData() {
         updated_date: daysAgo(1, 13),
       },
     ],
-    AuditLog: [
+    AuditLog: [ // Sample immutable audit trail of system/user actions.
       {
         id: "audit_001",
         action: "Seeded local demo workspace",
@@ -607,7 +649,8 @@ function createSeedData() {
         updated_date: daysAgo(1, 13),
       },
     ],
-    CampusZone: [
+    // --- Recovery-mesh demo collections (event-based recovery feature set) ---
+    CampusZone: [ // Named physical areas of the campus used to locate items.
       { id: "zone_library", label: "Library Study Area", description: "Library tables and study shelves." },
       { id: "zone_gym_entrance", label: "Gym Entrance", description: "Gym lobby and ticket area." },
       { id: "zone_gym_bleachers", label: "Gym Bleachers", description: "Home and visitor bleacher rows." },
@@ -617,7 +660,7 @@ function createSeedData() {
       { id: "zone_auditorium", label: "Auditorium", description: "Stage, seating, and rehearsal area." },
       { id: "zone_athletics", label: "Athletics Office", description: "Athletics office and equipment desk." },
     ],
-    EventRecoveryHub: [
+    EventRecoveryHub: [ // High-traffic events that aggregate lost/found activity by zone.
       {
         id: "hub_basketball_game",
         tenant_id: "pvhs",
@@ -632,7 +675,7 @@ function createSeedData() {
         display_enabled: true,
       },
     ],
-    RecoveryCase: [
+    RecoveryCase: [ // A coordinated recovery effort linking a lost report, found item, and claim.
       {
         id: "case_airpods_game",
         case_code: "PVHS-RM-20260314-AIRP",
@@ -652,7 +695,7 @@ function createSeedData() {
         updated_date: daysAgo(1),
       },
     ],
-    RecoveryMission: [
+    RecoveryMission: [ // Actionable "check this zone" tasks generated for a recovery case.
       {
         id: "mission_bleachers",
         recovery_case_id: "case_airpods_game",
@@ -680,12 +723,12 @@ function createSeedData() {
         status: "checked",
       },
     ],
-    CustodyEvent: [
+    CustodyEvent: [ // Chain-of-custody log entries (intake/review/move) per found item.
       { id: "custody_001", found_item_id: "found_002", sequence_number: 1, event_type: "intake_created", location: "Main Office drawer E1", notes: "Event item intake created.", created_date: daysAgo(3), event_hash: "demo-verified-1" },
       { id: "custody_002", found_item_id: "found_002", sequence_number: 2, event_type: "reviewed", location: "Main Office drawer E1", notes: "Proof Vault clues sealed.", created_date: daysAgo(3), event_hash: "demo-verified-2" },
       { id: "custody_003", found_item_id: "found_002", sequence_number: 3, event_type: "matched", location: "", notes: "Advisory match linked to lost report.", created_date: daysAgo(2), event_hash: "demo-verified-3" },
     ],
-    ReturnPass: [
+    ReturnPass: [ // One-time-code pickup passes issued to claimants for collecting items.
       {
         id: "pass_lanyard_active",
         claim_id: "claim_003",
@@ -698,7 +741,7 @@ function createSeedData() {
         expires_at: "2026-12-31T23:59:00Z",
       },
     ],
-    PreventionAlert: [
+    PreventionAlert: [ // "Sentinel" alerts flagging unusual loss patterns (e.g. volume spikes).
       {
         id: "alert_gym_electronics",
         title: "Unusual increase detected",
@@ -713,19 +756,19 @@ function createSeedData() {
         status: "open",
       },
     ],
-    AssetRegistryRecord: [
+    AssetRegistryRecord: [ // School-owned assets (by tag) so found property can be routed to a department.
       { id: "asset_cb_1042", asset_tag: "PVHS-CB-1042", asset_type: "Chromebook", department_destination: "Technology Office", status: "active" },
       { id: "asset_book_8821", asset_tag: "LIB-BOOK-8821", asset_type: "Library Book", department_destination: "Library Return Desk", status: "active" },
       { id: "asset_cam_027", asset_tag: "ATH-CAM-027", asset_type: "Camera", department_destination: "Athletics Office", status: "active" },
       { id: "asset_band_008", asset_tag: "BAND-INST-008", asset_type: "Instrument", department_destination: "Fine Arts Office", status: "active" },
     ],
-    RecoveryNode: [
+    RecoveryNode: [ // Partner locations/offices participating in the cross-department recovery network.
       { id: "node_main_office", name: "PVHS Main Office", node_type: "demo_partner", status: "active" },
       { id: "node_athletics", name: "PVHS Athletics", node_type: "demo_partner", status: "active" },
       { id: "node_transportation", name: "PVHS Transportation", node_type: "demo_partner", status: "active" },
       { id: "node_fine_arts", name: "PVHS Fine Arts", node_type: "demo_partner", status: "active" },
     ],
-    PartnerRelay: [
+    PartnerRelay: [ // Redacted hand-offs of a possible match between two recovery nodes.
       {
         id: "relay_airpods_athletics",
         source_node_id: "node_main_office",
@@ -739,6 +782,8 @@ function createSeedData() {
   };
 }
 
+// Safely obtain window.localStorage, returning null in non-browser environments
+// or when storage access throws (e.g. privacy mode / disabled cookies).
 function getStorage() {
   if (typeof window === "undefined") {
     return null;
@@ -751,10 +796,15 @@ function getStorage() {
   }
 }
 
+// Deep clone via JSON round-trip. Used everywhere to hand callers fresh copies
+// so they can't accidentally mutate the cached/in-memory records.
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
 }
 
+// Merge seed records INTO an existing collection without overwriting user data:
+// adds any seeded record whose id isn't already present, and reports whether
+// anything changed (so the caller can decide to persist).
 function mergeSeedCollection(existingRecords, seedRecords) {
   const records = Array.isArray(existingRecords) ? existingRecords : [];
   const seeds = Array.isArray(seedRecords) ? seedRecords : [];
@@ -775,6 +825,12 @@ function mergeSeedCollection(existingRecords, seedRecords) {
   };
 }
 
+// Read the entire local fallback DB from storage. Behavior:
+//   - No storage available -> return fresh seed data (in-memory only).
+//   - No saved DB yet       -> seed it, persist, and return it.
+//   - Saved DB present       -> parse it, merge in any NEW seed records (so newly
+//     added demo content appears for returning users), persist if changed.
+//   - Parse failure          -> reset to seed data.
 function readDb() {
   const storage = getStorage();
   if (!storage) {
@@ -812,6 +868,8 @@ function readDb() {
   }
 }
 
+// Persist the whole local DB back to storage, skipping the write if the
+// serialized value is unchanged (avoids redundant storage churn/events).
 function writeDb(db) {
   const storage = getStorage();
   if (!storage) {
@@ -826,6 +884,8 @@ function writeDb(db) {
   storage.setItem(STORAGE_KEY, nextValue);
 }
 
+// Read the currently signed-in user from storage (or null), clearing the key if
+// the stored JSON is corrupt.
 function readAuthUser() {
   const storage = getStorage();
   if (!storage) {
@@ -845,6 +905,8 @@ function readAuthUser() {
   }
 }
 
+// Persist (or, when passed null, remove) the signed-in user in storage, again
+// skipping no-op writes.
 function writeAuthUser(user) {
   const storage = getStorage();
   if (!storage) {
@@ -866,6 +928,8 @@ function writeAuthUser(user) {
   storage.setItem(AUTH_STORAGE_KEY, nextValue);
 }
 
+// Sort records by a field name. A leading "-" means descending (e.g.
+// "-created_date"); mirrors the backend's sort-string convention.
 function sortRecords(records, sort) {
   if (!sort) {
     return records;
@@ -888,6 +952,8 @@ function sortRecords(records, sort) {
   });
 }
 
+// Test whether a record matches an equality filter object. Empty filter values
+// are ignored; array fields match if they CONTAIN the value (e.g. tags).
 function matchRecord(record, filters = {}) {
   return Object.entries(filters).every(([key, value]) => {
     if (value === undefined || value === null || value === "") {
@@ -903,6 +969,7 @@ function matchRecord(record, filters = {}) {
   });
 }
 
+// Cap a result list to `limit` records (no-op when limit is falsy).
 function limitRecords(records, limit) {
   if (!limit) {
     return records;
@@ -911,10 +978,12 @@ function limitRecords(records, limit) {
   return records.slice(0, limit);
 }
 
+// Generate a pseudo-random id with a type prefix, e.g. "claim_a1b2c3d4".
 function createId(prefix) {
   return `${prefix}_${Math.random().toString(36).slice(2, 10)}`;
 }
 
+// Per-entity id prefixes used when creating local records.
 const ENTITY_ID_PREFIXES = {
   LostReport: "lost",
   Claim: "claim",
@@ -924,10 +993,15 @@ const ENTITY_ID_PREFIXES = {
   FoundItem: "found",
 };
 
+// Extract a record's id, tolerating both `id` and Mongo-style `_id`.
 function getRecordId(record = {}) {
   return record.id || record._id || "";
 }
 
+// Central policy deciding whether a failed request may degrade to local data:
+//   - Network/parse errors (no HTTP status)        -> always fall back.
+//   - Core workflow entities                       -> never fall back (surface error).
+//   - Otherwise fall back only on 404 or 5xx       -> backend missing/broken.
 function shouldUseLocalFallback(error, { entityName } = {}) {
   // Non-HTTP errors (TypeError, network failure, unexpected API format) always fall back to local seed data
   if (!error?.status) {
@@ -939,6 +1013,8 @@ function shouldUseLocalFallback(error, { entityName } = {}) {
   return error.status === 404 || error.status >= 500;
 }
 
+// Apply a partial update to a single locally-cached record (and bump
+// updated_date). Throws if the record id isn't found. Used by local fallbacks.
 function saveCachedRecord(entityName, id, updates) {
   const db = readDb();
   const records = db[entityName] || [];
@@ -960,6 +1036,8 @@ function saveCachedRecord(entityName, id, updates) {
   return clone(nextRecord);
 }
 
+// Insert a brand-new record into the local cache, assigning an id and
+// created/updated timestamps when absent. Prepends so newest sorts first.
 function createCachedRecord(entityName, data) {
   const db = readDb();
   const now = new Date().toISOString();
@@ -976,6 +1054,9 @@ function createCachedRecord(entityName, data) {
   return clone(record);
 }
 
+// Normalize one match suggestion into a consistent object shape. Accepts a bare
+// found-item-id string (legacy format) or an object; clamps confidence to 0-100,
+// de-dupes reasons, and returns null when there's no usable found_item_id.
 function normalizeMatchSuggestion(match = {}) {
   if (typeof match === "string") {
     return {
@@ -1001,6 +1082,9 @@ function normalizeMatchSuggestion(match = {}) {
   };
 }
 
+// Combine existing and new match suggestions, keyed by found_item_id: keeps the
+// highest-confidence entry per item, unions their reasons, sorts by confidence
+// descending, and caps the list at 8.
 function mergeMatchSuggestions(currentMatches = [], nextMatches = []) {
   const byFoundItemId = new Map();
 
@@ -1023,6 +1107,9 @@ function mergeMatchSuggestions(currentMatches = [], nextMatches = []) {
   return [...byFoundItemId.values()].sort((a, b) => b.confidence - a.confidence).slice(0, 8);
 }
 
+// Coerce a raw lost-report (from backend OR local seed, snake_case OR camelCase)
+// into the canonical snake_case shape the UI expects, filling sane defaults and
+// reconciling alias fields (e.g. last_seen_location vs location_lost).
 function normalizeLostReport(record = {}) {
   const photoUrls = Array.isArray(record.photo_urls)
     ? clone(record.photo_urls)
@@ -1062,6 +1149,7 @@ function normalizeLostReport(record = {}) {
   };
 }
 
+// Same idea as normalizeLostReport, but for claim records.
 function normalizeClaim(record = {}) {
   return {
     ...record,
@@ -1091,6 +1179,8 @@ function normalizeClaim(record = {}) {
   };
 }
 
+// Apply the right per-entity normalizer across a list (LostReport/Claim get
+// special handling; everything else is just cloned through unchanged).
 function normalizeEntityRecords(entityName, records = []) {
   if (!Array.isArray(records)) {
     return [];
@@ -1107,6 +1197,8 @@ function normalizeEntityRecords(entityName, records = []) {
   return clone(records);
 }
 
+// Build the request payload for a lost-report write, picking only the known
+// fields and dropping any that are `undefined` (so PATCH sends only real values).
 function serializeLostReport(record = {}) {
   return Object.fromEntries(
     Object.entries({
@@ -1136,6 +1228,7 @@ function serializeLostReport(record = {}) {
   );
 }
 
+// Same as serializeLostReport, for claim writes.
 function serializeClaim(record = {}) {
   return Object.fromEntries(
     Object.entries({
@@ -1164,6 +1257,9 @@ function serializeClaim(record = {}) {
   );
 }
 
+// Fetch a collection for an entity, preferring privileged admin endpoints for
+// staff/admin (which return more records). Falls through to the public entities
+// endpoint when the admin call is unauthorized (401/403) rather than erroring.
 async function fetchEntityRecords(entityName) {
   if (entityName === "LostReport" && isStaffOrAdminUser()) {
     try {
@@ -1189,6 +1285,10 @@ async function fetchEntityRecords(entityName) {
   return requestEntityApi(entityName);
 }
 
+// Client-side claim validation mirroring backend rules, run before create/update
+// so obvious problems fail fast: required fields, the referenced found item must
+// exist and be available, new claims must start in review, and only one claim may
+// be approved per found item.
 async function validateClaimRecord(claim, previousClaim = null) {
   if (!claim?.found_item_id) {
     throw new Error("Select a Found Item before submitting a claim.");
@@ -1230,6 +1330,10 @@ async function validateClaimRecord(claim, previousClaim = null) {
   }
 }
 
+// When a claim's status changes (in local fallback mode), cascade the matching
+// status onto its found item: approved -> item "claimed"; completed -> item
+// "returned"; an approved claim reverting to rejected -> item back to "approved"
+// unless another approved claim still holds it.
 async function applyClaimStatusSideEffects(claim, previousClaim = null) {
   if (!claim?.status || claim.status === previousClaim?.status || !claim.found_item_id) {
     return;
@@ -1264,6 +1368,9 @@ async function applyClaimStatusSideEffects(claim, previousClaim = null) {
   }
 }
 
+// After creating a lost report, re-fetch the collection so any matches the
+// backend computed are reflected; updates the cache and returns the refreshed
+// record (falling back to the normalized original if the refetch fails).
 async function syncMatchesForLostReport(report) {
   if (!report) {
     return report;
@@ -1284,6 +1391,10 @@ async function syncMatchesForLostReport(report) {
   return normalizeLostReport(report);
 }
 
+// When a found item changes, recompute matches against every open lost report
+// (local fallback path): combine any explicit finder-confirmed link with AI
+// suggestions, and write back only the reports whose match set actually changed,
+// flipping them to "matched".
 async function syncMatchesForFoundItem(foundItem) {
   if (!foundItem || ["returned", "archived"].includes(foundItem.status)) {
     return [];
@@ -1328,6 +1439,8 @@ async function syncMatchesForFoundItem(foundItem) {
   return updatedReports;
 }
 
+// Determine whether a found item is referenced by any claim or by any lost
+// report's match list. If so, deletion archives instead of hard-deleting.
 async function hasFoundItemReferences(foundItemId) {
   const [claims, lostReports] = await Promise.all([
     appClient.entities.Claim.filter({ found_item_id: foundItemId }),
@@ -1346,12 +1459,16 @@ async function hasFoundItemReferences(foundItemId) {
   );
 }
 
+// Replace an entire cached collection (used to mirror a fresh backend list into
+// the local cache so offline reads stay in sync).
 function replaceCachedCollection(entityName, records) {
   const db = readDb();
   db[entityName] = clone(records);
   writeDb(db);
 }
 
+// Insert-or-update a single record in the cache by id (updates in place, else
+// prepends as newest).
 function upsertCachedRecord(entityName, record) {
   const db = readDb();
   const records = db[entityName] || [];
@@ -1368,12 +1485,14 @@ function upsertCachedRecord(entityName, record) {
   writeDb(db);
 }
 
+// Delete a single record from the cache by id.
 function removeCachedRecord(entityName, id) {
   const db = readDb();
   db[entityName] = (db[entityName] || []).filter((entry) => (entry?.id || entry?._id) !== id);
   writeDb(db);
 }
 
+// Convenience creator for a Notification record with sensible defaults.
 async function addNotification(notification) {
   return appClient.entities.Notification.create({
     type: "system",
@@ -1384,6 +1503,7 @@ async function addNotification(notification) {
   });
 }
 
+// Convenience creator for an AuditLog record with default empty before/after values.
 async function addAuditLog(log) {
   return appClient.entities.AuditLog.create({
     previous_value: "",
@@ -1392,6 +1512,9 @@ async function addAuditLog(log) {
   });
 }
 
+// Reproduce backend-style side effects locally after a create/update (only used
+// on the local fallback path): emit notifications + audit logs for new claims,
+// claim status changes, new lost-report matches, and found-item status changes.
 async function applyEntitySideEffects(entityName, operation, record, previousRecord) {
   if (entityName === "Claim" && operation === "create") {
     await addNotification({
@@ -1461,8 +1584,14 @@ async function applyEntitySideEffects(entityName, operation, record, previousRec
   }
 }
 
+// Factory producing a standard CRUD client (list/filter/create/update/delete)
+// for a generic entity. Every method tries the HTTP backend first and, when
+// allowed by shouldUseLocalFallback, transparently serves/persists from the
+// local cache. Create/update additionally normalize+serialize and run local
+// side effects for LostReport/Claim.
 function createEntityApi(entityName) {
   const api = {
+    // Read the full collection; refresh the cache from the backend, then sort/limit.
     async list(sort, limit) {
       try {
         const records = normalizeEntityRecords(entityName, await fetchEntityRecords(entityName));
@@ -1479,6 +1608,7 @@ function createEntityApi(entityName) {
       }
     },
 
+    // Read + client-side filter the collection by an equality filter object.
     async filter(filters = {}, sort, limit) {
       try {
         const records = normalizeEntityRecords(entityName, await fetchEntityRecords(entityName));
@@ -1496,10 +1626,14 @@ function createEntityApi(entityName) {
       }
     },
 
+    // Create a record: apply entity-specific defaults/validation, POST to the
+    // backend (or create locally on fallback), normalize, cache, and fire any
+    // post-create syncing/side effects.
     async create(data) {
       let nextData = clone(data);
 
       if (entityName === "Claim") {
+        // New claims default to "submitted" and must pass claim validation.
         nextData = {
           status: "submitted",
           ...nextData,
@@ -1562,6 +1696,9 @@ function createEntityApi(entityName) {
       return clone(normalizedRecord);
     },
 
+    // Update a record by id: locate the previous version, validate (claims),
+    // PATCH to the backend (or save locally on fallback), normalize, cache, and
+    // run status/side-effect cascades when running locally.
     async update(id, updates) {
       const records = await api.list();
       const previousRecord =
@@ -1625,6 +1762,7 @@ function createEntityApi(entityName) {
       return clone(normalizedRecord);
     },
 
+    // Delete a record by id; on any error, remove it from the local cache instead.
     async delete(id) {
       try {
         const response = await requestEntityApi(entityName, `/${id}`, {
@@ -1652,13 +1790,19 @@ function createEntityApi(entityName) {
   return api;
 }
 
+// The single low-level HTTP wrapper used by every endpoint helper. It:
+//   - merges default + auth headers (Appwrite JWT and/or demo-user email),
+//   - auto-sets JSON Content-Type for non-FormData bodies,
+//   - parses the JSON response (or wraps plain text),
+//   - throws an Error carrying `.status` and `.payload` on non-2xx, which the
+//     fallback logic above inspects.
 async function requestApi(url, options = {}) {
   const { headers = {}, body, ...fetchOptions } = options;
   const requestHeaders = {
     Accept: "application/json",
-    ...appwriteAuthHeaders(),
-    ...demoUserHeaders(),
-    ...headers,
+    ...appwriteAuthHeaders(), // X-Appwrite-JWT when an Appwrite session exists.
+    ...demoUserHeaders(), // X-Demo-User-Email for the local demo-identity flow.
+    ...headers, // Caller overrides win.
   };
 
   if (body !== undefined && !(body instanceof FormData) && !requestHeaders["Content-Type"]) {
@@ -1692,10 +1836,13 @@ async function requestApi(url, options = {}) {
   return payload;
 }
 
+// Thin URL-prefixing helpers, one per API area. Each just prepends its base URL.
+// Public found-items endpoint (/api/items...).
 async function requestFoundItemsApi(path = "", options = {}) {
   return requestApi(`${FOUND_ITEMS_API_URL}${path}`, options);
 }
 
+// Privileged admin found-items endpoint (/api/admin/items...).
 async function requestAdminFoundItemsApi(path = "", options = {}) {
   return requestApi(`${ADMIN_FOUND_ITEMS_API_URL}${path}`, options);
 }
@@ -1717,14 +1864,18 @@ async function fetchFoundItemRecords(adminUser) {
   }
 }
 
+// Generic entity endpoint (/api/entities/<EntityName>...).
 async function requestEntityApi(entityName, path = "", options = {}) {
   return requestApi(`${ENTITY_API_BASE_URL}/${encodeURIComponent(entityName)}${path}`, options);
 }
 
+// Auth endpoint (/api/auth...).
 async function requestAuthApi(path = "", options = {}) {
   return requestApi(`${AUTH_API_BASE_URL}${path}`, options);
 }
 
+// Build the X-Demo-User-Email header from the stored user, when the local
+// demo-identity scheme is active (no real Appwrite session).
 function demoUserHeaders() {
   if (!shouldAttachDemoUserHeader()) {
     return {};
@@ -1734,11 +1885,13 @@ function demoUserHeaders() {
   return user?.email ? { "X-Demo-User-Email": user.email } : {};
 }
 
+// Build the X-Appwrite-JWT header from the stored Appwrite JWT, when present.
 function appwriteAuthHeaders() {
   const jwt = getStoredAppwriteJwt();
   return jwt ? { "X-Appwrite-JWT": jwt } : {};
 }
 
+// Role checks against the currently stored user (default) or a passed-in user.
 function isAdminUser(user = readAuthUser()) {
   return isAdminRole(user);
 }
@@ -1747,15 +1900,21 @@ function isStaffOrAdminUser(user = readAuthUser()) {
   return isAdminRole(user) || isStaffRole(user);
 }
 
+// Recovery-mesh calls are just feature-API calls; alias kept for readability.
 async function requestRecoveryMeshApi(path = "", options = {}) {
   return requestFeatureApi(path, options);
 }
 
+// Catch-all helper for every non-entity "feature" endpoint under /api. Ensures a
+// single leading slash before joining to API_ROOT_URL.
 async function requestFeatureApi(path = "", options = {}) {
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
   return requestApi(`${API_ROOT_URL}${normalizedPath}`, options);
 }
 
+// Fallback helpers for "backend-owned" features that have no local seed data:
+// if the error is one we tolerate, return an empty default; otherwise rethrow.
+// Array-returning endpoints degrade to [].
 function backendOwnedArrayFallback(error) {
   if (!shouldUseLocalFallback(error)) {
     throw error;
@@ -1764,6 +1923,7 @@ function backendOwnedArrayFallback(error) {
   return [];
 }
 
+// Single-record endpoints degrade to null.
 function backendOwnedNullFallback(error) {
   if (!shouldUseLocalFallback(error)) {
     throw error;
@@ -1772,6 +1932,7 @@ function backendOwnedNullFallback(error) {
   return null;
 }
 
+// Object-returning endpoints degrade to a supplied default object.
 function backendOwnedObjectFallback(error, fallback = {}) {
   if (!shouldUseLocalFallback(error)) {
     throw error;
@@ -1780,18 +1941,23 @@ function backendOwnedObjectFallback(error, fallback = {}) {
   return fallback;
 }
 
+// Read a cloned copy of a named local collection from the fallback DB.
 function localCollection(name) {
   return clone(readDb()[name] || []);
 }
 
+// Whether recovery-mesh calls should skip the network and use local data.
 function shouldUseLocalRecoveryMesh() {
   return recoveryMeshUsesLocalData;
 }
 
+// Latch recovery-mesh into local-data mode for the rest of the session.
 function useLocalRecoveryMesh() {
   recoveryMeshUsesLocalData = true;
 }
 
+// If the backend returned a non-empty list use it; otherwise substitute seeded
+// local data (and latch into local mode), so empty backends still show a demo.
 function localCollectionWhenEmpty(records, name) {
   if (Array.isArray(records) && records.length > 0) {
     return clone(records);
@@ -1806,6 +1972,8 @@ function localCollectionWhenEmpty(records, name) {
   return Array.isArray(records) ? clone(records) : localRecords;
 }
 
+// Same idea for a single record: if the backend gave nothing, look it up in the
+// local collection (and latch into local mode if found).
 function localRecordWhenMissing(record, name, predicate) {
   if (record) {
     return record;
@@ -1819,6 +1987,8 @@ function localRecordWhenMissing(record, name, predicate) {
   return localRecord;
 }
 
+// Substitute a fallback when a value is null/undefined, or when it's an empty
+// array but the fallback array has content.
 function localValueWhenMissing(value, fallback) {
   if (value === null || value === undefined) {
     return fallback;
@@ -1831,13 +2001,21 @@ function localValueWhenMissing(value, fallback) {
   return value;
 }
 
+// Upsert a record into a local collection and return a clone of it.
 function saveLocalRecord(name, record) {
   upsertCachedRecord(name, record);
   return clone(record);
 }
 
+// Builds the aggregated "recovery mesh" client. Two shapes:
+//   1. If real feature clients are provided, return a thin facade that simply
+//      delegates each method to the appropriate dedicated feature client.
+//   2. Otherwise (legacy/standalone), return a self-contained implementation
+//      that calls the recovery-mesh endpoints directly and falls back to seeded
+//      local data on any failure.
 function createRecoveryMeshApi(featureClients = {}) {
   if (featureClients.recoveryCases) {
+    // Facade: route every operation to the corresponding feature client.
     return {
       campusZones: () => featureClients.campusZones.list(),
       eventHubs: () => featureClients.eventHubs.list(),
@@ -1868,6 +2046,8 @@ function createRecoveryMeshApi(featureClients = {}) {
     };
   }
 
+  // Standalone implementation: each method short-circuits to local data when
+  // latched, otherwise hits the endpoint and degrades to local data on error.
   return {
     async campusZones() {
       if (shouldUseLocalRecoveryMesh()) {
@@ -1906,6 +2086,8 @@ function createRecoveryMeshApi(featureClients = {}) {
       }
     },
     async displayFeed(id) {
+      // Assemble a public "display board" feed for an event hub from local data:
+      // the hub, its zones, and its publicly-visible found items, plus a demo notice.
       const createLocalDisplayFeed = () => {
         const db = readDb();
         const eventHub = (db.EventRecoveryHub || []).find((hub) => hub.id === id);
@@ -2253,6 +2435,8 @@ function createRecoveryMeshApi(featureClients = {}) {
   };
 }
 
+// Backend health probe. Returns an "unavailable" object instead of throwing so
+// the UI can show a degraded state rather than crashing.
 function createHealthApi() {
   return {
     async check() {
@@ -2268,7 +2452,14 @@ function createHealthApi() {
   };
 }
 
+// Extends the generic Claim entity API with claim-specific, intent-named
+// operations that map to dedicated backend endpoints (mine/cancel/confirm/
+// approve/reject/complete/etc.), rather than raw status PATCHes. Many of these
+// use purpose-built endpoints so server-side cascades and per-user ownership
+// checks run correctly.
 function createClaimApi(baseApi) {
+  // Internal helper: resolve a claim id from either an id string or a claim object,
+  // then PATCH it via the generic entity update path.
   const updateClaim = async (claimOrId, updates) => {
     const id = typeof claimOrId === "string" ? claimOrId : getRecordId(claimOrId);
     if (!id) {
@@ -2290,7 +2481,8 @@ function createClaimApi(baseApi) {
   };
 
   return {
-    ...baseApi,
+    ...baseApi, // Inherit list/filter/create/update/delete from the generic entity API.
+    // The current user's own claims (server scopes by authenticated identity).
     mine() {
       return requestFeatureApi("/claims/mine").then((records) =>
         Array.isArray(records) ? records.map(normalizeClaim) : []
@@ -2332,6 +2524,7 @@ function createClaimApi(baseApi) {
         body: JSON.stringify({ rating, review: String(review || "").trim() }),
       }).then((record) => normalizeClaim(record));
     },
+    // Admin: approve a claim (also flips the linked found item to "claimed" server-side).
     approve(claimOrId, data = {}) {
       const id = typeof claimOrId === "string" ? claimOrId : getRecordId(claimOrId);
       requireAdmin();
@@ -2340,6 +2533,7 @@ function createClaimApi(baseApi) {
         body: JSON.stringify(data),
       }).then((record) => normalizeClaim(record));
     },
+    // Admin: deny a claim.
     reject(claimOrId, data = {}) {
       const id = typeof claimOrId === "string" ? claimOrId : getRecordId(claimOrId);
       requireAdmin();
@@ -2348,6 +2542,9 @@ function createClaimApi(baseApi) {
         body: JSON.stringify(data),
       }).then((record) => normalizeClaim(record));
     },
+    // Admin: ask the claimant for more info. Sends a case message (if any) then
+    // moves the claim to "need_more_info"; tolerates a backend that lacks the
+    // dedicated message endpoint.
     async requestMoreInfo(claimOrId, data = {}) {
       const id = typeof claimOrId === "string" ? claimOrId : getRecordId(claimOrId);
       const message = String(data.message || data.body || data.admin_notes || "").trim();
@@ -2374,9 +2571,11 @@ function createClaimApi(baseApi) {
         status: "need_more_info",
       });
     },
+    // Move a claim into the "under_review" state.
     markUnderReview(claimOrId, data = {}) {
       return updateClaim(claimOrId, { ...data, status: "under_review" });
     },
+    // Admin: complete the hand-off (runs the approved+completed cleanup cascade).
     complete(claimOrId, data = {}) {
       // Dedicated admin endpoint so completing a hand-off runs the approved+completed
       // cascade (archive + delete item and references), instead of a bare status PATCH
@@ -2388,6 +2587,7 @@ function createClaimApi(baseApi) {
         body: JSON.stringify(data),
       }).then((record) => normalizeClaim(record));
     },
+    // Admin: approve a claimant's submitted star rating/review for publication.
     approveRating(claimOrId, data = {}) {
       return updateClaim(claimOrId, {
         review_reviewed_at: data.review_reviewed_at || new Date().toISOString(),
@@ -2395,6 +2595,7 @@ function createClaimApi(baseApi) {
         review_status: "approved",
       });
     },
+    // Admin: reject a claimant's rating/review.
     rejectRating(claimOrId, data = {}) {
       return updateClaim(claimOrId, {
         review_reviewed_at: data.review_reviewed_at || new Date().toISOString(),
@@ -2402,25 +2603,31 @@ function createClaimApi(baseApi) {
         review_status: "rejected",
       });
     },
+    // Generic passthrough update for misc workflow fields.
     updateWorkflow(claimOrId, data = {}) {
       return updateClaim(claimOrId, data);
     },
   };
 }
 
+// Matching engine client: read/refresh AI match suggestions for lost reports and
+// found items, and record an admin decision on a specific match.
 function createMatchApi() {
   const normalizeMatches = (records = []) =>
     Array.isArray(records) ? records.map((match) => normalizeMatchSuggestion(match)).filter(Boolean) : [];
 
   return {
+    // Read current match suggestions for a lost report.
     async forLostReport(id) {
       const records = await requestFeatureApi(`/matches/lost-reports/${encodeURIComponent(id)}`);
       return normalizeMatches(records);
     },
+    // Force the backend to recompute matches for a lost report.
     async refreshLostReport(id) {
       const records = await requestFeatureApi(`/matches/lost-reports/${encodeURIComponent(id)}/refresh`, { method: "POST" });
       return normalizeMatches(records);
     },
+    // Force the backend to recompute matches for a found item.
     async refreshFoundItem(id) {
       const records = await requestFeatureApi(`/matches/found-items/${encodeURIComponent(id)}/refresh`, { method: "POST" });
       return normalizeMatches(records);
@@ -2436,6 +2643,7 @@ function createMatchApi() {
   };
 }
 
+// Admin recovery-center dashboard summary (optional aggregation endpoint).
 function createRecoveryCenterApi() {
   return {
     async summary() {
@@ -2451,6 +2659,8 @@ function createRecoveryCenterApi() {
   };
 }
 
+// CRUD + workflow client for recovery cases (list/get/byLostReport/create/
+// assign/missions). Read paths degrade to []/null; write paths surface errors.
 function createRecoveryCaseApi() {
   return {
     async list() {
@@ -2523,6 +2733,7 @@ function createRecoveryCaseApi() {
   };
 }
 
+// Recovery-mission client (currently just status/field updates).
 function createRecoveryMissionApi() {
   return {
     update(id, updates = {}) {
@@ -2534,6 +2745,8 @@ function createRecoveryMissionApi() {
   };
 }
 
+// Normalize an evidence-review record; the sensitive `private_verification_clues`
+// are only included when the caller explicitly opts in (staff-gated).
 function normalizeEvidenceReview(record = {}, { includeVaultClues = false } = {}) {
   if (!record) {
     return null;
@@ -2558,6 +2771,7 @@ function normalizeEvidenceReview(record = {}, { includeVaultClues = false } = {}
   };
 }
 
+// Normalize a claim case-message (chat between claimant and admin) to a stable shape.
 function normalizeCaseMessage(record = {}) {
   return {
     id: record.id || record._id || record.message_id || "",
@@ -2573,6 +2787,8 @@ function normalizeCaseMessage(record = {}) {
   };
 }
 
+// "Proof Vault" client: staff-only access to an item's private verification
+// clues, plus reading/submitting a claim's evidence review.
 function createProofVaultApi() {
   return {
     async item(itemId) {
@@ -2598,6 +2814,7 @@ function createProofVaultApi() {
   };
 }
 
+// CRUD client for a user's saved search queries.
 function createSavedSearchesApi() {
   return {
     async list() {
@@ -2624,6 +2841,8 @@ function createSavedSearchesApi() {
   };
 }
 
+// Client for the per-claim message thread (claimant <-> admin), plus the
+// admin "request more info" message endpoint.
 function createClaimCaseMessagesApi() {
   return {
     async list(claimId) {
@@ -2657,6 +2876,8 @@ function createClaimCaseMessagesApi() {
   };
 }
 
+// Return-pass client: create a pickup pass for an approved claim, then
+// get/verify/redeem it by one-time code and trigger reminders.
 function createReturnPassApi() {
   return {
     async create(claimId, data = {}) {
@@ -2717,6 +2938,7 @@ const DEFAULT_NOTIFICATION_PREFERENCES = {
   notification_categories: [],
 };
 
+// Normalize a return-pass record to the canonical shape.
 function normalizeReturnPass(record = {}) {
   return {
     ...record,
@@ -2736,6 +2958,7 @@ function normalizeReturnPass(record = {}) {
   };
 }
 
+// Normalize the result of verifying a return pass by one-time code.
 function normalizeReturnPassVerify(record = {}) {
   return {
     valid: Boolean(record.valid),
@@ -2748,6 +2971,8 @@ function normalizeReturnPassVerify(record = {}) {
   };
 }
 
+// Normalize a notification record, coalescing the various message/title/type
+// field names different backends might use.
 function normalizeNotificationRecord(record = {}) {
   const message = record.message || record.body || record.safe_message_preview || record.preview || "";
 
@@ -2764,6 +2989,9 @@ function normalizeNotificationRecord(record = {}) {
   };
 }
 
+// "Recovery Pulse" = the notifications subsystem client: per-user notification
+// preferences, the user's notification list, delivery logs (incl. admin views),
+// a test-send, and read/dismiss actions (which also update the local cache).
 function createRecoveryPulseApi() {
   return {
     async preferences() {
@@ -2851,6 +3079,9 @@ function createRecoveryPulseApi() {
   };
 }
 
+// "Sentinel" = the loss-prevention alerts client: list/recompute alerts, update
+// or acknowledge/dismiss/resolve them, inspect source reports, and spin up a
+// recovery mission from an alert.
 function createSentinelApi() {
   return {
     async alerts() {
@@ -2907,6 +3138,8 @@ function createSentinelApi() {
   };
 }
 
+// Chain-of-custody client: list custody events for an item, verify the chain's
+// integrity, and record a "move" event.
 function createCustodyApi() {
   return {
     async events(foundItemId) {
@@ -2937,6 +3170,7 @@ function createCustodyApi() {
   };
 }
 
+// Campus-zones client (list of named campus areas).
 function createCampusZoneApi() {
   return {
     async list() {
@@ -2949,6 +3183,8 @@ function createCampusZoneApi() {
   };
 }
 
+// Event-hub client: list/get hubs, fetch a hub's public display feed, and the
+// admin lifecycle operations (create/update/activate/close).
 function createEventHubApi() {
   return {
     async list() {
@@ -2998,6 +3234,7 @@ function createEventHubApi() {
   };
 }
 
+// Admin demo-tooling client: spin up a named demo scenario or clean up demo data.
 function createDemoScenarioApi() {
   return {
     create(scenario, data = {}) {
@@ -3015,6 +3252,7 @@ function createDemoScenarioApi() {
   };
 }
 
+// Asset-registry client: look up whether a scanned tag is known school property.
 function createAssetApi() {
   return {
     async lookup(tag) {
@@ -3033,6 +3271,8 @@ function createAssetApi() {
   };
 }
 
+// Partner-relay client: list recovery nodes (partner locations) and the
+// cross-node relays that hand off possible matches.
 function createPartnerRelayApi() {
   return {
     async nodes() {
@@ -3052,6 +3292,8 @@ function createPartnerRelayApi() {
   };
 }
 
+// Upload client. Exposes the same uploadFile under two names (`file` and
+// `UploadFile`) for the differing call sites/integrations that use it.
 function createUploadApi() {
   return {
     file: uploadFile,
@@ -3059,6 +3301,7 @@ function createUploadApi() {
   };
 }
 
+// Normalize a single rating/review entry attached to a found item.
 function normalizeRating(record = {}) {
   return {
     claim_id: record.claim_id || record.claimId || "",
@@ -3072,6 +3315,9 @@ function normalizeRating(record = {}) {
   };
 }
 
+// Canonicalize a found-item record from any source/casing into the rich shape
+// the UI expects: reconciles photo fields (photo_urls/photoUrls/imageUrl),
+// canonicalizes status, coerces booleans/arrays, and normalizes nested ratings.
 function normalizeFoundItem(record = {}) {
   const imageUrl = record.imageUrl || record.image_url || "";
   const photoUrls = Array.isArray(record.photo_urls)
@@ -3127,14 +3373,21 @@ function normalizeFoundItem(record = {}) {
   };
 }
 
+// A found item is publicly visible only if it isn't restricted AND its status is
+// one of the public-facing statuses. Used to hide records from non-staff users.
 function isPublicFoundItem(record = {}) {
   return !record.restricted_visibility && isPublicFoundItemStatus(record.status);
 }
 
+// True if `record` has at least one of the given keys (used for partial updates
+// to tell "field omitted" apart from "field set to empty").
 function hasAnyKey(record, keys) {
   return keys.some((key) => Object.prototype.hasOwnProperty.call(record, key));
 }
 
+// Build the write payload for a found item. With `partial: false` (create) every
+// field is included with defaults; with `partial: true` (PATCH) only fields the
+// caller actually provided are sent, so untouched fields aren't overwritten.
 function serializeFoundItem(record = {}, { partial = false } = {}) {
   const values = {
     title: record.title,
@@ -3276,8 +3529,14 @@ function serializeFoundItem(record = {}, { partial = false } = {}) {
   );
 }
 
+// The found-item API. Unlike the generic entity API, found items have their own
+// public/admin endpoints and a public-visibility filter: non-staff callers only
+// ever see public items, while staff/admin see the full inventory. Every method
+// mirrors results into the local cache and degrades to it on failure.
 function createFoundItemApi() {
   return {
+    // Fetch one item by id. Admins read from the admin list; others from the
+    // public endpoint and only if the item is public. 404 -> null.
     async get(id) {
       const adminUser = isStaffOrAdminUser();
 
@@ -3318,6 +3577,7 @@ function createFoundItemApi() {
       }
     },
 
+    // List items, filtering to public-only for non-staff, then sort/limit.
     async list(sort, limit) {
       const adminUser = isStaffOrAdminUser();
       try {
@@ -3338,6 +3598,7 @@ function createFoundItemApi() {
       }
     },
 
+    // List + filter items. A bare {id} filter short-circuits to get() for efficiency.
     async filter(filters = {}, sort, limit) {
       const adminUser = isStaffOrAdminUser();
       if (filters?.id && !sort && !limit) {
@@ -3366,6 +3627,8 @@ function createFoundItemApi() {
       }
     },
 
+    // Create (intake) a found item, then ask the backend to recompute matches
+    // (advisory: intake still succeeds if the match refresh fails).
     async create(data) {
       const payload = {
         ...data,
@@ -3396,6 +3659,7 @@ function createFoundItemApi() {
       return clone(normalizedRecord);
     },
 
+    // Partial-update a found item, then re-sync lost-report matches against it.
     async update(id, updates) {
       let updatedRecord;
 
@@ -3418,6 +3682,8 @@ function createFoundItemApi() {
       return clone(normalizedRecord);
     },
 
+    // Delete a found item. If it's referenced by claims/matches it is ARCHIVED
+    // instead of hard-deleted (preserving referential integrity).
     async delete(id) {
       if (await hasFoundItemReferences(id)) {
         const archivedRecord = await this.update(id, { status: "archived" });
@@ -3446,6 +3712,8 @@ function createFoundItemApi() {
       }
     },
 
+    // Add or replace a rating on a found item (keyed by claim_id). Backend uses a
+    // special `upsert_rating` PATCH body; local fallback merges into the array.
     async upsertRating(id, rating) {
       const normalizedRating = {
         claim_id: rating.claim_id || rating.claimId || "",
@@ -3493,6 +3761,8 @@ function createFoundItemApi() {
       return clone(normalizedRecord);
     },
 
+    // Remove a rating from a found item by its claim_id (special PATCH body;
+    // local fallback filters it out of the array).
     async removeRating(id, claimId) {
       let updatedRecord;
 
@@ -3526,6 +3796,8 @@ function createFoundItemApi() {
   };
 }
 
+// Read a File/Blob into a base64 data URL via FileReader (empty string when
+// FileReader is unavailable, e.g. non-browser).
 async function readFileAsDataUrl(file) {
   if (typeof FileReader === "undefined") {
     return "";
@@ -3539,6 +3811,9 @@ async function readFileAsDataUrl(file) {
   });
 }
 
+// Upload a file: convert to a data URL and POST it to the upload endpoint.
+// On failure, fall back to returning the inline data URL itself so the image
+// still displays locally without a server.
 async function uploadFile({ file }) {
   const dataUrl = await readFileAsDataUrl(file);
 
@@ -3560,6 +3835,13 @@ async function uploadFile({ file }) {
   }
 }
 
+// --- Local "LLM" stand-ins ---
+// The functions below provide deterministic, offline approximations of the AI
+// features (tagging, description cleanup, search parsing, duplicate/risk/match
+// scoring) so the app works without a real model. They're dispatched by
+// createInvokeLlmResponse based on the prompt text.
+
+// Lowercase, strip punctuation, and split text into word tokens.
 function tokenize(text) {
   return String(text || "")
     .toLowerCase()
@@ -3568,6 +3850,7 @@ function tokenize(text) {
     .filter(Boolean);
 }
 
+// Local tag suggester: pick up to 6 unique, meaningful tokens (dropping stop/boilerplate words).
 function simpleTagResponse(prompt) {
   const tokens = tokenize(prompt)
     .filter((token) => token.length > 2)
@@ -3578,6 +3861,7 @@ function simpleTagResponse(prompt) {
   };
 }
 
+// Local description cleaner: collapse whitespace, trim, and capitalize the first letter.
 function simpleCleanupResponse(prompt) {
   const match = prompt.match(/Original description: "([\s\S]*)"/);
   const raw = match?.[1] || "";
@@ -3591,6 +3875,8 @@ function simpleCleanupResponse(prompt) {
   };
 }
 
+// Local natural-language search parser: extract keywords, and detect a category
+// label and a color word from the query string.
 function simpleSearchParse(prompt) {
   const queryMatch = prompt.match(/Query: "([\s\S]*)"/);
   const query = queryMatch?.[1] || "";
@@ -3609,6 +3895,7 @@ function simpleSearchParse(prompt) {
   };
 }
 
+// Local duplicate-detection stub: always reports "not a duplicate" with low confidence.
 function simpleDuplicateResponse() {
   return {
     is_duplicate: false,
@@ -3618,6 +3905,8 @@ function simpleDuplicateResponse() {
   };
 }
 
+// Local claim risk scorer: start from a base risk and add penalties for missing
+// identifying details / missing proof photo, capped at 85, with explanatory flags.
 function simpleClaimRiskResponse(prompt) {
   const detailPenalty = prompt.toLowerCase().includes("none provided") ? 22 : 0;
   const proofPenalty = prompt.toLowerCase().includes("has proof photo: no") ? 14 : 0;
@@ -3641,10 +3930,14 @@ function simpleClaimRiskResponse(prompt) {
   };
 }
 
+// Local match-engine stub: returns no matches (real matching happens server-side or via findMatches).
 function simpleMatchResponse() {
   return { matches: [] };
 }
 
+// Server-backed AI assistance client: suggest found-item fields from a photo/text,
+// and parse a natural-language search query (these call the real backend, unlike
+// the local stubs above).
 function createAiAssistanceApi() {
   return {
     suggestFoundItemFields(payload = {}) {
@@ -3667,6 +3960,8 @@ function createAiAssistanceApi() {
   };
 }
 
+// Dispatcher for the offline InvokeLLM integration: inspects the prompt text and
+// routes to the matching local stub above; returns {} for unrecognized prompts.
 function createInvokeLlmResponse(prompt) {
   if (prompt.includes("Generate 3-6 descriptive search tags")) {
     return simpleTagResponse(prompt);
@@ -3690,12 +3985,15 @@ function createInvokeLlmResponse(prompt) {
   return {};
 }
 
+// Notify all auth subscribers of a SIGNED_IN/SIGNED_OUT event.
 function emitAuthChange(event, user) {
   authListeners.forEach((listener) => {
     listener(event, { user });
   });
 }
 
+// On (local) first sign-in for an email, create a one-time welcome notification
+// and an audit log entry — but only if a welcome doesn't already exist.
 async function ensureLocalUserNotification(user) {
   if (!user?.email) {
     return;
@@ -3728,6 +4026,9 @@ async function ensureLocalUserNotification(user) {
   });
 }
 
+// Validate and normalize a user object into the canonical auth-user shape.
+// Requires a non-empty name and a syntactically valid email (throws otherwise),
+// lowercases email/role, and fills notification-preference defaults.
 function normalizeAuthUser(user = {}) {
   const normalizedEmail = String(user.email || "").trim().toLowerCase();
   const normalizedName = String(user.full_name || user.fullName || "").trim();
@@ -3776,6 +4077,8 @@ async function getVerifiedAuthUser() {
   }
 }
 
+// Re-validate the locally-stored (demo-identity) user against the backend by
+// email, refreshing the cached copy or clearing it if the account is gone.
 async function getCurrentAuthUser() {
   const currentUser = readAuthUser();
 
@@ -3803,6 +4106,7 @@ async function getCurrentAuthUser() {
   return null;
 }
 
+// Public helper to wipe the local fallback database (e.g. a "reset demo" button).
 export function resetAppData() {
   const storage = getStorage();
   if (!storage) {
@@ -3812,6 +4116,10 @@ export function resetAppData() {
   storage.removeItem(STORAGE_KEY);
 }
 
+// Assemble the single appClient facade: instantiate every entity/feature client
+// once, then expose them under a stable, grouped surface (auth, items,
+// lostReports, claims, support, all the recovery-mesh features, generic
+// `entities`, and an `integrations.Core` shim with the offline LLM/upload).
 function createAppClient() {
   const foundItemApi = createFoundItemApi();
   const lostReportApi = createEntityApi("LostReport");
@@ -3841,10 +4149,15 @@ function createAppClient() {
   };
 
   return {
+    // Authentication surface. Supports two modes: a real Appwrite session
+    // (JWT verified by the backend) OR a local name+email demo identity.
     auth: {
+      // Whether Appwrite (real auth) is configured for this build.
       isAppwriteEnabled() {
         return isAppwriteConfigured();
       },
+      // Resolve the current user: prefer the verified Appwrite identity when a
+      // JWT exists, otherwise re-validate the local demo identity.
       async me() {
         if (isAppwriteConfigured() && getStoredAppwriteJwt()) {
           return getVerifiedAuthUser();
@@ -3907,6 +4220,7 @@ function createAppClient() {
         emitAuthChange("SIGNED_IN", normalizedUser);
         return clone(normalizedUser);
       },
+      // Trigger a password-reset email (validates the email first).
       async forgotPassword(email) {
         const normalized = String(email || "").trim().toLowerCase();
         if (!normalized) {
@@ -3917,15 +4231,18 @@ function createAppClient() {
           body: JSON.stringify({ email: normalized }),
         });
       },
+      // Admin: list all users.
       async listUsers() {
         return requestFeatureApi("/admin/users");
       },
+      // Admin: change a user's role.
       async updateUserRole(userId, role) {
         return requestFeatureApi(`/admin/users/${encodeURIComponent(userId)}/role`, {
           method: "PATCH",
           body: JSON.stringify({ role }),
         });
       },
+      // Begin the Google OAuth redirect flow (Appwrite only).
       async signInWithGoogle() {
         if (!isAppwriteConfigured()) {
           throw new Error("Google sign-in is not configured.");
@@ -3965,6 +4282,8 @@ function createAppClient() {
           return null;
         }
       },
+      // Sign out: end the Appwrite session (if any), clear local auth storage,
+      // and notify subscribers.
       async logout() {
         if (isAppwriteConfigured()) {
           await appwriteDeleteSession().catch(() => {});
@@ -3973,9 +4292,12 @@ function createAppClient() {
         emitAuthChange("SIGNED_OUT", null);
         return null;
       },
+      // No-op placeholder kept for API compatibility with callers.
       async redirectToLogin() {
         return null;
       },
+      // Subscribe to auth changes; returns an object with an unsubscribe handle
+      // (shape mirrors Supabase-style auth listeners for drop-in compatibility).
       onAuthStateChange(callback) {
         authListeners.add(callback);
         return {
@@ -3989,10 +4311,11 @@ function createAppClient() {
         };
       },
     },
-    health: featureClients.health,
-    items: foundItemApi,
-    lostReports: lostReportApi,
-    claims: claimApi,
+    health: featureClients.health, // Backend health probe.
+    items: foundItemApi, // Found-item API (public/admin aware).
+    lostReports: lostReportApi, // Lost-report entity API.
+    claims: claimApi, // Claim entity API + workflow actions.
+    // Support-ticket client: staff list/update/reply plus public ticket creation.
     support: {
       async listTickets(status) {
         const query = status ? `?status=${encodeURIComponent(status)}` : "";
@@ -4035,6 +4358,7 @@ function createAppClient() {
     assets: featureClients.assets,
     partnerRelay: featureClients.partnerRelay,
     aiAssistance: featureClients.aiAssistance,
+    // Generic entity access by name (used by code that works across entity types).
     entities: {
       FoundItem: foundItemApi,
       LostReport: lostReportApi,
@@ -4042,7 +4366,9 @@ function createAppClient() {
       Notification: notificationEntityApi,
       AuditLog: auditLogApi,
     },
-    recoveryMesh: createRecoveryMeshApi(featureClients),
+    recoveryMesh: createRecoveryMeshApi(featureClients), // Aggregated recovery-mesh facade over the feature clients.
+    // Compatibility shim mimicking a generic integrations layer: file upload and
+    // an offline InvokeLLM that routes to the local stubs.
     integrations: {
       Core: {
         UploadFile: uploadFile,
@@ -4054,4 +4380,5 @@ function createAppClient() {
   };
 }
 
+// The app-wide singleton instance every component imports.
 export const appClient = createAppClient();

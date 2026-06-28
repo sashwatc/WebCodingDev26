@@ -1,4 +1,21 @@
 "use client";
+
+/**
+ * Sheet — a slide-in panel (drawer) that enters from a screen edge. Built on
+ * Radix UI's Dialog primitive (`@radix-ui/react-dialog`), so it is fully modal
+ * and accessible. The slide direction is chosen via the `side` variant below.
+ *
+ * Compose as:
+ *   <Sheet>
+ *     <SheetTrigger>open</SheetTrigger>
+ *     <SheetContent side="right">
+ *       <SheetHeader><SheetTitle/><SheetDescription/></SheetHeader>
+ *       ...
+ *       <SheetFooter><SheetClose>close</SheetClose></SheetFooter>
+ *     </SheetContent>
+ *   </Sheet>
+ */
+
 import * as React from "react"
 import * as SheetPrimitive from "@radix-ui/react-dialog"
 import { cva } from "class-variance-authority";
@@ -6,14 +23,19 @@ import { X } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 
+// Root container owning the open/closed state.
 const Sheet = SheetPrimitive.Root
 
+// Element that opens the sheet when activated.
 const SheetTrigger = SheetPrimitive.Trigger
 
+// Element that closes the sheet when activated.
 const SheetClose = SheetPrimitive.Close
 
+// Renders the sheet outside the DOM hierarchy (escapes overflow/stacking).
 const SheetPortal = SheetPrimitive.Portal
 
+// Dimmed, blurred backdrop behind the panel; fades in/out with the sheet state.
 const SheetOverlay = React.forwardRef(({ className, ...props }, ref) => (
   <SheetPrimitive.Overlay
     className={cn(
@@ -25,6 +47,8 @@ const SheetOverlay = React.forwardRef(({ className, ...props }, ref) => (
 ))
 SheetOverlay.displayName = SheetPrimitive.Overlay.displayName
 
+// cva variant map controlling which edge the panel docks to and which direction
+// it slides from: `side` of "top" | "bottom" | "left" | "right" (default "right").
 const sheetVariants = cva(
   "fixed z-50 gap-4 overflow-y-auto bg-background p-6 shadow-lg transition ease-in-out data-[state=closed]:duration-300 data-[state=open]:duration-500 data-[state=open]:animate-in data-[state=closed]:animate-out",
   {
@@ -44,6 +68,8 @@ const sheetVariants = cva(
   }
 )
 
+// The panel itself. Wraps children in a Portal + Overlay, applies the `side`
+// slide variant, and renders a built-in X close button in the top-right corner.
 const SheetContent = React.forwardRef(({ side = "right", className, children, ...props }, ref) => (
   <SheetPortal>
     <SheetOverlay />
@@ -59,6 +85,7 @@ const SheetContent = React.forwardRef(({ side = "right", className, children, ..
 ))
 SheetContent.displayName = SheetPrimitive.Content.displayName
 
+// Layout wrapper (plain div) for the title/description at the top of the sheet.
 const SheetHeader = ({
   className,
   ...props
@@ -69,6 +96,7 @@ const SheetHeader = ({
 )
 SheetHeader.displayName = "SheetHeader"
 
+// Layout wrapper (plain div) for actions at the bottom of the sheet.
 const SheetFooter = ({
   className,
   ...props
@@ -79,6 +107,7 @@ const SheetFooter = ({
 )
 SheetFooter.displayName = "SheetFooter"
 
+// Accessible title (Radix Title) announced when the sheet opens.
 const SheetTitle = React.forwardRef(({ className, ...props }, ref) => (
   <SheetPrimitive.Title
     ref={ref}
@@ -87,6 +116,7 @@ const SheetTitle = React.forwardRef(({ className, ...props }, ref) => (
 ))
 SheetTitle.displayName = SheetPrimitive.Title.displayName
 
+// Accessible supporting text (Radix Description) linked to the dialog.
 const SheetDescription = React.forwardRef(({ className, ...props }, ref) => (
   <SheetPrimitive.Description
     ref={ref}

@@ -1,5 +1,10 @@
 /**
  * FindBack AI - FAQ / Help Page
+ *
+ * A static help center. The user reads a hero intro and then a single-open
+ * accordion of question/answer pairs covering reporting, searching, claiming,
+ * admin visibility, the backend connection, and privacy. No state or data
+ * fetching — the Accordion component manages its own expand/collapse.
  */
 
 import React from "react";
@@ -12,6 +17,8 @@ import {
 } from "@/components/ui/accordion";
 import { BRAND_NAME } from "@/lib/constants";
 
+// Question/answer pairs rendered as accordion rows. `q` is the trigger label,
+// `a` is the expanded answer body. Order here is the on-screen order.
 const faqs = [
   {
     q: "How do I report a found item?",
@@ -52,14 +59,17 @@ const faqs = [
 ];
 
 export default function FAQ() {
+  // Pure presentational component — renders static content only.
   return (
     <div className="page-shell max-w-3xl py-16">
+      {/* Hero: badge, title, and short intro */}
       <div className="text-center mb-12">
         <Badge variant="outline" className="mb-3">Help Center</Badge>
         <h1 className="text-4xl font-bold text-foreground mb-3">Frequently Asked Questions</h1>
         <p className="text-muted-foreground">Quick answers about reporting, searching, claims, privacy, and the judging build.</p>
       </div>
 
+      {/* FAQ accordion: type="single" + collapsible = at most one open at a time */}
       <Accordion type="single" collapsible className="space-y-2">
         {faqs.map((faq, index) => (
           <AccordionItem key={faq.q} value={`item-${index}`} className="bg-card rounded-lg border border-border px-4">

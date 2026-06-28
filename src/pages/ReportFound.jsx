@@ -1,7 +1,24 @@
 /**
- * Lost Then Found - Report Found Item Page
- * Multi-section form with validation, photo upload, tag suggestions,
- * and description cleanup. Items go into moderation queue by default.
+ * ReportFound.jsx - Report a Found Item Page
+ *
+ * Purpose: a 3-step wizard where a finder logs an item they found. The newly
+ * created FoundItem enters the system with status "FOUND" (moderation/intake),
+ * becoming searchable and matchable against open lost reports.
+ *
+ * The wizard steps (tracked by `formStep`):
+ *   1. Item Identity   — title, category, subcategory, photos, optional asset tag
+ *   2. Time & Place    — date/time found, location, (admin-only) storage location
+ *   3. Verify & Contact— description, color/brand/condition/features, AI tag and
+ *                        field suggestions, finder name/email/role, consents
+ * After a successful submit, `step` flips to 2 to show a confirmation screen.
+ *
+ * Notable behaviors:
+ *   - Auto-saves a draft to localStorage and offers to restore it on return.
+ *   - Warns before unload while there's unsaved content.
+ *   - Can be opened with ?lost_report_id= to prefill from a matching lost report,
+ *     and with ?event=/?zone= beacon params to prefill the location.
+ *   - Optional deterministic "AI" helpers: clean up the description, generate
+ *     tags, suggest editable fields, and look up a school asset tag.
  */
 
 import React, { useEffect, useState } from "react";
@@ -35,12 +52,15 @@ import {
   Sparkles,
 } from "lucide-react";
 
+// Wizard step metadata: drives the progress tracker and the per-step section header.
 const STEPS = [
   { step: 1, labelKey: "report_found.step_identity", fallback: "Item Identity",          icon: Package,      sectionTitle: "Found Item Details",  sectionSub: "Tell us what you found" },
   { step: 2, labelKey: "report_found.step_location", fallback: "Time & Place",           icon: CalendarClock, sectionTitle: "When & Where",         sectionSub: "Help us locate the original owner" },
   { step: 3, labelKey: "report_found.step_details",  fallback: "Verification & Contact", icon: ShieldCheck,  sectionTitle: "Your Information",     sectionSub: "Private contact for follow-up" },
 ];
 
+// Maps a free-text campus-zone beacon label (e.g. "North Gym") to one of the
+// canonical LOCATIONS used in the form's select, so beacon links can prefill it.
 function locationFromZoneLabel(label = "") {
   const normalized = label.toLowerCase();
   if (normalized.includes("gym") || normalized.includes("athletic")) return "Gymnasium";
@@ -52,6 +72,8 @@ function locationFromZoneLabel(label = "") {
   return "";
 }
 
+// Builds the blank form state. Event/zone beacon ids are read from URL params
+// up front so a beacon-originated report starts already tied to that context.
 const createInitialForm = (params = new URLSearchParams()) => ({
   title: "",
   category: "",
@@ -87,21 +109,23 @@ export default function ReportFound() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { user } = useAuth();
+  // ?lost_report_id= — when present, prefill the form from that lost report.
   const linkedLostReportId = new URLSearchParams(location.search).get("lost_report_id") || "";
-  const [step, setStep] = useState(1);
-  const [helperProcessing, setHelperProcessing] = useState(false);
+  const [step, setStep] = useState(1); // 1 = wizard, 2 = post-submit success screen
+  const [helperProcessing, setHelperProcessing] = useState(false); // AI helper spinner
   const [form, setForm] = useState(() => createInitialForm(new URLSearchParams(location.search)));
-  const [errors, setErrors] = useState({});
-  const [fieldErrors, setFieldErrors] = useState({});
-  const [generatedTags, setGeneratedTags] = useState([]);
-  const [intakeSuggestion, setIntakeSuggestion] = useState(null);
-  const aiProcessing = helperProcessing;
+  const [errors, setErrors] = useState({}); // validation errors (submit / step gates)
+  const [fieldErrors, setFieldErrors] = useState({}); // per-field on-blur "Required" hints
+  const [generatedTags, setGeneratedTags] = useState([]); // AI-suggested tags
+  const [intakeSuggestion, setIntakeSuggestion] = useState(null); // editable field suggestions
+  const aiProcessing = helperProcessing; // alias used by the AI helper buttons
 
-  const [formStep, setFormStep] = useState(1);
-  const [prefilledReportId, setPrefilledReportId] = useState("");
-  const [showDraftBanner, setShowDraftBanner] = useState(false);
-  const DRAFT_KEY = "ltf_report_found_draft";
+  const [formStep, setFormStep] = useState(1); // current wizard step (1-3)
+  const [prefilledReportId, setPrefilledReportId] = useState(""); // guards one-time prefill
+  const [showDraftBanner, setShowDraftBanner] = useState(false); // restore-draft prompt
+  const DRAFT_KEY = "ltf_report_found_draft"; // localStorage key for the autosaved draft
 
+  // Load the linked lost report (for prefill) when ?lost_report_id= is present.
   const { data: linkedLostReport } = useQuery({
     queryKey: ["linkedLostReport", linkedLostReportId],
     queryFn: async () => {
@@ -111,12 +135,14 @@ export default function ReportFound() {
     enabled: !!linkedLostReportId,
   });
 
+  // Campus zones — only fetched when arriving via a zone beacon, to resolve its label.
   const { data: campusZones = [] } = useQuery({
     queryKey: ["campusZones"],
     queryFn: () => appClient.campusZones.list(),
     enabled: Boolean(form.campus_zone_id),
   });
 
+  // Prefill the location from the beacon's campus zone (only if not already set).
   useEffect(() => {
     if (!form.campus_zone_id || form.location_found) {
       return;
@@ -138,6 +164,8 @@ export default function ReportFound() {
     }));
   }, [user]);
 
+  // One-time prefill from the linked lost report (without clobbering edits the
+  // user already made). prefilledReportId guards against re-applying it.
   useEffect(() => {
     if (!linkedLostReport || prefilledReportId === linkedLostReport.id) {
       return;
@@ -155,6 +183,7 @@ export default function ReportFound() {
     setPrefilledReportId(linkedLostReport.id);
   }, [linkedLostReport, prefilledReportId]);
 
+  // Warn before navigating away if the report has unsaved content.
   useEffect(() => {
     const hasDraftContent = form.title.trim() !== "" || form.description.trim() !== "";
     const handler = (e) => {
@@ -189,6 +218,7 @@ export default function ReportFound() {
     }
   }, [form]);
 
+  // Reset everything back to a blank wizard (used by "Submit another").
   const resetForm = () => {
     setForm(createInitialForm(new URLSearchParams(location.search)));
     setGeneratedTags([]);
@@ -199,6 +229,7 @@ export default function ReportFound() {
     setShowDraftBanner(false);
   };
 
+  // Validate the current step's required fields before advancing the wizard.
   const handleNextStep = () => {
     const errs = {};
     if (formStep === 1) {
@@ -221,15 +252,18 @@ export default function ReportFound() {
     }
   };
 
+  // Step back one wizard step (never below 1).
   const handlePrevStep = () => {
     setFormStep((prev) => Math.max(1, prev - 1));
   };
 
+  // Generic controlled-field setter; clears any existing error for that field.
   const updateField = (field, value) => {
     setForm((prev) => ({ ...prev, [field]: value }));
     if (errors[field]) setErrors((prev) => ({ ...prev, [field]: null }));
   };
 
+  // Full-form validation run on final submit (covers every required field).
   const validate = () => {
     const errs = {};
     if (!form.title.trim()) errs.title = t("report_found.item_title_required");
@@ -237,6 +271,7 @@ export default function ReportFound() {
     if (!form.description.trim()) errs.description = t("report_found.description_required");
     if (!form.date_found) errs.date_found = t("report_found.date_found_required");
     if (!form.location_found) errs.location_found = t("report_found.location_required");
+    // Name/email are required only for anonymous finders (logged-in users are known).
     if (!user && !form.finder_name.trim()) errs.finder_name = t("report_found.your_name_required");
     if (!user && !form.finder_email.trim()) errs.finder_email = t("report_found.email_required");
     else if (!user && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.finder_email.trim())) {
@@ -248,6 +283,7 @@ export default function ReportFound() {
     return Object.keys(errs).length === 0;
   };
 
+  // AI helper: generate suggested tags from the title/description/category.
   const handleGenerateTags = async () => {
     if (!form.title && !form.description) return;
     setHelperProcessing(true);
@@ -256,6 +292,7 @@ export default function ReportFound() {
     setHelperProcessing(false);
   };
 
+  // AI helper: rewrite the raw description into a cleaner `ai_description`.
   const handleCleanDescription = async () => {
     if (!form.description.trim()) return;
     setHelperProcessing(true);
@@ -268,6 +305,8 @@ export default function ReportFound() {
     });
   };
 
+  // AI helper: deterministic field suggestions (category/color/brand/tags) the
+  // finder can individually apply or dismiss. Never auto-approves anything.
   const intakeSuggestionMutation = useMutation({
     mutationFn: () =>
       appClient.aiAssistance.suggestFoundItemFields({
@@ -291,6 +330,7 @@ export default function ReportFound() {
     },
   });
 
+  // Apply one suggested field into the form (tags handled specially), then dismiss it.
   const applyIntakeSuggestion = (field) => {
     if (!intakeSuggestion) return;
     if (field === "tags") {
@@ -301,6 +341,7 @@ export default function ReportFound() {
     dismissIntakeSuggestion(field);
   };
 
+  // Remove a single suggested field from the suggestion set without applying it.
   const dismissIntakeSuggestion = (field) => {
     if (!intakeSuggestion) return;
     setIntakeSuggestion((prev) => {
@@ -315,13 +356,17 @@ export default function ReportFound() {
     });
   };
 
+  // Primary submit: creates the FoundItem, backfilling tags/ai_description if the
+  // user didn't generate them, assigning an item code, and seeding status "FOUND".
   const submitMutation = useMutation({
     mutationFn: async (data) => {
+      // Ensure tags exist (generate from content if none were produced).
       let tags = generatedTags;
       if (tags.length === 0 && data.title) {
         tags = await generateTags(data.title, data.description, data.category);
       }
 
+      // Ensure a cleaned AI description exists.
       let aiDesc = data.ai_description;
       if (!aiDesc && data.description) {
         aiDesc = await cleanupDescription(data.description);
@@ -331,16 +376,18 @@ export default function ReportFound() {
         ...data,
         tags,
         ai_description: aiDesc,
-        item_code: generateItemCode(),
+        item_code: generateItemCode(), // human-readable tracking code
         status: "FOUND",
       });
 
+      // If this report was created against a lost report, recompute matches now.
       if (data.linked_lost_report_id) {
         await appClient.matches.refreshFoundItem(createdItem.id);
       }
 
       return createdItem;
     },
+    // Refresh dependent lists, clear the draft, and show the success screen.
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["searchRecords"] });
       queryClient.invalidateQueries({ queryKey: ["homePreviewItems"] });
@@ -358,6 +405,8 @@ export default function ReportFound() {
     },
   });
 
+  // Asset-tag lookup: if a school asset tag is recognized, flag the item as
+  // restricted-visibility so it's routed to the owning department.
   const assetLookupMutation = useMutation({
     mutationFn: (tag) => appClient.assets.lookup(tag),
     onSuccess: (result) => {
@@ -376,6 +425,7 @@ export default function ReportFound() {
     },
   });
 
+  // Final submit: guard against double-submit, validate, then fire the mutation.
   const handleSubmit = (event) => {
     event.preventDefault();
     if (submitMutation.isPending || submitMutation.isSuccess) return;
@@ -387,6 +437,7 @@ export default function ReportFound() {
     submitMutation.mutate(form);
   };
 
+  // ── Success screen (step 2): confirmation + submit-another / view-search ──
   if (step === 2) {
     return (
       <div className="page-shell max-w-2xl py-20">
@@ -418,16 +469,21 @@ export default function ReportFound() {
 
   const isSubmitting = submitMutation.isPending;
 
+  // ── Wizard view (step 1): animated background, header, draft/beacon banners,
+  //     progress tracker, per-step section header, and the 3-step form ──
   return (
     <div style={{ position: "relative", overflow: "hidden", minHeight: "100vh" }}>
+      {/* Decorative animated floating-items background */}
       <FloatingItemsCanvas />
     <div className="page-shell max-w-5xl py-10" style={{ position: "relative", zIndex: 1 }}>
+      {/* Page header: kicker, title, subtitle */}
       <div className="page-header">
         <span className="page-kicker">{t("report_found.kicker")}</span>
         <h1 className="page-title">{t("report_found.title")}</h1>
         <p className="page-subtitle">{t("report_found.subtitle")}</p>
       </div>
 
+      {/* Restore-draft banner: shown when a saved draft was found on mount */}
       {showDraftBanner && (
         <div className="mb-4 flex items-center justify-between rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm">
           <span className="text-foreground">You have an unsaved draft from a previous session.</span>
@@ -464,6 +520,7 @@ export default function ReportFound() {
         </div>
       )}
 
+      {/* Reassurance panel: how the listing is published and that it's reviewed first */}
       <div className="mb-6 surface-card p-5">
         <div className="grid gap-4 md:grid-cols-2">
           <div className="flex items-start gap-3">
@@ -488,13 +545,14 @@ export default function ReportFound() {
         </div>
       </div>
 
+      {/* Beacon notice: shown when opened from an event/zone beacon link */}
       {(form.event_hub_id || form.campus_zone_id) && (
         <div className="mb-6 rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
           You are reporting from a demo event beacon. This does not use GPS; correct the location if needed.
         </div>
       )}
 
-      {/* Progress Tracker */}
+      {/* Progress Tracker — step circles + connector lines reflecting formStep */}
       <div className="mb-4 bg-card border border-border rounded-xl px-6 py-5">
         <div className="flex items-center justify-between">
           {STEPS.map((s, idx) => {
@@ -536,7 +594,7 @@ export default function ReportFound() {
         </div>
       </div>
 
-      {/* Section header */}
+      {/* Section header — title/subtitle for the current step (from STEPS) */}
       {(() => {
         const current = STEPS[formStep - 1];
         const Icon = current.icon;
@@ -553,11 +611,14 @@ export default function ReportFound() {
         );
       })()}
 
+      {/* Wizard form — only the active step's <section> renders at a time */}
       <form onSubmit={handleSubmit} noValidate>
         <div className="form-shell">
+          {/* STEP 1 — Item Identity: title, category/subcategory, photos, asset tag */}
           {formStep === 1 && (
             <section className="space-y-6 animate-in fade-in duration-300">
 
+              {/* Title (required) with on-blur required hint */}
               <div>
                 <Label htmlFor="title">{t("report_found.item_title")}</Label>
                 <Input
@@ -598,8 +659,10 @@ export default function ReportFound() {
                 </div>
               </div>
 
+              {/* Photo upload (stores returned URLs onto form.photo_urls) */}
               <PhotoUploader photos={form.photo_urls} onChange={(urls) => updateField("photo_urls", urls)} />
 
+              {/* Optional school asset tag + "Check tag" lookup */}
               <div className="rounded-lg border border-border bg-muted p-4">
                 <Label htmlFor="asset_tag">Optional school asset tag</Label>
                 <div className="mt-2 flex flex-col gap-2 sm:flex-row">
@@ -633,6 +696,7 @@ export default function ReportFound() {
             </section>
           )}
 
+          {/* STEP 2 — Time & Place: date/time found, location, storage (admin-only) */}
           {formStep === 2 && (
             <section className="space-y-6 animate-in fade-in duration-300">
 
@@ -690,9 +754,12 @@ export default function ReportFound() {
             </section>
           )}
 
+          {/* STEP 3 — Verify & Contact: description + AI helpers, attributes,
+              field suggestions, suggested tags, finder contact, and consents */}
           {formStep === 3 && (
             <section className="space-y-6 animate-in fade-in duration-300">
 
+              {/* Description + "Enhance" (AI cleanup) and its suggested result */}
               <div>
                 <Label htmlFor="description">{t("report_found.description_label")}</Label>
                 <Textarea
@@ -773,6 +840,7 @@ export default function ReportFound() {
                 </div>
               </div>
 
+              {/* Optional field suggestions panel — request, then apply/dismiss each */}
               {((form.photo_urls || []).length > 0 || form.title || form.description) && (
                 <div className="soft-panel px-4 py-4">
                   <div className="flex flex-wrap items-start justify-between gap-3">
@@ -839,6 +907,7 @@ export default function ReportFound() {
                 </div>
               )}
 
+              {/* Suggested tags panel — generate tags and show them as badges */}
               {(form.title || form.description) && (
                 <div className="soft-panel px-4 py-4">
                   <div className="flex flex-wrap items-center justify-between gap-3">
@@ -868,12 +937,14 @@ export default function ReportFound() {
                 </div>
               )}
 
+              {/* Signed-in notice: finder contact is associated with this account */}
               {user && (
                 <div className="soft-panel px-4 py-4 text-sm text-foreground">
                   {t("report_found.signed_in_as", { name: user.full_name })}
                 </div>
               )}
 
+              {/* Finder contact — name/email required only for anonymous finders */}
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
                   <Label htmlFor="finder_name">{`${t("report_found.your_name")} ${!user ? "*" : `(${t("common.optional")})`}`}</Label>
@@ -909,6 +980,7 @@ export default function ReportFound() {
                 </Select>
               </div>
 
+              {/* Required consents: privacy consent + terms acknowledgement */}
               <div className="space-y-3 rounded-[18px] border border-border bg-muted px-4 py-4">
                 <ConsentCheckboxField
                   id="privacy"
@@ -927,6 +999,7 @@ export default function ReportFound() {
                 </ConsentCheckboxField>
               </div>
 
+              {/* Back + final Submit (disabled while the create mutation is pending) */}
               <div className="flex justify-between pt-4 gap-3">
                 <Button type="button" variant="outline" size="lg" onClick={handlePrevStep}>
                   ← {t("common.back")}

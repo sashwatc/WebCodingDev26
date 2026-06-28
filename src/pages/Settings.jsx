@@ -1,3 +1,17 @@
+/**
+ * Settings.jsx — Account & app preferences page.
+ *
+ * Purpose: lets a signed-in user manage notification preferences, appearance,
+ * and accessibility, and sign out. It mixes two persistence layers:
+ *   - Backend-persisted notification prefs (email/SMS toggles + phone number),
+ *     fetched and saved via appClient.recoveryPulse.
+ *   - Purely client-side prefs stored in localStorage and applied to the
+ *     <html> element: per-category notification toggles, theme (light/dark/
+ *     system), display density, high-contrast, and reduced-motion.
+ *
+ * Sections rendered: 1) Notifications, 2) Appearance, 3) Display density,
+ * 4) Accessibility, 5) Account.
+ */
 import React, { useState, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { appClient } from "@/api/appClient";
@@ -11,6 +25,8 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
 
 // ── Simple toggle row ─────────────────────────────────────────────────────────
+// Reusable labelled Switch row (label + optional description on the left,
+// the toggle on the right). Used throughout the Notifications/Accessibility cards.
 function ToggleRow({ id, label, description, checked, onCheckedChange, disabled }) {
   return (
     <div className="flex items-center justify-between gap-4 py-3">
@@ -27,18 +43,20 @@ function ToggleRow({ id, label, description, checked, onCheckedChange, disabled 
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 export default function Settings() {
-  const { user, logout } = useAuth();
+  const { user, logout } = useAuth(); // current account + sign-out
 
-  // ── Notification prefs ──────────────────────────────────────────────────────
+  // ── Notification prefs (backend-persisted) ──────────────────────────────────
   const queryClient = useQueryClient();
+  // Fetch the user's saved notification preferences (email/SMS/phone).
   const { data: prefs, isLoading: prefsLoading } = useQuery({
     queryKey: ["notifPrefs"],
     queryFn: () => appClient.recoveryPulse.preferences(),
-    enabled: !!user?.email,
+    enabled: !!user?.email, // only once we know who the user is
   });
   const { toast } = useToast();
-  const [savingPref, setSavingPref] = useState(false);
+  const [savingPref, setSavingPref] = useState(false); // disables toggles mid-save
 
+  // Patch+save notification prefs, then refetch so the UI reflects persisted state.
   const updatePref = async (patch) => {
     setSavingPref(true);
     try {
@@ -56,10 +74,12 @@ export default function Settings() {
   const [phoneDraft, setPhoneDraft] = useState("");
   useEffect(() => { setPhoneDraft(prefs?.phone_number || ""); }, [prefs?.phone_number]);
 
-  // ── Appearance ──────────────────────────────────────────────────────────────
+  // ── Appearance (theme, localStorage-persisted) ──────────────────────────────
   const getTheme = () => localStorage.getItem("ltf-theme") || "system";
   const [theme, setThemeState] = useState(getTheme);
 
+  // Apply the chosen theme by toggling the `dark` class on <html> (system mode
+  // follows the OS prefers-color-scheme), then persist the choice.
   const applyTheme = (val) => {
     const root = document.documentElement;
     if (val === "dark") root.classList.add("dark");
@@ -73,56 +93,65 @@ export default function Settings() {
     setThemeState(val);
   };
 
-  // ── Per-category notification prefs ────────────────────────────────────────
+  // ── Per-category notification prefs (client-side only) ──────────────────────
+  // A map of { matches, claims, chat, pickup, system } -> bool, kept in localStorage.
   const [notifPrefs, setNotifPrefs] = useState(() =>
     JSON.parse(localStorage.getItem("ltf_notif_prefs") || "{}")
   );
+  // Update one category toggle and persist the whole map.
   const setNotifPref = (key, val) => {
     const next = { ...notifPrefs, [key]: val };
     setNotifPrefs(next);
     localStorage.setItem("ltf_notif_prefs", JSON.stringify(next));
   };
 
-  // ── Display density ─────────────────────────────────────────────────────────
+  // ── Display density (client-side, reflected via data-density on <html>) ──────
   const [density, setDensity] = useState(
     () => localStorage.getItem("ltf_density") || "comfortable"
   );
+  // Set density, persist it, and expose it as a `data-density` attribute for CSS.
   const applyDensity = (d) => {
     setDensity(d);
     localStorage.setItem("ltf_density", d);
     document.documentElement.setAttribute("data-density", d);
   };
+  // On mount, apply the persisted density to <html>.
   useEffect(() => { document.documentElement.setAttribute("data-density", density); }, []);
 
-  // ── High contrast ───────────────────────────────────────────────────────────
+  // ── High contrast (client-side, reflected via data-hc on <html>) ────────────
   const [highContrast, setHighContrast] = useState(
     () => localStorage.getItem("ltf_hc") === "true"
   );
+  // Toggle high contrast, persist it, and expose it as `data-hc` for CSS.
   const applyHighContrast = (val) => {
     setHighContrast(val);
     localStorage.setItem("ltf_hc", String(val));
     document.documentElement.setAttribute("data-hc", String(val));
   };
+  // On mount, apply the persisted high-contrast setting to <html>.
   useEffect(() => { document.documentElement.setAttribute("data-hc", String(highContrast)); }, []);
 
-  // ── Accessibility ───────────────────────────────────────────────────────────
+  // ── Accessibility: reduced motion (client-side flag) ────────────────────────
   const [reduceMotion, setReduceMotion] = useState(
     () => localStorage.getItem("ltf-reduced-motion") === "1"
   );
+  // Persist the reduced-motion flag (presence of the key = enabled).
   const toggleReduceMotion = (val) => {
     if (val) localStorage.setItem("ltf-reduced-motion", "1");
     else localStorage.removeItem("ltf-reduced-motion");
     setReduceMotion(val);
   };
 
+  // ── Five stacked preference cards ──
   return (
     <div className="page-shell max-w-2xl space-y-8 py-10">
+      {/* Page header */}
       <div className="page-header">
         <span className="page-kicker">Account</span>
         <h1 className="page-title">Settings</h1>
       </div>
 
-      {/* 1 — Notifications */}
+      {/* 1 — Notifications: backend email/SMS toggles + phone, then per-category prefs */}
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-base">Notifications</CardTitle>
@@ -143,6 +172,7 @@ export default function Settings() {
             onCheckedChange={(v) => updatePref({ sms_notifications_enabled: v, sms_opt_in: v })}
             disabled={prefsLoading || savingPref || !prefs?.phone_number}
           />
+          {/* Phone number editor — local draft, saved on demand (SMS requires it) */}
           <div className="flex items-end justify-between gap-4 py-3">
             <div className="min-w-0 flex-1">
               <Label htmlFor="phone-number" className="text-sm font-medium text-foreground">Phone number</Label>
@@ -166,6 +196,7 @@ export default function Settings() {
               Save
             </Button>
           </div>
+          {/* In-app notifications are always on (display-only toggle) */}
           <ToggleRow
             id="notif-inapp"
             label="In-app notifications"
@@ -173,6 +204,7 @@ export default function Settings() {
             checked={true}
             disabled
           />
+          {/* Per-category notification toggles (client-side, default on) */}
           <div className="mt-5 border-t border-border pt-4 space-y-3">
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Notification types</p>
             {[
@@ -194,7 +226,7 @@ export default function Settings() {
         </CardContent>
       </Card>
 
-      {/* 2 — Appearance */}
+      {/* 2 — Appearance: light / dark / system theme selector */}
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-base">Appearance</CardTitle>
@@ -216,7 +248,7 @@ export default function Settings() {
         </CardContent>
       </Card>
 
-      {/* 3 — Display density */}
+      {/* 3 — Display density: comfortable vs compact spacing */}
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-base">Display density</CardTitle>
@@ -241,7 +273,7 @@ export default function Settings() {
         </CardContent>
       </Card>
 
-      {/* 4 — Accessibility */}
+      {/* 4 — Accessibility: reduce motion + high contrast */}
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-base">Accessibility</CardTitle>
@@ -264,7 +296,7 @@ export default function Settings() {
         </CardContent>
       </Card>
 
-      {/* 5 — Account */}
+      {/* 5 — Account: name, email, role badge, and sign-out */}
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-base">Account</CardTitle>

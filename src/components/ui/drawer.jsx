@@ -1,10 +1,16 @@
 "use client"
 
+// Drawer: a bottom-sheet style panel that slides up from the edge, built on the
+// `vaul` library (DrawerPrimitive). Re-exports vaul's Trigger/Portal/Close and
+// wraps the visual parts (Overlay, Content, Title, ...) with shadcn/ui styling.
+// Compose as: <Drawer><DrawerTrigger/><DrawerContent>...</DrawerContent></Drawer>.
 import * as React from "react"
 import { Drawer as DrawerPrimitive } from "vaul"
 
 import { cn } from "@/lib/utils"
 
+// Root: wraps vaul's Root and defaults `shouldScaleBackground` to true, which
+// scales/insets the page behind the drawer for the iOS-style depth effect.
 const Drawer = ({
   shouldScaleBackground = true,
   ...props
@@ -13,12 +19,16 @@ const Drawer = ({
 )
 Drawer.displayName = "Drawer"
 
+// Element that opens the drawer when activated.
 const DrawerTrigger = DrawerPrimitive.Trigger
 
+// Portals drawer content to the document body.
 const DrawerPortal = DrawerPrimitive.Portal
 
+// Any element that closes the drawer when clicked.
 const DrawerClose = DrawerPrimitive.Close
 
+// Overlay: the dimmed, blurred backdrop behind the drawer.
 const DrawerOverlay = React.forwardRef(({ className, ...props }, ref) => (
   <DrawerPrimitive.Overlay
     ref={ref}
@@ -27,6 +37,8 @@ const DrawerOverlay = React.forwardRef(({ className, ...props }, ref) => (
 ))
 DrawerOverlay.displayName = DrawerPrimitive.Overlay.displayName
 
+// Content: the sliding panel anchored to the bottom edge. Bundles its own Portal
+// + Overlay and renders a small "grabber" handle bar at the top before children.
 const DrawerContent = React.forwardRef(({ className, children, ...props }, ref) => (
   <DrawerPortal>
     <DrawerOverlay />
@@ -44,6 +56,7 @@ const DrawerContent = React.forwardRef(({ className, children, ...props }, ref) 
 ))
 DrawerContent.displayName = "DrawerContent"
 
+// Header: layout container (plain div) for the title/description at the top.
 const DrawerHeader = ({
   className,
   ...props
@@ -54,6 +67,7 @@ const DrawerHeader = ({
 )
 DrawerHeader.displayName = "DrawerHeader"
 
+// Footer: layout container (plain div) pinned to the bottom for action buttons.
 const DrawerFooter = ({
   className,
   ...props
@@ -62,6 +76,7 @@ const DrawerFooter = ({
 )
 DrawerFooter.displayName = "DrawerFooter"
 
+// Title: the drawer's accessible heading.
 const DrawerTitle = React.forwardRef(({ className, ...props }, ref) => (
   <DrawerPrimitive.Title
     ref={ref}
@@ -70,6 +85,7 @@ const DrawerTitle = React.forwardRef(({ className, ...props }, ref) => (
 ))
 DrawerTitle.displayName = DrawerPrimitive.Title.displayName
 
+// Description: the drawer's accessible supporting text.
 const DrawerDescription = React.forwardRef(({ className, ...props }, ref) => (
   <DrawerPrimitive.Description
     ref={ref}

@@ -1,6 +1,20 @@
 /**
- * Lost Then Found - Search / Browse Found Items Page
- * Search-first inventory browsing with explicit loading and failure states.
+ * Search.jsx - Search / Browse page (Found Items, Lost Reports, or All).
+ *
+ * Purpose: the main browse-and-search surface. It loads the found-item inventory
+ * and lost reports, filters out non-public records, then applies the user's text
+ * query + filters and renders the results as cards (list or grid view).
+ *
+ * One component serves three modes:
+ *   - /Search           → found items (default, recordTypeOverride="found")
+ *   - /LostItems        → lost reports (recordTypeOverride="lost")
+ *   - /Search?type=all  → both, when launched from the global navbar search
+ *
+ * What the user can do: type a query (synced to the ?q= URL param), apply
+ * category/color/location/sort filters (panel + quick-filter chips), toggle
+ * list/grid view, ask the AI to "interpret" the query into filters, and save the
+ * current search. The page has explicit loading, backend-unavailable, error, and
+ * empty states.
  */
 
 import React, { useEffect, useMemo, useState } from "react";
@@ -37,14 +51,15 @@ export default function Search({ recordTypeOverride = "found" }) {
   const { t } = useTranslation();
   const { toast } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
-  const queryFromUrl = searchParams.get("q") || "";
+  const queryFromUrl = searchParams.get("q") || ""; // text query persisted in the URL
   /* type=all comes from the global navbar search — show both found and lost */
   const typeParam = searchParams.get("type");
-  const isAllMode = typeParam === "all";
-  const recordType = recordTypeOverride || "found";
-  const isLostItemsPage = recordType === "lost";
-  const [searchQuery, setSearchQuery] = useState(queryFromUrl);
-  const [viewMode, setViewMode] = useState("list");
+  const isAllMode = typeParam === "all"; // combined found + lost results
+  const recordType = recordTypeOverride || "found"; // which entity this page pins to
+  const isLostItemsPage = recordType === "lost"; // toggles lost-vs-found copy/UI
+  const [searchQuery, setSearchQuery] = useState(queryFromUrl); // controlled search box
+  const [viewMode, setViewMode] = useState("list"); // "list" | "grid"
+  // Active filters. recordType is part of the filter set so "all" mode can mix types.
   const [filters, setFilters] = useState({
     category: "all",
     color: "all",
@@ -54,26 +69,30 @@ export default function Search({ recordTypeOverride = "found" }) {
     // the dedicated Found/Lost pages pin the record type.
     recordType: isAllMode ? "all" : recordType,
   });
-  const [searchAssist, setSearchAssist] = useState(null);
-  const [filtersOpen, setFiltersOpen] = useState(false);
-  const [saveSearchOpen, setSaveSearchOpen] = useState(false);
-  const [saveSearchName, setSaveSearchName] = useState("");
-  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
+  const [searchAssist, setSearchAssist] = useState(null); // AI "interpret search" result
+  const [filtersOpen, setFiltersOpen] = useState(false); // filter sheet/drawer open
+  const [saveSearchOpen, setSaveSearchOpen] = useState(false); // save-search dialog open
+  const [saveSearchName, setSaveSearchName] = useState(""); // name input for saved search
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768); // drawer vs sheet
 
+  // Track viewport so filters render in a bottom Drawer (mobile) vs side Sheet (desktop).
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768);
     window.addEventListener("resize", check);
     return () => window.removeEventListener("resize", check);
   }, []);
 
+  // Keep the search box in sync if the ?q= URL param changes (e.g. navbar search).
   useEffect(() => {
     setSearchQuery(queryFromUrl);
   }, [queryFromUrl]);
 
+  // Re-pin the record-type filter whenever the page mode changes.
   useEffect(() => {
     setFilters((curr) => ({ ...curr, recordType: isAllMode ? "all" : recordType }));
   }, [recordType, isAllMode]);
 
+  // Backend health probe — gates the records query and drives the "unavailable" panel.
   const {
     data: health,
     isLoading: healthLoading,
@@ -87,6 +106,7 @@ export default function Search({ recordTypeOverride = "found" }) {
 
   const backendUnavailable = !healthLoading && isBackendUnavailable(health);
 
+  // Load both datasets in parallel; only runs once the backend is known reachable.
   const { data, isLoading, error, refetch: refetchSearch } = useQuery({
     queryKey: ["searchRecords"],
     queryFn: async () => {
@@ -104,6 +124,7 @@ export default function Search({ recordTypeOverride = "found" }) {
   const foundItems = data?.foundItems || [];
   const lostReports = data?.lostReports || [];
 
+  // Public found items: exclude lost-typed rows, non-public statuses, and archived.
   const publicFoundItems = useMemo(
     () =>
       foundItems.filter(
@@ -115,6 +136,8 @@ export default function Search({ recordTypeOverride = "found" }) {
     [foundItems]
   );
 
+  // Public lost reports: drop resolved/closed, then normalize each report into the
+  // same shape ItemCard expects for found items (so both render uniformly).
   const publicLostReports = useMemo(
     () =>
       lostReports
@@ -146,14 +169,19 @@ export default function Search({ recordTypeOverride = "found" }) {
     [lostReports, t]
   );
 
+  // The candidate pool before query/filter narrowing — depends on the page mode.
   const searchableRecords = useMemo(() => {
     if (isAllMode) return [...publicFoundItems, ...publicLostReports];
     return isLostItemsPage ? publicLostReports : publicFoundItems;
   }, [isAllMode, isLostItemsPage, publicFoundItems, publicLostReports]);
 
+  // The final visible list: apply text search, then each filter, then sorting.
   const filteredItems = useMemo(() => {
     let items = [...searchableRecords];
 
+    // Text search: match the full lowercased query against a concatenation of
+    // searchable fields, OR match any meaningful token (>2 chars, excluding
+    // common stop/filler words) for looser partial matching.
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       const queryTokens = query
@@ -182,6 +210,7 @@ export default function Search({ recordTypeOverride = "found" }) {
       });
     }
 
+    // Dropdown/chip filters — each "all" value means "no constraint".
     if (filters.category !== "all") {
       items = items.filter((item) => item.category === filters.category);
     }
@@ -198,6 +227,7 @@ export default function Search({ recordTypeOverride = "found" }) {
       items = items.filter((item) => item.record_type === filters.recordType);
     }
 
+    // Sorting — "relevance" keeps source order; others sort by updated/found date.
     if (filters.sort !== "relevance") {
       items.sort((a, b) => {
         if (filters.sort === "updated") {
@@ -214,6 +244,7 @@ export default function Search({ recordTypeOverride = "found" }) {
     return items;
   }, [filters, searchQuery, searchableRecords]);
 
+  // Human-readable badges for every active filter/query (drives the filter bar + count).
   const activeFilterBadges = [
     filters.category !== "all" ? translateCategory(t, filters.category) : null,
     filters.color !== "all" ? translateColor(t, filters.color) : null,
@@ -221,6 +252,7 @@ export default function Search({ recordTypeOverride = "found" }) {
     searchQuery ? t("search.query_badge", { query: searchQuery }) : null,
   ].filter(Boolean);
 
+  // Reset query + all filters back to defaults (and drop ?q= from the URL).
   const clearFilters = () => {
     setSearchQuery("");
     const nextParams = new URLSearchParams(searchParams);
@@ -236,15 +268,19 @@ export default function Search({ recordTypeOverride = "found" }) {
   };
 
   const hasActiveFilters = activeFilterBadges.length > 0;
+  // The "N results" / "Loading…" label above the result grid.
   const resultsLabel = isLoading
     ? t("common.loading")
     : t("search.results_count", { count: filteredItems.length });
 
+  // Retry both the health probe and the records query (used by error/unavailable panels).
   const handleRetry = () => {
     void refetchHealth();
     void refetchSearch();
   };
 
+  // AI "Interpret search": parse the free-text query into structured filters and
+  // pre-apply category/color/location (the user can still edit them).
   const searchAssistMutation = useMutation({
     mutationFn: (query) => appClient.aiAssistance.parseSearchQuery(query),
     onSuccess: (suggestion) => {
@@ -258,6 +294,8 @@ export default function Search({ recordTypeOverride = "found" }) {
     },
   });
 
+  // Shared filter controls (category, color, location, sort, clear) rendered
+  // inside either the mobile Drawer or the desktop Sheet.
   const filterPanelContent = (
     <div className="space-y-6">
       <div className="space-y-2">
@@ -346,9 +384,10 @@ export default function Search({ recordTypeOverride = "found" }) {
   const heroBg = "#0d1117";
   const contentBg = "#08090f";
 
+  // ── Page layout: hero banner, then search toolbar, filters, and results ──
   return (
     <div style={{ background: contentBg }}>
-      {/* Full-bleed hero with locker graphic */}
+      {/* Full-bleed hero with locker graphic — copy switches by page mode */}
       <div
         className="relative mb-0 overflow-hidden"
         style={{ background: heroBg, minHeight: "220px" }}
@@ -394,7 +433,7 @@ export default function Search({ recordTypeOverride = "found" }) {
       </div>
 
       <div className="page-shell py-8" style={{ background: contentBg }}>
-      {/* Tabs */}
+      {/* Tabs — switch between the Found Items and Lost Reports pages */}
       <div className="mb-5 flex gap-2">
         <Button asChild variant={!isLostItemsPage ? "default" : "outline"}>
           <Link to="/Search">{t("search.found_items_tag", "Found Items")}</Link>
@@ -407,6 +446,7 @@ export default function Search({ recordTypeOverride = "found" }) {
       <section className="mb-5 space-y-3" aria-label={t("search.search_label")}>
         {/* Search toolbar — single bordered card, no inner borders */}
         <div className="search-toolbar">
+          {/* Search input — mirrors its value into the ?q= URL param as you type */}
           <div className="relative flex-1">
             <SearchIcon className="search-toolbar-icon" aria-hidden="true" />
             <Input
@@ -460,6 +500,7 @@ export default function Search({ recordTypeOverride = "found" }) {
               ) : null}
             </Button>
 
+            {/* Filter container — bottom Drawer on mobile, side Sheet on desktop */}
             {isMobile ? (
               <Drawer open={filtersOpen} onOpenChange={setFiltersOpen}>
                 <DrawerContent className="max-h-[90vh] overflow-y-auto">
@@ -519,6 +560,7 @@ export default function Search({ recordTypeOverride = "found" }) {
           </div>
         </div>
 
+        {/* AI search-interpretation result — editable suggestion badges + explanation */}
         {searchAssist ? (
           <div className="soft-panel px-4 py-3 text-sm text-foreground">
             <div className="flex flex-wrap items-center gap-2">
@@ -534,7 +576,9 @@ export default function Search({ recordTypeOverride = "found" }) {
           </div>
         ) : null}
 
+        {/* Quick category chips (left) + live availability counts (right) */}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          {/* Quick filters — each chip toggles its category on/off */}
           <div className="flex flex-wrap items-center gap-1.5">
             {[
               { val: "electronics", label: t("categories.electronics") },
@@ -563,6 +607,7 @@ export default function Search({ recordTypeOverride = "found" }) {
           </div>
         </div>
 
+        {/* Active-filter bar — chips for each applied filter + "Clear All" */}
         {hasActiveFilters ? (
           <div className="active-filter-bar">
             <span className="text-xs font-medium text-muted-foreground">{t("search.applied_filters", "Filters:")}</span>
@@ -579,6 +624,7 @@ export default function Search({ recordTypeOverride = "found" }) {
         ) : null}
       </section>
 
+      {/* Results count + "Save search" action */}
       <div className="mb-4 flex items-center justify-between gap-2">
         <p className="text-sm text-muted-foreground" aria-live="polite">
           {resultsLabel}
@@ -594,8 +640,11 @@ export default function Search({ recordTypeOverride = "found" }) {
         ) : null}
       </div>
 
+      {/* ── Result region: exactly one of skeleton / unavailable / error / empty / grid ── */}
+      {/* Loading skeleton while health or records are still loading */}
       {healthLoading || isLoading ? <SearchResultsSkeleton viewMode={viewMode} /> : null}
 
+      {/* Backend unreachable */}
       {!healthLoading && backendUnavailable ? (
         <SearchStatePanel
           variant="backend"
@@ -605,6 +654,7 @@ export default function Search({ recordTypeOverride = "found" }) {
         />
       ) : null}
 
+      {/* Records query failed */}
       {!healthLoading && !backendUnavailable && error ? (
         <SearchStatePanel
           variant="error"
@@ -614,6 +664,7 @@ export default function Search({ recordTypeOverride = "found" }) {
         />
       ) : null}
 
+      {/* Loaded successfully but nothing matches the query/filters */}
       {!healthLoading && !backendUnavailable && !isLoading && !error && filteredItems.length === 0 ? (
         <SearchStatePanel
           variant="empty"
@@ -624,6 +675,7 @@ export default function Search({ recordTypeOverride = "found" }) {
         />
       ) : null}
 
+      {/* Results — staggered grid or list of ItemCards */}
       {!healthLoading && !backendUnavailable && !isLoading && !error && filteredItems.length > 0 ? (
         <motion.div
           className={viewMode === "grid" ? "grid gap-3 sm:grid-cols-2 xl:grid-cols-3" : "space-y-3"}
@@ -635,6 +687,7 @@ export default function Search({ recordTypeOverride = "found" }) {
         </motion.div>
       ) : null}
 
+      {/* Lost-page secondary CTA — prompt to file a lost report if not listed */}
       {isLostItemsPage ? (
         <div className="search-secondary-cta mt-12 max-w-2xl">
           <h3 className="text-base font-semibold text-foreground">{t("search.lost_item_cta_title", "Don't see your missing item listed?")}</h3>
@@ -650,6 +703,7 @@ export default function Search({ recordTypeOverride = "found" }) {
         </div>
       ) : null}
 
+      {/* Save-search dialog — name the current query+filters to persist it */}
       <Dialog open={saveSearchOpen} onOpenChange={setSaveSearchOpen}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
@@ -670,6 +724,7 @@ export default function Search({ recordTypeOverride = "found" }) {
             <Button variant="outline" onClick={() => setSaveSearchOpen(false)}>Cancel</Button>
             <Button onClick={async () => {
               if (!saveSearchName.trim()) return;
+              // Persist to the backend; if that fails, fall back to localStorage.
               try {
                 await appClient.savedSearches.create({
                   name: saveSearchName.trim(),

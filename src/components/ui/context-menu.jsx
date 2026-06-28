@@ -1,21 +1,34 @@
+// ContextMenu: a right-click (custom context) menu built on Radix UI's
+// `@radix-ui/react-context-menu`. This file re-exports the Radix primitives
+// directly for the simple parts (Root/Trigger/Group/etc.) and wraps the visual
+// parts (Content, Item, CheckboxItem, ...) with shadcn/ui Tailwind styling.
+// Compose as: <ContextMenu><ContextMenuTrigger/><ContextMenuContent>...items...</ContextMenuContent></ContextMenu>.
 import * as React from "react"
 import * as ContextMenuPrimitive from "@radix-ui/react-context-menu"
 import { Check, ChevronRight, Circle } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 
+// Root provider that holds open/close state for one context menu.
 const ContextMenu = ContextMenuPrimitive.Root
 
+// The area the user right-clicks to open the menu.
 const ContextMenuTrigger = ContextMenuPrimitive.Trigger
 
+// Groups related items together (semantic grouping for a11y).
 const ContextMenuGroup = ContextMenuPrimitive.Group
 
+// Portals menu content out to the document body so it escapes overflow/clipping.
 const ContextMenuPortal = ContextMenuPrimitive.Portal
 
+// Wrapper for a nested submenu (pair with SubTrigger + SubContent).
 const ContextMenuSub = ContextMenuPrimitive.Sub
 
+// Manages single-selection state for a set of ContextMenuRadioItems.
 const ContextMenuRadioGroup = ContextMenuPrimitive.RadioGroup
 
+// SubTrigger: the row that opens a nested submenu; shows a right chevron.
+// `inset` adds left padding to align with items that have a leading indicator.
 const ContextMenuSubTrigger = React.forwardRef(({ className, inset, children, ...props }, ref) => (
   <ContextMenuPrimitive.SubTrigger
     ref={ref}
@@ -31,6 +44,8 @@ const ContextMenuSubTrigger = React.forwardRef(({ className, inset, children, ..
 ))
 ContextMenuSubTrigger.displayName = ContextMenuPrimitive.SubTrigger.displayName
 
+// SubContent: the floating panel for a submenu's items; includes open/close
+// animation classes keyed off Radix data-state/data-side attributes.
 const ContextMenuSubContent = React.forwardRef(({ className, ...props }, ref) => (
   <ContextMenuPrimitive.SubContent
     ref={ref}
@@ -42,6 +57,8 @@ const ContextMenuSubContent = React.forwardRef(({ className, ...props }, ref) =>
 ))
 ContextMenuSubContent.displayName = ContextMenuPrimitive.SubContent.displayName
 
+// Content: the main floating menu panel. Self-portals (wraps its own Portal) so
+// callers can just render <ContextMenuContent> directly inside <ContextMenu>.
 const ContextMenuContent = React.forwardRef(({ className, ...props }, ref) => (
   <ContextMenuPrimitive.Portal>
     <ContextMenuPrimitive.Content
@@ -55,6 +72,8 @@ const ContextMenuContent = React.forwardRef(({ className, ...props }, ref) => (
 ))
 ContextMenuContent.displayName = ContextMenuPrimitive.Content.displayName
 
+// Item: a single clickable menu row. `inset` left-pads it to align with rows
+// that have a leading checkbox/radio indicator.
 const ContextMenuItem = React.forwardRef(({ className, inset, ...props }, ref) => (
   <ContextMenuPrimitive.Item
     ref={ref}
@@ -67,6 +86,8 @@ const ContextMenuItem = React.forwardRef(({ className, inset, ...props }, ref) =
 ))
 ContextMenuItem.displayName = ContextMenuPrimitive.Item.displayName
 
+// CheckboxItem: a toggleable item driven by the `checked` prop; renders a Check
+// icon in its ItemIndicator slot when selected.
 const ContextMenuCheckboxItem = React.forwardRef(({ className, children, checked, ...props }, ref) => (
   <ContextMenuPrimitive.CheckboxItem
     ref={ref}
@@ -87,6 +108,8 @@ const ContextMenuCheckboxItem = React.forwardRef(({ className, children, checked
 ContextMenuCheckboxItem.displayName =
   ContextMenuPrimitive.CheckboxItem.displayName
 
+// RadioItem: a single-choice item used inside ContextMenuRadioGroup; shows a
+// filled Circle indicator when it is the selected value.
 const ContextMenuRadioItem = React.forwardRef(({ className, children, ...props }, ref) => (
   <ContextMenuPrimitive.RadioItem
     ref={ref}
@@ -105,6 +128,8 @@ const ContextMenuRadioItem = React.forwardRef(({ className, children, ...props }
 ))
 ContextMenuRadioItem.displayName = ContextMenuPrimitive.RadioItem.displayName
 
+// Label: a non-interactive heading row for labelling a group of items.
+// `inset` aligns it with indented items.
 const ContextMenuLabel = React.forwardRef(({ className, inset, ...props }, ref) => (
   <ContextMenuPrimitive.Label
     ref={ref}
@@ -117,6 +142,7 @@ const ContextMenuLabel = React.forwardRef(({ className, inset, ...props }, ref) 
 ))
 ContextMenuLabel.displayName = ContextMenuPrimitive.Label.displayName
 
+// Separator: a thin horizontal divider line between groups of items.
 const ContextMenuSeparator = React.forwardRef(({ className, ...props }, ref) => (
   <ContextMenuPrimitive.Separator
     ref={ref}
@@ -125,6 +151,8 @@ const ContextMenuSeparator = React.forwardRef(({ className, ...props }, ref) => 
 ))
 ContextMenuSeparator.displayName = ContextMenuPrimitive.Separator.displayName
 
+// Shortcut: right-aligned muted text for displaying a keyboard shortcut hint
+// next to an item (purely presentational; not a real key binding).
 const ContextMenuShortcut = ({
   className,
   ...props

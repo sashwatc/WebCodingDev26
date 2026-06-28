@@ -1,8 +1,16 @@
+/**
+ * Separator — a thin visual divider line, wrapping Radix UI's
+ * `@radix-ui/react-separator`.
+ */
+
 import * as React from "react"
 import * as SeparatorPrimitive from "@radix-ui/react-separator"
 
 import { cn } from "@/lib/utils"
 
+// Renders a 1px line. `orientation` ("horizontal" | "vertical") picks the sizing
+// classes; `decorative` (default true) marks it purely visual for a11y/screen
+// readers. forwardRef forwards the ref to the underlying Radix Root element.
 const Separator = React.forwardRef((
   { className, orientation = "horizontal", decorative = true, ...props },
   ref

@@ -1,10 +1,23 @@
+/**
+ * Tabs — switch between panels of content, wrapping Radix UI's
+ * `@radix-ui/react-tabs`.
+ *
+ *   <Tabs defaultValue="a">
+ *     <TabsList><TabsTrigger value="a"/><TabsTrigger value="b"/></TabsList>
+ *     <TabsContent value="a">...</TabsContent>
+ *     <TabsContent value="b">...</TabsContent>
+ *   </Tabs>
+ */
+
 import * as React from "react"
 import * as TabsPrimitive from "@radix-ui/react-tabs"
 
 import { cn } from "@/lib/utils"
 
+// Root holding the active tab state (value/defaultValue/onValueChange).
 const Tabs = TabsPrimitive.Root
 
+// The row container that groups the tab triggers.
 const TabsList = React.forwardRef(({ className, ...props }, ref) => (
   <TabsPrimitive.List
     ref={ref}
@@ -16,6 +29,8 @@ const TabsList = React.forwardRef(({ className, ...props }, ref) => (
 ))
 TabsList.displayName = TabsPrimitive.List.displayName
 
+// Clickable tab button; needs a `value` matching a TabsContent. The active one
+// is highlighted via data-[state=active] styles.
 const TabsTrigger = React.forwardRef(({ className, ...props }, ref) => (
   <TabsPrimitive.Trigger
     ref={ref}
@@ -27,6 +42,7 @@ const TabsTrigger = React.forwardRef(({ className, ...props }, ref) => (
 ))
 TabsTrigger.displayName = TabsPrimitive.Trigger.displayName
 
+// The panel shown when its `value` matches the active tab.
 const TabsContent = React.forwardRef(({ className, ...props }, ref) => (
   <TabsPrimitive.Content
     ref={ref}

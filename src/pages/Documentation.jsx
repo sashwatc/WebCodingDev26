@@ -1,9 +1,19 @@
+/**
+ * Documentation page
+ *
+ * A static project-documentation/overview page for judges and reviewers. The
+ * user reads: a hero intro, a grid of four "what makes this project" cards, a
+ * feature-inventory checklist, judging-build notes, local run instructions, and
+ * links to Sources / Accessibility / Shader demo. No state or data fetching.
+ */
 import React from "react";
 import { Link } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { CheckCircle2, Code2, LayoutTemplate, MonitorSmartphone, Shield } from "lucide-react";
 
+// Icon + title + body cards rendered in the top 2-column grid, each describing
+// a pillar of the project (custom workflow, stack, a11y/privacy, responsive).
 const documentationCards = [
   {
     icon: LayoutTemplate,
@@ -27,6 +37,8 @@ const documentationCards = [
   },
 ];
 
+// Feature-inventory bullet list rendered (with check icons) in the left card
+// of the lower section — a quick catalog of what the app can do.
 const checklist = [
   "Searchable found-item catalog with filters, smart matching cues, and grid/list views",
   "Found-item reporting workflow with validation, image uploads, and tag generation",
@@ -40,8 +52,10 @@ const checklist = [
 ];
 
 export default function Documentation() {
+  // Pure presentational component — renders static content only.
   return (
     <div className="page-shell max-w-5xl py-16">
+      {/* Hero: badge, title, and scope/last-updated intro */}
       <div className="text-center mb-12">
         <Badge variant="outline" className="mb-3">Documentation</Badge>
         <h1 className="text-4xl font-bold text-foreground mb-4">Project Documentation</h1>
@@ -51,6 +65,7 @@ export default function Documentation() {
         </p>
       </div>
 
+      {/* Pillar cards grid: one card per documentationCards entry */}
       <div className="grid md:grid-cols-2 gap-5 mb-8">
         {documentationCards.map((card) => (
           <div key={card.title} className="archive-card">
@@ -65,7 +80,9 @@ export default function Documentation() {
         ))}
       </div>
 
+      {/* Lower section: feature inventory (left) + build notes/run/links (right) */}
       <div className="grid lg:grid-cols-[1.2fr_0.8fr] gap-6">
+        {/* Feature inventory card: renders each checklist entry with a check icon */}
         <div className="surface-card p-6">
           <p className="section-label mb-4">Feature Inventory</p>
           <div className="space-y-3">
@@ -78,7 +95,9 @@ export default function Documentation() {
           </div>
         </div>
 
+        {/* Right column: judging notes, local run commands, and footer links */}
         <div className="space-y-6">
+          {/* Judging build notes card */}
           <div className="surface-card p-6 space-y-3">
             <p className="section-label">Judging Build Notes</p>
             <p className="text-sm text-muted-foreground leading-relaxed">
@@ -92,6 +111,7 @@ export default function Documentation() {
             </p>
           </div>
 
+          {/* Run-locally card: backend/frontend commands, URLs, demo accounts */}
           <div className="surface-card p-6 space-y-2">
             <p className="section-label mb-2">Run Locally</p>
             <p className="text-sm text-muted-foreground">Start the backend in the Spring Boot repo:</p>
@@ -105,6 +125,7 @@ export default function Documentation() {
             <p className="text-sm text-muted-foreground">Production admin access is controlled by Appwrite team membership; local demo access uses the backend demo fallback only when enabled.</p>
           </div>
 
+          {/* Footer links to related pages */}
           <div className="flex flex-wrap gap-3">
             <Link to="/Sources">
               <Button variant="outline">View Sources</Button>

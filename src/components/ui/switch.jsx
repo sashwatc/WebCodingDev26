@@ -1,8 +1,15 @@
+/**
+ * Switch — an on/off toggle, wrapping Radix UI's `@radix-ui/react-switch`.
+ * Controlled via checked/onCheckedChange (or defaultChecked); disabled supported.
+ */
+
 import * as React from "react"
 import * as SwitchPrimitives from "@radix-ui/react-switch"
 
 import { cn } from "@/lib/utils"
 
+// Root track styled by data-[state=checked/unchecked]; the Thumb slides via a
+// translate-x transition between states. forwardRef forwards to the Radix Root.
 const Switch = React.forwardRef(({ className, ...props }, ref) => (
   <SwitchPrimitives.Root
     className={cn(

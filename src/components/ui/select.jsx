@@ -1,17 +1,35 @@
 "use client"
 
+/**
+ * Select — accessible dropdown select control, a styled wrapper around
+ * Radix UI's `@radix-ui/react-select` primitives.
+ *
+ * Compose it as:
+ *   <Select> (Root, owns value/open state)
+ *     <SelectTrigger><SelectValue placeholder="..." /></SelectTrigger>
+ *     <SelectContent>
+ *       <SelectGroup><SelectLabel/> <SelectItem/>... </SelectGroup>
+ *     </SelectContent>
+ *   </Select>
+ */
+
 import * as React from "react"
 import * as SelectPrimitive from "@radix-ui/react-select"
 import { Check, ChevronDown, ChevronUp } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 
+// Root container that holds the open/value state; pass value/onValueChange here.
 const Select = SelectPrimitive.Root
 
+// Groups related items together (renders an optional SelectLabel + SelectItems).
 const SelectGroup = SelectPrimitive.Group
 
+// Displays the currently selected value (or placeholder) inside the trigger.
 const SelectValue = SelectPrimitive.Value
 
+// Clickable button that opens the dropdown; shows the value and a chevron icon.
+// forwardRef + spreads props onto Radix Trigger; renders children then the icon.
 const SelectTrigger = React.forwardRef(({ className, children, ...props }, ref) => (
   <SelectPrimitive.Trigger
     ref={ref}
@@ -28,6 +46,7 @@ const SelectTrigger = React.forwardRef(({ className, children, ...props }, ref) 
 ))
 SelectTrigger.displayName = SelectPrimitive.Trigger.displayName
 
+// Auto-shown "scroll up" affordance at the top of a long, scrollable list.
 const SelectScrollUpButton = React.forwardRef(({ className, ...props }, ref) => (
   <SelectPrimitive.ScrollUpButton
     ref={ref}
@@ -38,6 +57,7 @@ const SelectScrollUpButton = React.forwardRef(({ className, ...props }, ref) => 
 ))
 SelectScrollUpButton.displayName = SelectPrimitive.ScrollUpButton.displayName
 
+// Auto-shown "scroll down" affordance at the bottom of a long, scrollable list.
 const SelectScrollDownButton = React.forwardRef(({ className, ...props }, ref) => (
   <SelectPrimitive.ScrollDownButton
     ref={ref}
@@ -49,6 +69,9 @@ const SelectScrollDownButton = React.forwardRef(({ className, ...props }, ref) =
 SelectScrollDownButton.displayName =
   SelectPrimitive.ScrollDownButton.displayName
 
+// The popup panel listing the options. Rendered in a Portal (escapes overflow),
+// animated open/closed, and contains the scroll buttons + scrollable Viewport.
+// `position` defaults to "popper" (anchored to the trigger with a small offset).
 const SelectContent = React.forwardRef(({ className, children, position = "popper", ...props }, ref) => (
   <SelectPrimitive.Portal>
     <SelectPrimitive.Content
@@ -73,6 +96,7 @@ const SelectContent = React.forwardRef(({ className, children, position = "poppe
 ))
 SelectContent.displayName = SelectPrimitive.Content.displayName
 
+// Non-selectable heading for a SelectGroup of items.
 const SelectLabel = React.forwardRef(({ className, ...props }, ref) => (
   <SelectPrimitive.Label
     ref={ref}
@@ -81,6 +105,8 @@ const SelectLabel = React.forwardRef(({ className, ...props }, ref) => (
 ))
 SelectLabel.displayName = SelectPrimitive.Label.displayName
 
+// A single selectable option; requires a `value` prop. Renders a checkmark
+// (ItemIndicator) when selected and the option text (children) via ItemText.
 const SelectItem = React.forwardRef(({ className, children, ...props }, ref) => (
   <SelectPrimitive.Item
     ref={ref}
@@ -99,6 +125,7 @@ const SelectItem = React.forwardRef(({ className, children, ...props }, ref) => 
 ))
 SelectItem.displayName = SelectPrimitive.Item.displayName
 
+// Thin horizontal divider between groups/items in the dropdown.
 const SelectSeparator = React.forwardRef(({ className, ...props }, ref) => (
   <SelectPrimitive.Separator
     ref={ref}

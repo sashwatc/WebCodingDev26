@@ -1,3 +1,7 @@
+// Carousel: a sliding content slider built on embla-carousel-react. The root
+// <Carousel> owns the Embla instance and shares it via context so the content
+// track and prev/next buttons stay in sync. Compose as Carousel > CarouselContent
+// > CarouselItem(s), plus optional CarouselPrevious / CarouselNext.
 import * as React from "react"
 import useEmblaCarousel from "embla-carousel-react";
 import { ArrowLeft, ArrowRight } from "lucide-react"
@@ -5,8 +9,11 @@ import { ArrowLeft, ArrowRight } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 
+// Context carrying the Embla ref/api, orientation, scroll helpers, and the
+// can-scroll flags down to the sub-components.
 const CarouselContext = React.createContext(null)
 
+// Hook to read the carousel context; throws if used outside a <Carousel />.
 function useCarousel() {
   const context = React.useContext(CarouselContext)
 
@@ -17,6 +24,9 @@ function useCarousel() {
   return context
 }
 
+// Carousel: root provider. forwardRef. Props: `orientation` (horizontal/vertical),
+// `opts` (Embla options), `plugins` (Embla plugins), and `setApi` to expose the
+// Embla api to a parent.
 const Carousel = React.forwardRef((
   {
     orientation = "horizontal",
@@ -29,13 +39,17 @@ const Carousel = React.forwardRef((
   },
   ref
 ) => {
+  // Initialize Embla: carouselRef attaches to the viewport; api drives scrolling.
+  // axis is derived from orientation.
   const [carouselRef, api] = useEmblaCarousel({
     ...opts,
     axis: orientation === "horizontal" ? "x" : "y",
   }, plugins)
+  // Track whether prev/next navigation is currently possible (to disable buttons).
   const [canScrollPrev, setCanScrollPrev] = React.useState(false)
   const [canScrollNext, setCanScrollNext] = React.useState(false)
 
+  // Refresh the can-scroll flags from Embla; called on init/select/reInit.
   const onSelect = React.useCallback((api) => {
     if (!api) {
       return
@@ -45,14 +59,17 @@ const Carousel = React.forwardRef((
     setCanScrollNext(api.canScrollNext())
   }, [])
 
+  // Imperatively scroll one slide backward.
   const scrollPrev = React.useCallback(() => {
     api?.scrollPrev()
   }, [api])
 
+  // Imperatively scroll one slide forward.
   const scrollNext = React.useCallback(() => {
     api?.scrollNext()
   }, [api])
 
+  // Keyboard navigation: Left/Right arrows move between slides.
   const handleKeyDown = React.useCallback((event) => {
     if (event.key === "ArrowLeft") {
       event.preventDefault()
@@ -63,6 +80,7 @@ const Carousel = React.forwardRef((
     }
   }, [scrollPrev, scrollNext])
 
+  // If a `setApi` callback was provided, hand the Embla api up to the parent.
   React.useEffect(() => {
     if (!api || !setApi) {
       return
@@ -71,6 +89,8 @@ const Carousel = React.forwardRef((
     setApi(api)
   }, [api, setApi])
 
+  // Subscribe to Embla's select/reInit events to keep can-scroll flags current;
+  // unsubscribe on cleanup to avoid leaks.
   React.useEffect(() => {
     if (!api) {
       return
@@ -112,6 +132,9 @@ const Carousel = React.forwardRef((
 })
 Carousel.displayName = "Carousel"
 
+// CarouselContent: the scrolling track. Its outer div is the Embla viewport
+// (carouselRef + overflow-hidden); the inner flex row/column holds the items.
+// Negative margin offsets the per-item padding gutter. forwardRef.
 const CarouselContent = React.forwardRef(({ className, ...props }, ref) => {
   const { carouselRef, orientation } = useCarousel()
 
@@ -130,6 +153,8 @@ const CarouselContent = React.forwardRef(({ className, ...props }, ref) => {
 })
 CarouselContent.displayName = "CarouselContent"
 
+// CarouselItem: a single slide; basis-full makes it fill the viewport by default
+// (override basis via className for multiple visible slides). forwardRef.
 const CarouselItem = React.forwardRef(({ className, ...props }, ref) => {
   const { orientation } = useCarousel()
 
@@ -148,6 +173,8 @@ const CarouselItem = React.forwardRef(({ className, ...props }, ref) => {
 })
 CarouselItem.displayName = "CarouselItem"
 
+// CarouselPrevious: icon Button that scrolls back one slide; auto-positioned by
+// orientation and disabled when there's nothing earlier to show. forwardRef.
 const CarouselPrevious = React.forwardRef(({ className, variant = "outline", size = "icon", ...props }, ref) => {
   const { orientation, scrollPrev, canScrollPrev } = useCarousel()
 
@@ -169,6 +196,8 @@ const CarouselPrevious = React.forwardRef(({ className, variant = "outline", siz
 })
 CarouselPrevious.displayName = "CarouselPrevious"
 
+// CarouselNext: icon Button that scrolls forward one slide; auto-positioned by
+// orientation and disabled when there's nothing further to show. forwardRef.
 const CarouselNext = React.forwardRef(({ className, variant = "outline", size = "icon", ...props }, ref) => {
   const { orientation, scrollNext, canScrollNext } = useCarousel()
 

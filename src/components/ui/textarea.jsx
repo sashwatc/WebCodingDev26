@@ -1,7 +1,13 @@
+/**
+ * Textarea — styled multi-line text input. A thin wrapper over the native
+ * <textarea> (no external primitive); accepts all standard textarea props.
+ */
+
 import * as React from "react"
 
 import { cn } from "@/lib/utils"
 
+// forwardRef forwards `ref` to the underlying <textarea>; className is merged.
 const Textarea = React.forwardRef(({ className, ...props }, ref) => {
   return (
     (<textarea

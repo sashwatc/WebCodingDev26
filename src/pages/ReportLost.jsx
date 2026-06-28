@@ -1,6 +1,22 @@
 /**
- * FindBack AI - Report Lost Item Page
- * Students report lost belongings and receive suggested matches.
+ * ReportLost.jsx - Report a Lost Item Page
+ *
+ * Purpose: a 3-step wizard where a student/staffer reports something they lost.
+ * On submit it creates a LostReport (status "open") and immediately runs a match
+ * query against the found-item inventory, then shows the suggested matches.
+ *
+ * The wizard steps (tracked by `formStep`):
+ *   1. Item Identity — item type, category, color, brand, reference photos
+ *   2. Time & Place  — date lost, last-seen location, urgency, extra notes
+ *   3. Verify        — description, private contact name/email, student id, consent
+ *
+ * Screen flow via `step`:
+ *   1 = the wizard form, 2 = a transient "matching…" loading screen,
+ *   3 = the results screen listing potential found-item matches (or "no matches").
+ *
+ * Notable behaviors: autosaves a draft to localStorage (with restore banner),
+ * warns before unload with unsaved content, prefills contact from the signed-in
+ * user, and prefills location from an event/zone beacon (?event=/?zone=).
  */
 
 import React, { useEffect, useState } from "react";
@@ -34,12 +50,15 @@ import {
   Sparkles,
 } from "lucide-react";
 
+// Wizard step metadata: drives the progress tracker and per-step section header.
 const STEPS = [
   { step: 1, labelKey: "report_found.step_identity", fallback: "Item Identity", icon: Briefcase, sectionTitle: "Lost Item Details", sectionSub: "Tell us what the item is" },
   { step: 2, labelKey: "report_found.step_location", fallback: "Time & Place",  icon: CalendarClock, sectionTitle: "When & Where", sectionSub: "Help us narrow down the search" },
   { step: 3, labelKey: "report_found.step_details", fallback: "Verification & Contact", icon: ShieldCheck, sectionTitle: "Verify & Contact", sectionSub: "Your private contact information" },
 ];
 
+// Maps a free-text campus-zone beacon label to a canonical LOCATIONS value, so a
+// beacon link can prefill the "last seen" location select.
 function locationFromZoneLabel(label = "") {
   const normalized = label.toLowerCase();
   if (normalized.includes("gym") || normalized.includes("athletic")) return "Gymnasium";
@@ -59,9 +78,10 @@ export default function ReportLost() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
 
-  const [step, setStep] = useState(1);
-  const [matches, setMatches] = useState([]);
-  const initialParams = new URLSearchParams(location.search);
+  const [step, setStep] = useState(1); // 1=form, 2=matching screen, 3=results
+  const [matches, setMatches] = useState([]); // suggested found-item matches after submit
+  const initialParams = new URLSearchParams(location.search); // for beacon prefill
+  // The controlled report form (beacon event/zone ids seeded from URL params).
   const [form, setForm] = useState({
     item_type: "",
     category: "",
@@ -80,11 +100,12 @@ export default function ReportLost() {
     campus_zone_id: initialParams.get("zone") || initialParams.get("campus_zone_id") || "",
     confirm_accuracy: false,
   });
-  const [errors, setErrors] = useState({});
-  const [formStep, setFormStep] = useState(1);
-  const [showDraftBanner, setShowDraftBanner] = useState(false);
-  const DRAFT_KEY = "ltf_report_lost_draft";
+  const [errors, setErrors] = useState({}); // validation errors (step gates + submit)
+  const [formStep, setFormStep] = useState(1); // current wizard step (1-3)
+  const [showDraftBanner, setShowDraftBanner] = useState(false); // restore-draft prompt
+  const DRAFT_KEY = "ltf_report_lost_draft"; // localStorage key for the autosaved draft
 
+  // Validate the current step's required fields before advancing the wizard.
   const handleNextStep = () => {
     const errs = {};
     if (formStep === 1) {
@@ -106,21 +127,25 @@ export default function ReportLost() {
     }
   };
 
+  // Step back one wizard step (never below 1).
   const handlePrevStep = () => {
     setFormStep((prev) => Math.max(1, prev - 1));
   };
 
+  // Recent found items — used to resolve/label the match results on screen 3.
   const { data: foundItems = [] } = useQuery({
     queryKey: ["foundItemsForMatching"],
     queryFn: () => appClient.entities.FoundItem.list("-created_date", 100),
   });
 
+  // Campus zones — only fetched when arriving via a zone beacon, to resolve its label.
   const { data: campusZones = [] } = useQuery({
     queryKey: ["campusZones"],
     queryFn: () => appClient.campusZones.list(),
     enabled: Boolean(form.campus_zone_id),
   });
 
+  // Prefill last-seen location from the beacon's campus zone (if not already set).
   useEffect(() => {
     if (!form.campus_zone_id || form.last_seen_location) {
       return;
@@ -143,6 +168,7 @@ export default function ReportLost() {
     }));
   }, [user]);
 
+  // Warn before navigating away if the report has meaningful unsaved content.
   useEffect(() => {
     const hasDraft = form.urgency !== "medium" || form.description.trim() !== "";
     const h = (e) => {
@@ -177,6 +203,7 @@ export default function ReportLost() {
     }
   }, [form]);
 
+  // Generic controlled-field setter; clears any existing error for that field.
   const updateField = (field, value) => {
     setForm((prev) => ({ ...prev, [field]: value }));
     if (errors[field]) {
@@ -184,6 +211,7 @@ export default function ReportLost() {
     }
   };
 
+  // Full-form validation run on final submit (all required fields + email format).
   const validate = () => {
     const nextErrors = {};
     if (!form.item_type.trim()) nextErrors.item_type = t("report_lost.item_type_required");
@@ -199,17 +227,20 @@ export default function ReportLost() {
     return Object.keys(nextErrors).length === 0;
   };
 
+  // Primary submit: create the LostReport (status "open"), then ask the backend
+  // for candidate found-item matches to display on the results screen.
   const submitMutation = useMutation({
     mutationFn: async (data) => {
       const report = await appClient.entities.LostReport.create({
         ...data,
-        title: data.item_type,
+        title: data.item_type, // mirror item_type into the title field
         status: "open",
       });
 
       const matches = await appClient.matches.forLostReport(report.id);
       return { report, matches };
     },
+    // Refresh dependent lists, drop the draft, store matches, show results (step 3).
     onSuccess: ({ matches: backendMatches }) => {
       queryClient.invalidateQueries({ queryKey: ["searchRecords"] });
       queryClient.invalidateQueries({ queryKey: ["homePreviewItems"] });
@@ -219,12 +250,14 @@ export default function ReportLost() {
       setMatches(backendMatches);
       setStep(3);
     },
+    // On failure, toast and return the user to the form.
     onError: () => {
       toast({ title: t("report_lost.error"), description: t("report_lost.submit_failed"), variant: "destructive" });
       setStep(1);
     },
   });
 
+  // Final submit: guard against double-submit, validate, then fire the mutation.
   const handleSubmit = (event) => {
     event.preventDefault();
     if (submitMutation.isPending || submitMutation.isSuccess) return;
@@ -235,6 +268,7 @@ export default function ReportLost() {
     submitMutation.mutate(form);
   };
 
+  // ── Screen 2: transient "analysing / matching" loading state ──
   if (step === 2) {
     return (
       <div className="page-shell max-w-2xl py-20">
@@ -255,9 +289,11 @@ export default function ReportLost() {
     );
   }
 
+  // ── Screen 3: results — list potential found-item matches (or empty state) ──
   if (step === 3) {
     return (
       <div className="page-shell max-w-4xl py-10">
+        {/* Submitted confirmation header */}
         <div className="page-header text-center">
           <span className="page-kicker">{t("report_lost.submitted_kicker")}</span>
           <h2 className="page-title">{t("report_lost.submitted_title")}</h2>
@@ -266,6 +302,7 @@ export default function ReportLost() {
           </p>
         </div>
 
+        {/* If matches exist, render each as a card; otherwise show the no-match panel */}
         {matches.length > 0 ? (
           <div className="mb-8 space-y-4">
             <div className="mb-2 flex items-center gap-2">
@@ -275,6 +312,7 @@ export default function ReportLost() {
               </h3>
             </div>
             {matches.map((match, index) => {
+              // Resolve the match to its found-item record; skip if not in the list.
               const item = foundItems.find((foundItem) => foundItem.id === match.found_item_id);
               if (!item) return null;
 
@@ -293,6 +331,7 @@ export default function ReportLost() {
                           </Badge>
                         </div>
                         <p className="mb-2 line-clamp-2 text-sm text-muted-foreground">{item.ai_description || item.description}</p>
+                        {/* Why this matched: list of reason badges from the matcher */}
                         {match.reasons?.length > 0 && (
                           <div className="flex flex-wrap gap-1">
                             {match.reasons.map((reason) => (
@@ -313,6 +352,7 @@ export default function ReportLost() {
             })}
           </div>
         ) : (
+          // Empty state: no candidate matches were found
           <Card className="mb-8">
             <CardContent className="p-8 text-center">
               <p className="mb-2 text-muted-foreground">{t("report_lost.no_matches_title")}</p>
@@ -323,6 +363,7 @@ export default function ReportLost() {
           </Card>
         )}
 
+        {/* Results-screen actions: browse found items or go to the dashboard */}
         <div className="flex flex-wrap justify-center gap-3">
           <Button onClick={() => navigate("/Search")} className="gap-2">
             <Eye className="w-4 h-4" /> {t("report_lost.browse_found_items")}
@@ -335,16 +376,20 @@ export default function ReportLost() {
     );
   }
 
+  // ── Screen 1: the wizard form (animated background, banners, tracker, steps) ──
   return (
     <div style={{ position: "relative", overflow: "hidden", minHeight: "100vh" }}>
+      {/* Decorative animated floating-items background */}
       <FloatingItemsCanvas />
     <div className="page-shell max-w-4xl py-10" style={{ position: "relative", zIndex: 1 }}>
+      {/* Page header: kicker, title, subtitle */}
       <div className="page-header">
         <span className="page-kicker">{t("report_lost.kicker")}</span>
         <h1 className="page-title">{t("report_lost.title")}</h1>
         <p className="page-subtitle">{t("report_lost.subtitle")}</p>
       </div>
 
+      {/* Restore-draft banner: shown when a saved draft was found on mount */}
       {showDraftBanner && (
         <div className="mb-4 flex items-center justify-between rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm">
           <span className="text-foreground">You have an unsaved report draft from a previous session.</span>
@@ -378,13 +423,14 @@ export default function ReportLost() {
         </div>
       )}
 
+      {/* Beacon notice: shown when opened from an event/zone beacon link */}
       {(form.event_hub_id || form.campus_zone_id) && (
         <div className="mb-6 rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
           You are reporting from a demo event beacon. This does not use GPS; correct the location if needed.
         </div>
       )}
 
-      {/* Progress Tracker */}
+      {/* Progress Tracker — step circles + connector lines reflecting formStep */}
       <div className="mb-4 bg-card border border-border rounded-xl px-6 py-5">
         <div className="flex items-center justify-between">
           {STEPS.map((s, idx) => {
@@ -426,7 +472,7 @@ export default function ReportLost() {
         </div>
       </div>
 
-      {/* Section header */}
+      {/* Section header — title/subtitle for the current step (from STEPS) */}
       {(() => {
         const current = STEPS[formStep - 1];
         const Icon = current.icon;
@@ -443,8 +489,10 @@ export default function ReportLost() {
         );
       })()}
 
+      {/* Wizard form — only the active step's <section> renders at a time */}
       <form onSubmit={handleSubmit} className="space-y-6" noValidate>
         <div className="form-shell">
+          {/* STEP 1 — Item Identity: type, category, color, brand, reference photos */}
           {formStep === 1 && (
             <section className="space-y-6 animate-in fade-in duration-300 p-6 sm:p-8">
 
@@ -492,6 +540,7 @@ export default function ReportLost() {
             </section>
           )}
 
+          {/* STEP 2 — Time & Place: date lost, last-seen location, urgency, notes */}
           {formStep === 2 && (
             <section className="space-y-6 animate-in fade-in duration-300 p-6 sm:p-8">
 
@@ -538,6 +587,7 @@ export default function ReportLost() {
             </section>
           )}
 
+          {/* STEP 3 — Verify & Contact: description, private contact, student id, consent */}
           {formStep === 3 && (
             <section className="space-y-6 animate-in fade-in duration-300 p-6 sm:p-8">
 
@@ -547,6 +597,7 @@ export default function ReportLost() {
                 {errors.description && <p className="mt-1 text-xs text-red-500">{errors.description}</p>}
               </div>
 
+              {/* Private contact fields (name + email) — not shown publicly */}
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
                   <Label htmlFor="contact_name">
@@ -575,6 +626,7 @@ export default function ReportLost() {
                 <Input id="student_id" placeholder={t("report_lost.student_id_placeholder")} value={form.student_id} onChange={(event) => updateField("student_id", event.target.value)} />
               </div>
 
+              {/* Required: confirm the reported details are accurate */}
               <ConsentCheckboxField
                 id="confirm_accuracy"
                 checked={form.confirm_accuracy}
@@ -584,6 +636,7 @@ export default function ReportLost() {
                 {t("report_lost.confirm_text")}
               </ConsentCheckboxField>
 
+              {/* Back + final Submit (disabled while the create+match request runs) */}
               <div className="flex justify-between pt-4 gap-3">
                 <Button type="button" variant="outline" size="lg" onClick={handlePrevStep}>
                   ← {t("common.back")}

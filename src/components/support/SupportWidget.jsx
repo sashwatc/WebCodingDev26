@@ -22,24 +22,32 @@ import {
 } from "@/components/ui/dialog";
 import { LifeBuoy, CheckCircle2 } from "lucide-react";
 
+// Selectable support topics shown as chips in the form.
 const CATEGORIES = ["Question", "Lost Item", "Found Item", "Account Issue", "Other"];
 
 export default function SupportWidget() {
+  // Current user (may be undefined for anonymous visitors) — used to prefill email.
   const { user } = useAuth();
   const { toast } = useToast();
+  // Dialog open/closed.
   const [open, setOpen] = useState(false);
+  // Form fields.
   const [category, setCategory] = useState("Question");
   const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
   const [email, setEmail] = useState(user?.email || "");
+  // In-flight submit flag.
   const [submitting, setSubmitting] = useState(false);
+  // Holds the created ticket once submitted (drives the success view).
   const [submitted, setSubmitted] = useState(null);
 
   // Keep the email in sync if the user signs in while the widget is mounted.
+  // Only fills when currently empty so it never clobbers manual input.
   React.useEffect(() => {
     if (user?.email) setEmail((prev) => prev || user.email);
   }, [user?.email]);
 
+  // Reset the form back to its defaults (also exits the success view).
   const resetForm = () => {
     setCategory("Question");
     setSubject("");
@@ -47,6 +55,8 @@ export default function SupportWidget() {
     setSubmitted(null);
   };
 
+  // Validate required fields, then create a support ticket via the API.
+  // On success store the ticket (shows confirmation); on failure show a toast.
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!subject.trim() || !message.trim() || !email.trim()) {
@@ -73,6 +83,7 @@ export default function SupportWidget() {
     }
   };
 
+  // Close the dialog, deferring the form reset until the close animation ends.
   const close = () => {
     setOpen(false);
     // Reset after the dialog close animation so the form doesn't flash empty.
@@ -92,14 +103,19 @@ export default function SupportWidget() {
         <span className="hidden text-sm font-semibold sm:inline">Help</span>
       </button>
 
+      {/* Support dialog: opening sets open; closing routes through close() so
+          the form resets after the animation */}
       <Dialog open={open} onOpenChange={(next) => (next ? setOpen(true) : close())}>
         <DialogContent className="max-w-md">
+          {/* Two views: success confirmation (after submit) vs. the entry form */}
           {submitted ? (
+            /* ── Success view: ticket number + follow-up actions ──────────── */
             <div className="py-4 text-center">
               <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-50 text-emerald-700">
                 <CheckCircle2 className="h-7 w-7" />
               </div>
               <h2 className="text-xl font-bold text-foreground">Question sent</h2>
+              {/* Ticket identifier — tolerant of multiple field name shapes */}
               <p className="mt-2 text-sm text-muted-foreground">
                 Ticket{" "}
                 <span className="font-mono font-bold text-foreground">
@@ -109,12 +125,14 @@ export default function SupportWidget() {
               <p className="mt-1 text-sm text-muted-foreground">
                 Our staff will respond within 1 school day.
               </p>
+              {/* Reset for another question, or close the dialog */}
               <div className="mt-6 flex justify-center gap-3">
                 <Button variant="outline" onClick={resetForm}>Ask another</Button>
                 <Button onClick={close}>Done</Button>
               </div>
             </div>
           ) : (
+            /* ── Entry form: topic chips, subject, question, email, submit ── */
             <>
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2">
@@ -126,6 +144,7 @@ export default function SupportWidget() {
               </DialogHeader>
 
               <form onSubmit={handleSubmit} className="space-y-4">
+                {/* Topic selector: single-select chip row backed by `category` */}
                 <div>
                   <Label>Topic</Label>
                   <div className="mt-2 flex flex-wrap gap-2">
@@ -146,6 +165,7 @@ export default function SupportWidget() {
                   </div>
                 </div>
 
+                {/* Required: short subject line */}
                 <div className="space-y-1.5">
                   <Label htmlFor="support-subject">Subject <span className="text-red-600">*</span></Label>
                   <Input
@@ -157,6 +177,7 @@ export default function SupportWidget() {
                   />
                 </div>
 
+                {/* Required: free-text question body */}
                 <div className="space-y-1.5">
                   <Label htmlFor="support-message">Your question <span className="text-red-600">*</span></Label>
                   <Textarea
@@ -168,6 +189,7 @@ export default function SupportWidget() {
                   />
                 </div>
 
+                {/* Required: reply-to email (prefilled for signed-in users) */}
                 <div className="space-y-1.5">
                   <Label htmlFor="support-email">Your email <span className="text-red-600">*</span></Label>
                   <Input
@@ -179,6 +201,7 @@ export default function SupportWidget() {
                   />
                 </div>
 
+                {/* Submit: disabled while sending or if any required field is blank */}
                 <Button
                   type="submit"
                   className="w-full"

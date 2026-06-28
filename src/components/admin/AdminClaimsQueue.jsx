@@ -1,6 +1,18 @@
 /**
  * FindBack AI - Admin Claims Queue
  * Review, approve, reject claims with AI risk indicators.
+ *
+ * Admin verification queue for ownership claims. Renders a searchable list of
+ * claim cards (each showing item, claimant, AI risk score/flags, and the
+ * claimant's review/rating) with inline approve/reject/complete actions. A
+ * detail dialog drills into one claim: evidence review, message thread, status
+ * transitions (under review / need more info / complete), admin notes, claimant
+ * rating moderation, and issuing a pickup/return pass. A separate dialog issues
+ * a claim code directly from an approved row.
+ *
+ * Props:
+ *  - claims:     array of claim records to review
+ *  - foundItems: array of found-item records, used to resolve a claim's photo
  */
 
 import React, { useState } from "react";
@@ -53,6 +65,10 @@ export default function AdminClaimsQueue({ claims = [], foundItems = [] }) {
   const { t } = useTranslation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  // search:       free-text filter over the claim list
+  // detailDialog: claim shown in the review dialog (null = closed)
+  // passDialog:   claim shown in the issue-claim-code dialog (null = closed)
+  // adminNotes:   draft admin-notes text for the open detail dialog
   const [search, setSearch] = useState("");
   const [detailDialog, setDetailDialog] = useState(null);
   const [passDialog, setPassDialog] = useState(null);
@@ -70,10 +86,15 @@ export default function AdminClaimsQueue({ claims = [], foundItems = [] }) {
     }
   };
 
+  // Central mutation for every claim workflow change. The handler dispatches to
+  // the appropriate appClient endpoint based on the requested status /
+  // review_status, then (optionally) syncs the claimant rating onto the found
+  // item, and finally writes a best-effort audit-log entry.
   const updateMutation = useMutation({
     mutationFn: async ({ claim, data, action }) => {
       let updatedClaim;
 
+      // Route to the matching endpoint for the requested transition.
       if (data.status === "approved") {
         updatedClaim = await appClient.claims.approve(claim, data);
       } else if (data.status === "rejected") {
@@ -92,8 +113,11 @@ export default function AdminClaimsQueue({ claims = [], foundItems = [] }) {
         updatedClaim = await appClient.claims.updateWorkflow(claim, data);
       }
 
+      // Merge server response + requested data over the original claim.
       const nextClaim = { ...claim, ...(updatedClaim || {}), ...data };
 
+      // When this action touched the claimant's rating/review, mirror it onto
+      // the found item so it can surface on the public item listing.
       if (
         nextClaim.claimant_rating &&
         (data.review_status || data.claimant_rating || data.claimant_review || data.review_reviewed_at)
@@ -129,6 +153,7 @@ export default function AdminClaimsQueue({ claims = [], foundItems = [] }) {
       }
     },
     onSuccess: () => {
+      // Refresh affected lists, close the detail dialog, and confirm.
       queryClient.invalidateQueries({ queryKey: ["adminClaims"] });
       queryClient.invalidateQueries({ queryKey: ["adminFoundItems"] });
       queryClient.invalidateQueries({ queryKey: ["userClaims"] });
@@ -144,6 +169,7 @@ export default function AdminClaimsQueue({ claims = [], foundItems = [] }) {
     },
   });
 
+  // Search filter over claimant name, item title, and claim reason.
   const filtered = claims.filter((claim) => {
     if (!search.trim()) return true;
     const query = search.toLowerCase();
@@ -154,6 +180,7 @@ export default function AdminClaimsQueue({ claims = [], foundItems = [] }) {
       .includes(query);
   });
 
+  // Map an AI risk score to badge/card colors: red (high) / amber (mid) / green (low).
   const getRiskColor = (score) => {
     if (score >= 70) return "border-red-200 bg-red-50 text-red-700 dark:border-red-900/50 dark:bg-red-950/25 dark:text-red-400";
     if (score >= 40) return "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/25 dark:text-amber-400";
@@ -162,6 +189,7 @@ export default function AdminClaimsQueue({ claims = [], foundItems = [] }) {
 
   return (
     <div className="space-y-4">
+      {/* Search toolbar */}
       <div className="surface-card p-4 sm:p-5">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -174,8 +202,10 @@ export default function AdminClaimsQueue({ claims = [], foundItems = [] }) {
         </div>
       </div>
 
+      {/* Result count */}
       <p className="text-sm text-muted-foreground">{t("admin_claims_queue.count", { count: filtered.length })}</p>
 
+      {/* Empty state vs. the list of claim cards */}
       {filtered.length === 0 ? (
         <div className="surface-card px-6 py-14 text-center">
           <Shield className="mx-auto mb-3 h-10 w-10 text-muted-foreground" />
@@ -183,6 +213,7 @@ export default function AdminClaimsQueue({ claims = [], foundItems = [] }) {
         </div>
       ) : (
         <div className="space-y-3">
+          {/* One card per claim — high-risk claims (score >= 70) get a red card */}
           {filtered.map((claim) => (
             <Card
               key={claim.id}
@@ -202,6 +233,7 @@ export default function AdminClaimsQueue({ claims = [], foundItems = [] }) {
                     alt={claim.found_item_title || "Claim"}
                   />
                   <div className="min-w-0 flex-1">
+                    {/* Title + status + risk score + proof-photo badges */}
                     <div className="flex flex-wrap items-center gap-2">
                       <h3 className="text-base font-semibold text-foreground">{claim.found_item_title || t("admin_claims_queue.unknown_item")}</h3>
                       <StatusBadge status={claim.status} />
@@ -215,12 +247,15 @@ export default function AdminClaimsQueue({ claims = [], foundItems = [] }) {
                       )}
                     </div>
 
+                    {/* Claimant identity + submission date */}
                     <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-sm text-muted-foreground">
                       <span>{claim.claimant_name} ({claim.claimant_email})</span>
                       <span>{claim.created_date ? formatLocalizedDate(claim.created_date, "MMM d") : ""}</span>
                     </div>
+                    {/* Claim reason text */}
                     <p className="mt-2 text-sm leading-6 text-muted-foreground">{claim.reason}</p>
 
+                    {/* Star rating the claimant left (if any) + its review status */}
                     {claim.claimant_rating ? (
                       <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
                         <div className="flex gap-0.5">
@@ -237,6 +272,7 @@ export default function AdminClaimsQueue({ claims = [], foundItems = [] }) {
                       </div>
                     ) : null}
 
+                    {/* Up to three AI risk flags as warning badges */}
                     {claim.risk_flags?.length > 0 && (
                       <div className="mt-3 flex flex-wrap gap-2">
                         {claim.risk_flags.slice(0, 3).map((flag, index) => (
@@ -250,7 +286,9 @@ export default function AdminClaimsQueue({ claims = [], foundItems = [] }) {
                   </div>
                   </div>
 
+                  {/* Per-card action row: review, plus status-dependent actions */}
                   <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-border/40">
+                    {/* Open the detail/review dialog (seeds the admin-notes field) */}
                     <Button
                       variant="outline"
                       size="sm"
@@ -263,8 +301,10 @@ export default function AdminClaimsQueue({ claims = [], foundItems = [] }) {
                       <Eye className="h-3.5 w-3.5" />
                       {t("admin_dashboard.review", "Review")}
                     </Button>
+                    {/* Approve / Reject pair — only for open (not yet decided) claims */}
                     {["submitted", "under_review", "need_more_info", "pending_review"].includes(claim.status) && (
                       <>
+                        {/* Approve (with confirm dialog) */}
                         <AlertDialog>
                           <AlertDialogTrigger asChild>
                             <Button size="sm" className="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold gap-1" disabled={updateMutation.isPending}>
@@ -288,6 +328,7 @@ export default function AdminClaimsQueue({ claims = [], foundItems = [] }) {
                             </AlertDialogFooter>
                           </AlertDialogContent>
                         </AlertDialog>
+                        {/* Reject/Disapprove (with confirm dialog) */}
                         <AlertDialog>
                           <AlertDialogTrigger asChild>
                             <Button
@@ -350,6 +391,7 @@ export default function AdminClaimsQueue({ claims = [], foundItems = [] }) {
         </div>
       )}
 
+      {/* Claim detail / review dialog */}
       <Dialog open={!!detailDialog} onOpenChange={() => setDetailDialog(null)}>
         <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto bg-card border-border text-foreground">
           <DialogHeader>
@@ -361,6 +403,7 @@ export default function AdminClaimsQueue({ claims = [], foundItems = [] }) {
 
           {detailDialog && (
             <div className="space-y-4 text-sm mt-2">
+              {/* Claimant info + status/student-id summary */}
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="rounded-xl border border-border bg-background px-4 py-3">
                   <p className="text-xs font-semibold text-muted-foreground">{t("admin_claims_queue.claimant")}</p>
@@ -376,11 +419,13 @@ export default function AdminClaimsQueue({ claims = [], foundItems = [] }) {
                 </div>
               </div>
 
+              {/* Claim reason */}
               <div className="rounded-xl border border-border bg-background px-4 py-3">
                 <p className="text-xs font-semibold text-muted-foreground">{t("admin_claims_queue.reason")}</p>
                 <p className="mt-1.5 leading-relaxed text-foreground">{detailDialog.reason}</p>
               </div>
 
+              {/* Claimant's stated pickup availability (if provided) */}
               {detailDialog.pickup_availability && (
                 <div className="rounded-xl border border-primary/20 bg-primary/5 px-4 py-3">
                   <p className="text-xs font-semibold text-primary">{t("claim_item.pickup_availability", "Pickup availability")}</p>
@@ -388,6 +433,7 @@ export default function AdminClaimsQueue({ claims = [], foundItems = [] }) {
                 </div>
               )}
 
+              {/* Confirmation banner once the student has received the item */}
               {detailDialog.received_confirmed_at && (
                 <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/20 dark:text-emerald-400">
                   {t("admin_claims_queue.received_on", {
@@ -396,6 +442,7 @@ export default function AdminClaimsQueue({ claims = [], foundItems = [] }) {
                 </div>
               )}
 
+              {/* Full AI risk score with all flags listed */}
               {detailDialog.risk_score != null && (
                 <div className={`rounded-xl border px-4 py-3 ${getRiskColor(detailDialog.risk_score)}`}>
                   <p className="font-bold">{t("admin_claims_queue.risk_score", { score: detailDialog.risk_score })}</p>
@@ -405,10 +452,13 @@ export default function AdminClaimsQueue({ claims = [], foundItems = [] }) {
                 </div>
               )}
 
+              {/* Evidence the claimant submitted (loads its own data) */}
               <ClaimEvidenceReview claimId={detailDialog.id} />
 
+              {/* Issue/return-pass panel (only renders for approved claims) */}
               <IssueReturnPassPanel claim={detailDialog} existingPassId={detailDialog.return_pass_id || ""} />
 
+              {/* Two-way message thread between admin and claimant */}
               <ClaimCaseMessageThread claim={detailDialog} viewerRole="admin" />
 
               {/* Status Update & Moderation action buttons */}
@@ -440,6 +490,7 @@ export default function AdminClaimsQueue({ claims = [], foundItems = [] }) {
                       </Button>
                     </>
                   )}
+                  {/* Mark Under Review — hidden once already reviewing/completed/rejected */}
                   {detailDialog.status !== "under_review" && detailDialog.status !== "completed" && detailDialog.status !== "rejected" && (
                     <Button
                       size="sm"
@@ -507,6 +558,7 @@ export default function AdminClaimsQueue({ claims = [], foundItems = [] }) {
                 />
               </div>
 
+              {/* Claimant's rating + written review + its moderation status */}
               {detailDialog.claimant_rating ? (
                 <div className="rounded-xl border border-border bg-background p-4">
                   <p className="text-sm font-semibold text-foreground">{t("admin_claims_queue.claimant_rating")}</p>
@@ -533,8 +585,10 @@ export default function AdminClaimsQueue({ claims = [], foundItems = [] }) {
                 </div>
               ) : null}
 
+              {/* Rating moderation: approve/reject a pending claimant review */}
               {detailDialog.review_status === "pending" && (
                 <div className="flex flex-wrap gap-2 pt-2">
+                  {/* Approve rating → publish it on the item listing */}
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
                       <Button
@@ -569,6 +623,7 @@ export default function AdminClaimsQueue({ claims = [], foundItems = [] }) {
                       </AlertDialogFooter>
                     </AlertDialogContent>
                   </AlertDialog>
+                  {/* Reject rating → keep it unpublished */}
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
                       <Button
@@ -609,6 +664,7 @@ export default function AdminClaimsQueue({ claims = [], foundItems = [] }) {
             </div>
           )}
 
+          {/* Dialog footer: close, and persist admin notes then close */}
           <DialogFooter className="pt-2 border-t border-border/50">
             <Button
               variant="outline"
@@ -620,6 +676,7 @@ export default function AdminClaimsQueue({ claims = [], foundItems = [] }) {
             <Button
               variant="default"
               onClick={async () => {
+                // Save the edited admin notes, refresh all queries, and close.
                 if (detailDialog) {
                   await appClient.claims.updateWorkflow(detailDialog, { admin_notes: adminNotes });
                   setDetailDialog(null);

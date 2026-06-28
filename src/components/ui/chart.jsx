@@ -1,17 +1,25 @@
 "use client";
+// Chart: theming + tooltip/legend helpers around the Recharts library. A `config`
+// object maps each data series key to its label/icon/color (per light/dark theme);
+// ChartContainer provides it via context, and ChartStyle injects CSS variables so
+// charts read colors as var(--color-<key>). Compose a Recharts chart inside
+// <ChartContainer config={...}> and use ChartTooltip/ChartLegend for overlays.
 import * as React from "react"
 import * as RechartsPrimitive from "recharts"
 
 import { cn } from "@/lib/utils"
 
+// Maps a theme name to the CSS selector under which its colors apply.
 // Format: { THEME_NAME: CSS_SELECTOR }
 const THEMES = {
   light: "",
   dark: ".dark"
 }
 
+// Context that carries the chart `config` down to tooltip/legend sub-components.
 const ChartContext = React.createContext(null)
 
+// Hook to read the chart config; throws if used outside a <ChartContainer />.
 function useChart() {
   const context = React.useContext(ChartContext)
 
@@ -22,7 +30,11 @@ function useChart() {
   return context
 }
 
+// ChartContainer: wraps a Recharts chart in a responsive container, provides the
+// `config` via context, and renders ChartStyle for this chart's color variables.
+// forwardRef. `children` must be a single Recharts chart element.
 const ChartContainer = React.forwardRef(({ id, className, children, config, ...props }, ref) => {
+  // Generate a stable, unique id used to scope the injected color CSS to this chart.
   const uniqueId = React.useId()
   const chartId = `chart-${id || uniqueId.replace(/:/g, "")}`
 
@@ -46,16 +58,21 @@ const ChartContainer = React.forwardRef(({ id, className, children, config, ...p
 })
 ChartContainer.displayName = "Chart"
 
+// ChartStyle: emits a scoped <style> tag that defines --color-<key> CSS variables
+// for every config entry that specifies a color/theme, for each theme selector.
+// This lets Recharts series reference colors as var(--color-<key>).
 const ChartStyle = ({
   id,
   config
 }) => {
+  // Keep only series that actually declare a color (per-theme or single).
   const colorConfig = Object.entries(config).filter(([, config]) => config.theme || config.color)
 
   if (!colorConfig.length) {
     return null
   }
 
+  // Build one CSS block per theme, each setting the color variables for this chart id.
   return (
     (<style
       dangerouslySetInnerHTML={{
@@ -77,8 +94,12 @@ return color ? `  --color-${key}: ${color};` : null
   );
 }
 
+// ChartTooltip: direct alias of Recharts' Tooltip; pair with ChartTooltipContent.
 const ChartTooltip = RechartsPrimitive.Tooltip
 
+// ChartTooltipContent: custom tooltip body rendered by Recharts on hover. Reads
+// the active `payload` and resolves each series' label/color/icon from config.
+// Props toggle the label/indicator and choose dot/line/dashed indicator styles. forwardRef.
 const ChartTooltipContent = React.forwardRef((
   {
     active,
@@ -99,6 +120,8 @@ const ChartTooltipContent = React.forwardRef((
 ) => {
   const { config } = useChart()
 
+  // Compute the tooltip's header label from the first payload entry (or the
+  // provided `label`), applying labelFormatter if given. Memoized on its inputs.
   const tooltipLabel = React.useMemo(() => {
     if (hideLabel || !payload?.length) {
       return null
@@ -135,10 +158,12 @@ const ChartTooltipContent = React.forwardRef((
     labelKey,
   ])
 
+  // Only render while the tooltip is active and there is data to show.
   if (!active || !payload?.length) {
     return null
   }
 
+  // With a single non-dot series, nest the label beside the value instead of on top.
   const nestLabel = payload.length === 1 && indicator !== "dot"
 
   return (
@@ -150,7 +175,9 @@ const ChartTooltipContent = React.forwardRef((
       )}>
       {!nestLabel ? tooltipLabel : null}
       <div className="grid gap-1.5">
+        {/* One row per series: colored indicator + label + formatted value. */}
         {payload.map((item, index) => {
+          // Resolve this series' config entry and the color for its indicator swatch.
           const key = `${nameKey || item.name || item.dataKey || "value"}`
           const itemConfig = getPayloadConfigFromPayload(config, item, key)
           const indicatorColor = color || item.payload.fill || item.color
@@ -214,14 +241,19 @@ const ChartTooltipContent = React.forwardRef((
 })
 ChartTooltipContent.displayName = "ChartTooltip"
 
+// ChartLegend: direct alias of Recharts' Legend; pair with ChartLegendContent.
 const ChartLegend = RechartsPrimitive.Legend
 
+// ChartLegendContent: custom legend row rendered by Recharts. For each payload
+// entry it shows the series' icon (or a color swatch) and its configured label.
+// `verticalAlign` adjusts top/bottom padding; `hideIcon` forces swatches. forwardRef.
 const ChartLegendContent = React.forwardRef((
   { className, hideIcon = false, payload, verticalAlign = "bottom", nameKey },
   ref
 ) => {
   const { config } = useChart()
 
+  // Nothing to render if Recharts passed no legend entries.
   if (!payload?.length) {
     return null
   }
@@ -263,6 +295,9 @@ const ChartLegendContent = React.forwardRef((
 ChartLegendContent.displayName = "ChartLegend"
 
 // Helper to extract item config from a payload.
+// Resolves which `config` entry applies to a Recharts payload item: it checks the
+// item (and its nested `.payload`) for a string at `key` to use as the config key,
+// falling back to `key` itself. Returns the matching config entry or undefined.
 function getPayloadConfigFromPayload(
   config,
   payload,
@@ -272,6 +307,7 @@ function getPayloadConfigFromPayload(
     return undefined
   }
 
+  // Recharts often nests the original datum under `.payload`; capture it if present.
   const payloadPayload =
     "payload" in payload &&
     typeof payload.payload === "object" &&
@@ -279,6 +315,8 @@ function getPayloadConfigFromPayload(
       ? payload.payload
       : undefined
 
+  // Prefer a string value found at `key` on the item or its nested datum as the
+  // config lookup key; otherwise keep the original `key`.
   let configLabelKey = key
 
   if (

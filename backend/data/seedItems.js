@@ -1,3 +1,21 @@
+/**
+ * seedItems.js
+ *
+ * Static seed dataset of FOUND items for the lost-and-found demo. Each record
+ * mirrors the Item model shape (see backend/models/Item.js) and is used to
+ * populate the "found items" list when the app runs in seeded/demo mode (it is
+ * re-exported as `FoundItem` by data/seedAppData.js).
+ *
+ * The file exports an array of 14 found-item objects ("found_001".."found_014")
+ * representing a realistic mix of school lost-and-found items (water bottle,
+ * AirPods, backpack, calculator, hoodie, ID lanyard, charger, knee pads,
+ * umbrella, sunglasses, car keys, textbook, pencil case, watch) in various
+ * workflow states (approved / pending_review / claimed / returned).
+ *
+ * Image path constants below point to static demo image assets served by the
+ * frontend; they are referenced by each item's imageUrl/photoUrls fields.
+ */
+// Static image asset paths for each demo item (served from the frontend's public dir).
 const BLACK_HYDRO_FLASK_PHOTO = "/items/black-hydro-flask.jpg";
 const BLUE_BACKPACK_PHOTO = "/images/blue-backpack.png";
 const AIRPODS_PRO_PHOTO = "/items/airpods-pro-case.png";
@@ -13,12 +31,22 @@ const AP_BIO_TEXTBOOK_PHOTO = "/items/ap-biology-textbook.png";
 const PINK_PENCIL_CASE_PHOTO = "/items/pink-pencil-case.png";
 const CASIO_WATCH_PHOTO = "/items/casio-watch.png";
 
+// Helper that returns an ISO timestamp `days` ago (offset by `hours` within the
+// day), so seed records get realistic relative createdAt/updatedAt values that
+// stay recent no matter when the seed runs.
 function daysAgo(days, hours = 10) {
   const now = Date.now();
   return new Date(now - days * 24 * 60 * 60 * 1000 + hours * 60 * 60 * 1000).toISOString();
 }
 
+// Exported array of seed found-item records. Each object follows the Item model
+// fields (id, title, description, category/subcategory, color, brand, location/
+// date/timeFound, image/photoUrls, storageLocation, condition,
+// distinguishingFeatures, finder*, aiDescription, tags, status, itemType,
+// priority, itemCode, assignedTo, isFlagged, claimConfirmed*, ratings, and
+// createdAt/updatedAt timestamps).
 module.exports = [
+  // found_001 — Black Hydro Flask water bottle; found in the Gymnasium; status: approved.
   {
     id: "found_001",
     title: "Black Hydro Flask Water Bottle",
@@ -52,6 +80,7 @@ module.exports = [
     createdAt: daysAgo(5),
     updatedAt: daysAgo(5),
   },
+  // found_002 — Apple AirPods Pro case; found in the Library; status: approved (claimed via claim_004 review).
   {
     id: "found_002",
     title: "Apple AirPods Pro Case",
@@ -85,6 +114,7 @@ module.exports = [
     createdAt: daysAgo(3),
     updatedAt: daysAgo(3),
   },
+  // found_003 — Blue JanSport backpack; found in the Student Lounge; status: claimed.
   {
     id: "found_003",
     title: "Blue JanSport Backpack",
@@ -118,6 +148,7 @@ module.exports = [
     createdAt: daysAgo(7),
     updatedAt: daysAgo(2),
   },
+  // found_004 — Silver Texas Instruments graphing calculator; found in Science Hall; status: pending_review.
   {
     id: "found_004",
     title: "Silver Graphing Calculator",
@@ -151,6 +182,7 @@ module.exports = [
     createdAt: daysAgo(8),
     updatedAt: daysAgo(8),
   },
+  // found_005 — Black Nike hoodie; found at the Football Field; status: returned (carries a 5-star rating from claim_002).
   {
     id: "found_005",
     title: "Black Nike Hoodie",
@@ -195,6 +227,7 @@ module.exports = [
     createdAt: daysAgo(11),
     updatedAt: daysAgo(1),
   },
+  // found_006 — Blue PVHS lanyard with student ID; found in the Auditorium; status: approved.
   {
     id: "found_006",
     title: "Blue PVHS Lanyard with Student ID",
@@ -228,6 +261,7 @@ module.exports = [
     createdAt: daysAgo(2),
     updatedAt: daysAgo(2),
   },
+  // found_007 — Gray Apple MacBook USB-C charger; found in the Computer Lab; status: approved.
   {
     id: "found_007",
     title: "Gray MacBook USB-C Charger",
@@ -261,6 +295,7 @@ module.exports = [
     createdAt: daysAgo(4),
     updatedAt: daysAgo(4),
   },
+  // found_008 — White Mizuno volleyball knee pads; found in the Gymnasium; status: approved.
   {
     id: "found_008",
     title: "White Volleyball Knee Pads",
@@ -294,6 +329,7 @@ module.exports = [
     createdAt: daysAgo(6),
     updatedAt: daysAgo(6),
   },
+  // found_009 — Red compact umbrella; found in the Main Hallway; status: approved.
   {
     id: "found_009",
     title: "Red Compact Umbrella",
@@ -327,6 +363,7 @@ module.exports = [
     createdAt: daysAgo(1),
     updatedAt: daysAgo(1),
   },
+  // found_010 — Black Ray-Ban Wayfarer sunglasses; found in the Cafeteria; status: approved (chip aids verification).
   {
     id: "found_010",
     title: "Black Ray-Ban Wayfarer Sunglasses",
@@ -360,6 +397,7 @@ module.exports = [
     createdAt: daysAgo(2, 13),
     updatedAt: daysAgo(2, 13),
   },
+  // found_011 — Car keys with Toyota fob; found in Parking Lot B; status: approved; isFlagged: true; priority: critical.
   {
     id: "found_011",
     title: "Car Keys with Toyota Fob",
@@ -393,6 +431,7 @@ module.exports = [
     createdAt: daysAgo(3, 16),
     updatedAt: daysAgo(3, 16),
   },
+  // found_012 — Green Pearson AP Biology textbook; found in the Library; status: approved.
   {
     id: "found_012",
     title: "AP Biology Textbook",
@@ -426,6 +465,7 @@ module.exports = [
     createdAt: daysAgo(5, 14),
     updatedAt: daysAgo(5, 14),
   },
+  // found_013 — Pink floral pencil case; found in Room 204; status: approved.
   {
     id: "found_013",
     title: "Pink Floral Pencil Case",
@@ -459,6 +499,7 @@ module.exports = [
     createdAt: daysAgo(4, 11),
     updatedAt: daysAgo(4, 11),
   },
+  // found_014 — Silver Casio digital watch; found in the Boys Restroom; status: pending_review.
   {
     id: "found_014",
     title: "Silver Casio Digital Watch",

@@ -1,3 +1,12 @@
+/**
+ * FindBack AI - Admin System Settings
+ *
+ * Admin panel for configuring the two demo lookup lists used across the app:
+ * item categories and pickup locations. This is a demo-only feature — values
+ * are persisted to the browser's localStorage (no backend), so changes are
+ * per-device. Renders two `EditableList` widgets plus a "reset to defaults"
+ * button.
+ */
 import React, { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
@@ -5,12 +14,16 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
 import { Plus, Trash2, Settings2 } from "lucide-react";
 
+// localStorage keys under which the editable lists are persisted.
 const CAT_KEY = "ltf_demo_categories";
 const LOC_KEY = "ltf_demo_locations";
 
+// Seed values used on first load and when the admin resets to defaults.
 const DEFAULT_CATEGORIES = ["Electronics", "Clothing", "Books", "ID / Keys", "Sports", "Other"];
 const DEFAULT_LOCATIONS = ["Main Office", "Gym", "Library", "Cafeteria", "Parking Lot", "Field House"];
 
+// Read a JSON list from localStorage, falling back to defaults on missing key
+// or parse error (e.g. corrupted/invalid storage).
 function loadList(key, defaults) {
   try {
     const stored = localStorage.getItem(key);
@@ -20,9 +33,13 @@ function loadList(key, defaults) {
   }
 }
 
+// Reusable presentational widget: shows a titled list of string items, each
+// removable, plus an input + add button. Parent owns the array; this calls
+// `onChange` with the next array. `newItem` is local state for the add input.
 function EditableList({ title, items, onChange }) {
   const [newItem, setNewItem] = useState("");
 
+  // Append the trimmed input value; ignore empty or duplicate entries.
   const add = () => {
     const val = newItem.trim();
     if (!val || items.includes(val)) return;
@@ -30,6 +47,7 @@ function EditableList({ title, items, onChange }) {
     setNewItem("");
   };
 
+  // Remove the item at `index` by filtering it out of the array.
   const remove = (index) => {
     onChange(items.filter((_, i) => i !== index));
   };
@@ -37,6 +55,7 @@ function EditableList({ title, items, onChange }) {
   return (
     <div className="space-y-3">
       <h4 className="section-label">{title}</h4>
+      {/* Existing items list — each row shows the value and a remove button */}
       <div className="divide-y divide-border rounded-xl border border-border bg-card overflow-hidden">
         {items.map((item, index) => (
           <div key={index} className="flex items-center justify-between gap-2 px-4 py-2.5">
@@ -54,6 +73,7 @@ function EditableList({ title, items, onChange }) {
           </div>
         ))}
       </div>
+      {/* Add row — input plus button; Enter key also triggers add() */}
       <div className="flex gap-2">
         <Input
           value={newItem}
@@ -73,21 +93,25 @@ function EditableList({ title, items, onChange }) {
 export default function AdminSystemSettings() {
   const { t } = useTranslation();
   const { toast } = useToast();
+  // Lists are lazily initialized from localStorage (or defaults) on mount.
   const [categories, setCategories] = useState(() => loadList(CAT_KEY, DEFAULT_CATEGORIES));
   const [locations, setLocations] = useState(() => loadList(LOC_KEY, DEFAULT_LOCATIONS));
 
+  // Persist category edits to state + localStorage and confirm with a toast.
   const handleCatChange = (next) => {
     setCategories(next);
     localStorage.setItem(CAT_KEY, JSON.stringify(next));
     toast({ title: t("admin_sysconfig.saved", "Settings saved") });
   };
 
+  // Persist location edits to state + localStorage and confirm with a toast.
   const handleLocChange = (next) => {
     setLocations(next);
     localStorage.setItem(LOC_KEY, JSON.stringify(next));
     toast({ title: t("admin_sysconfig.saved", "Settings saved") });
   };
 
+  // Restore both lists to their seed defaults and clear stored overrides.
   const reset = () => {
     setCategories(DEFAULT_CATEGORIES);
     setLocations(DEFAULT_LOCATIONS);
@@ -98,12 +122,14 @@ export default function AdminSystemSettings() {
 
   return (
     <div className="space-y-6">
+      {/* Header: title icon + "demo data, stored locally" note */}
       <div className="flex items-center gap-2 pb-1">
         <Settings2 className="h-5 w-5 text-primary" />
         <h3 className="font-semibold text-foreground">{t("admin_sysconfig.title", "System Settings")}</h3>
         <span className="ml-auto text-xs text-muted-foreground">{t("admin_sysconfig.demo_note", "Demo data — stored locally")}</span>
       </div>
 
+      {/* Two editable lists side by side: categories and pickup locations */}
       <div className="grid gap-6 md:grid-cols-2">
         <EditableList
           title={t("admin_sysconfig.categories", "Item Categories")}
@@ -117,6 +143,7 @@ export default function AdminSystemSettings() {
         />
       </div>
 
+      {/* Reset-to-defaults action */}
       <div className="pt-2 border-t border-border">
         <Button type="button" variant="outline" size="sm" onClick={reset}>
           Reset to defaults

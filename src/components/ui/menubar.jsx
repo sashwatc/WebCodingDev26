@@ -1,41 +1,50 @@
 "use client"
 
+// Menubar: a desktop-app-style horizontal menu bar (think File / Edit / View),
+// built on Radix UI's `@radix-ui/react-menubar`. The Menubar root holds several
+// MenubarMenu groups, each with a MenubarTrigger and a MenubarContent of items.
 import * as React from "react"
 import * as MenubarPrimitive from "@radix-ui/react-menubar"
 import { Check, ChevronRight, Circle } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 
+// MenubarMenu: one top-level menu (a trigger + its dropdown content) in the bar.
 function MenubarMenu({
   ...props
 }) {
   return <MenubarPrimitive.Menu {...props} />;
 }
 
+// MenubarGroup: semantically groups related items within a menu.
 function MenubarGroup({
   ...props
 }) {
   return <MenubarPrimitive.Group {...props} />;
 }
 
+// MenubarPortal: portals menu content out to the document body.
 function MenubarPortal({
   ...props
 }) {
   return <MenubarPrimitive.Portal {...props} />;
 }
 
+// MenubarRadioGroup: manages single-selection state for a set of MenubarRadioItems.
 function MenubarRadioGroup({
   ...props
 }) {
   return <MenubarPrimitive.RadioGroup {...props} />;
 }
 
+// MenubarSub: wrapper for a nested submenu (pair with SubTrigger + SubContent).
 function MenubarSub({
   ...props
 }) {
   return <MenubarPrimitive.Sub data-slot="menubar-sub" {...props} />;
 }
 
+// Menubar: the root horizontal bar container that holds all the MenubarMenus.
 const Menubar = React.forwardRef(({ className, ...props }, ref) => (
   <MenubarPrimitive.Root
     ref={ref}
@@ -47,6 +56,7 @@ const Menubar = React.forwardRef(({ className, ...props }, ref) => (
 ))
 Menubar.displayName = MenubarPrimitive.Root.displayName
 
+// MenubarTrigger: the clickable top-level label (e.g. "File") that opens its menu.
 const MenubarTrigger = React.forwardRef(({ className, ...props }, ref) => (
   <MenubarPrimitive.Trigger
     ref={ref}
@@ -58,6 +68,8 @@ const MenubarTrigger = React.forwardRef(({ className, ...props }, ref) => (
 ))
 MenubarTrigger.displayName = MenubarPrimitive.Trigger.displayName
 
+// MenubarSubTrigger: a row that opens a nested submenu; shows a right chevron.
+// `inset` left-pads it to align with items that have a leading indicator.
 const MenubarSubTrigger = React.forwardRef(({ className, inset, children, ...props }, ref) => (
   <MenubarPrimitive.SubTrigger
     ref={ref}
@@ -73,6 +85,7 @@ const MenubarSubTrigger = React.forwardRef(({ className, inset, children, ...pro
 ))
 MenubarSubTrigger.displayName = MenubarPrimitive.SubTrigger.displayName
 
+// MenubarSubContent: the floating panel holding a submenu's items.
 const MenubarSubContent = React.forwardRef(({ className, ...props }, ref) => (
   <MenubarPrimitive.SubContent
     ref={ref}
@@ -84,6 +97,8 @@ const MenubarSubContent = React.forwardRef(({ className, ...props }, ref) => (
 ))
 MenubarSubContent.displayName = MenubarPrimitive.SubContent.displayName
 
+// MenubarContent: the main dropdown panel for a menu. Self-portals and exposes
+// `align` (default "start"), `alignOffset` (-4) and `sideOffset` (8) for placement.
 const MenubarContent = React.forwardRef((
   { className, align = "start", alignOffset = -4, sideOffset = 8, ...props },
   ref
@@ -103,6 +118,7 @@ const MenubarContent = React.forwardRef((
 ))
 MenubarContent.displayName = MenubarPrimitive.Content.displayName
 
+// MenubarItem: a single clickable menu row. `inset` aligns it with indicator rows.
 const MenubarItem = React.forwardRef(({ className, inset, ...props }, ref) => (
   <MenubarPrimitive.Item
     ref={ref}
@@ -115,6 +131,7 @@ const MenubarItem = React.forwardRef(({ className, inset, ...props }, ref) => (
 ))
 MenubarItem.displayName = MenubarPrimitive.Item.displayName
 
+// MenubarCheckboxItem: a toggleable item driven by `checked`; shows a Check icon when on.
 const MenubarCheckboxItem = React.forwardRef(({ className, children, checked, ...props }, ref) => (
   <MenubarPrimitive.CheckboxItem
     ref={ref}
@@ -134,6 +151,8 @@ const MenubarCheckboxItem = React.forwardRef(({ className, children, checked, ..
 ))
 MenubarCheckboxItem.displayName = MenubarPrimitive.CheckboxItem.displayName
 
+// MenubarRadioItem: a single-choice item inside MenubarRadioGroup; shows a filled
+// Circle indicator when selected.
 const MenubarRadioItem = React.forwardRef(({ className, children, ...props }, ref) => (
   <MenubarPrimitive.RadioItem
     ref={ref}
@@ -152,6 +171,7 @@ const MenubarRadioItem = React.forwardRef(({ className, children, ...props }, re
 ))
 MenubarRadioItem.displayName = MenubarPrimitive.RadioItem.displayName
 
+// MenubarLabel: a non-interactive heading row for a group of items. `inset` indents it.
 const MenubarLabel = React.forwardRef(({ className, inset, ...props }, ref) => (
   <MenubarPrimitive.Label
     ref={ref}
@@ -160,6 +180,7 @@ const MenubarLabel = React.forwardRef(({ className, inset, ...props }, ref) => (
 ))
 MenubarLabel.displayName = MenubarPrimitive.Label.displayName
 
+// MenubarSeparator: a thin horizontal divider line between groups of items.
 const MenubarSeparator = React.forwardRef(({ className, ...props }, ref) => (
   <MenubarPrimitive.Separator
     ref={ref}
@@ -168,6 +189,8 @@ const MenubarSeparator = React.forwardRef(({ className, ...props }, ref) => (
 ))
 MenubarSeparator.displayName = MenubarPrimitive.Separator.displayName
 
+// MenubarShortcut: right-aligned muted text showing a keyboard shortcut hint
+// (presentational only; not a real key binding).
 const MenubarShortcut = ({
   className,
   ...props

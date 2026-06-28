@@ -1,7 +1,22 @@
+/**
+ * Sources — a static "Research and Citations" reference page.
+ *
+ * Purpose: lists the official external references that informed the project's
+ * accessibility, student-privacy, and technical decisions. It is a read-only
+ * informational page — no state, effects, data fetching, or handlers. The user
+ * reads grouped citations and can click "Visit source" to open each reference
+ * in a new browser tab.
+ *
+ * Structure: all content is driven by the hard-coded `sourceGroups` array
+ * below; the component just maps over it to render sections and cards.
+ */
 import React from "react";
 import { Badge } from "@/components/ui/badge";
 import { ExternalLink, BookOpen, Shield, Code2 } from "lucide-react";
 
+// Static citation data. Each group has a heading, a lucide icon, and a list of
+// reference items; each item carries the title, owning organization, external
+// URL (href), and a one-line summary of how it was used in the project.
 const sourceGroups = [
   {
     title: "Accessibility and Inclusive Design",
@@ -80,6 +95,7 @@ const sourceGroups = [
 export default function Sources() {
   return (
     <div className="page-shell max-w-5xl py-16">
+      {/* Page intro: badge, title, and explanatory blurb (centered) */}
       <div className="text-center mb-12">
         <Badge variant="outline" className="mb-3">Sources</Badge>
         <h1 className="text-4xl font-bold text-foreground mb-4">Research and Citations</h1>
@@ -89,9 +105,11 @@ export default function Sources() {
         </p>
       </div>
 
+      {/* One <section> per citation group */}
       <div className="space-y-8">
         {sourceGroups.map((group) => (
           <section key={group.title}>
+            {/* Group header: icon badge, group title, and a count of references in the group */}
             <div className="flex items-center gap-3 mb-4">
               <div className="w-10 h-10 rounded-xl bg-muted flex items-center justify-center">
                 <group.icon className="w-5 h-5 text-primary" />
@@ -102,16 +120,19 @@ export default function Sources() {
               </div>
             </div>
 
+            {/* One card per reference item within this group */}
             <div className="grid gap-4">
               {group.items.map((item) => (
                 <div key={item.href} className="archive-card">
                   <div className="p-5">
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                      {/* Left: organization label, reference title, and usage summary */}
                       <div className="space-y-1">
                         <p className="section-label">{item.organization}</p>
                         <h3 className="text-lg font-semibold text-foreground">{item.title}</h3>
                         <p className="text-sm text-muted-foreground leading-relaxed">{item.summary}</p>
                       </div>
+                      {/* Right: external link opening the source in a new tab (rel=noreferrer for safety) */}
                       <a
                         href={item.href}
                         target="_blank"

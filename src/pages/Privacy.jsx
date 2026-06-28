@@ -1,9 +1,20 @@
+/**
+ * Privacy.jsx — Static Privacy Policy page.
+ *
+ * A purely presentational, read-only page. It renders a heading and a list of
+ * privacy-policy sections (defined in the `sections` array below) as cards, then
+ * a footer linking to the Sources & Citations page. No state, data fetching, or
+ * user interaction — brand name and support email are pulled from constants so
+ * the copy stays consistent app-wide.
+ */
 import React from "react";
 import { Link } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { Shield } from "lucide-react";
 import { BRAND_NAME, SUPPORT_EMAIL } from "@/lib/constants";
 
+// The policy content: each entry becomes one titled card, rendered in order.
+// Body text interpolates BRAND_NAME / SUPPORT_EMAIL from constants.
 const sections = [
   {
     title: "1. Information Stored in This Build",
@@ -34,6 +45,7 @@ const sections = [
 export default function Privacy() {
   return (
     <div className="page-shell max-w-4xl py-16">
+      {/* Header: Privacy badge, title, and last-updated date */}
       <div className="text-center mb-10">
         <Badge variant="outline" className="mb-3">
           <Shield className="w-3 h-3 mr-1" />Privacy
@@ -42,6 +54,7 @@ export default function Privacy() {
         <p className="text-sm text-muted-foreground">Last updated: March 16, 2026</p>
       </div>
 
+      {/* Policy sections: one card per entry in the `sections` array */}
       <div className="space-y-4">
         {sections.map((section) => (
           <div key={section.title} className="surface-card p-6">
@@ -51,6 +64,7 @@ export default function Privacy() {
         ))}
       </div>
 
+      {/* Footer: cross-link to the Sources & Citations page */}
       <div className="mt-6 text-sm text-muted-foreground">
         See{" "}
         <Link to="/Sources" className="font-semibold text-primary hover:underline">

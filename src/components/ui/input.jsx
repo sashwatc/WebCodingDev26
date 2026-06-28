@@ -1,7 +1,12 @@
+// Input: a styled wrapper around the native <input> element (no third-party
+// primitive). forwardRef passes the ref to the DOM input; `type` and any other
+// native props pass straight through, and `className` merges into the base styles.
 import * as React from "react"
 
 import { cn } from "@/lib/utils"
 
+// Input: themed text field with focus ring, file-input, disabled and placeholder
+// styling baked in. Use anywhere a native <input> would go.
 const Input = React.forwardRef(({ className, type, ...props }, ref) => {
   return (
     (<input

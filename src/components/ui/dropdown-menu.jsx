@@ -1,21 +1,33 @@
+// DropdownMenu: a button-triggered menu of actions, built on Radix UI's
+// `@radix-ui/react-dropdown-menu`. Re-exports the simple primitives and wraps
+// the visual parts (Content, Item, CheckboxItem, ...) with shadcn/ui styling.
+// Compose as: <DropdownMenu><DropdownMenuTrigger/><DropdownMenuContent>...</DropdownMenuContent></DropdownMenu>.
 import * as React from "react"
 import * as DropdownMenuPrimitive from "@radix-ui/react-dropdown-menu"
 import { Check, ChevronRight, Circle } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 
+// Root provider holding the menu's open/close state.
 const DropdownMenu = DropdownMenuPrimitive.Root
 
+// The button/element that toggles the menu open.
 const DropdownMenuTrigger = DropdownMenuPrimitive.Trigger
 
+// Groups related items together for semantics/a11y.
 const DropdownMenuGroup = DropdownMenuPrimitive.Group
 
+// Portals menu content out to the document body.
 const DropdownMenuPortal = DropdownMenuPrimitive.Portal
 
+// Wrapper for a nested submenu (pair with SubTrigger + SubContent).
 const DropdownMenuSub = DropdownMenuPrimitive.Sub
 
+// Manages single-selection state for a set of DropdownMenuRadioItems.
 const DropdownMenuRadioGroup = DropdownMenuPrimitive.RadioGroup
 
+// SubTrigger: the row that opens a nested submenu; shows a right chevron.
+// `inset` left-pads it to align with items that have a leading indicator.
 const DropdownMenuSubTrigger = React.forwardRef(({ className, inset, children, ...props }, ref) => (
   <DropdownMenuPrimitive.SubTrigger
     ref={ref}
@@ -32,6 +44,8 @@ const DropdownMenuSubTrigger = React.forwardRef(({ className, inset, children, .
 DropdownMenuSubTrigger.displayName =
   DropdownMenuPrimitive.SubTrigger.displayName
 
+// SubContent: the floating panel that holds a submenu's items, with open/close
+// animation classes keyed off Radix data-state attributes.
 const DropdownMenuSubContent = React.forwardRef(({ className, ...props }, ref) => (
   <DropdownMenuPrimitive.SubContent
     ref={ref}
@@ -44,6 +58,8 @@ const DropdownMenuSubContent = React.forwardRef(({ className, ...props }, ref) =
 DropdownMenuSubContent.displayName =
   DropdownMenuPrimitive.SubContent.displayName
 
+// Content: the main floating menu panel. Self-portals and exposes `sideOffset`
+// (default 4px) to control the gap between trigger and menu.
 const DropdownMenuContent = React.forwardRef(({ className, sideOffset = 4, ...props }, ref) => (
   <DropdownMenuPrimitive.Portal>
     <DropdownMenuPrimitive.Content
@@ -59,6 +75,7 @@ const DropdownMenuContent = React.forwardRef(({ className, sideOffset = 4, ...pr
 ))
 DropdownMenuContent.displayName = DropdownMenuPrimitive.Content.displayName
 
+// Item: a single clickable menu row. `inset` aligns it with indicator rows.
 const DropdownMenuItem = React.forwardRef(({ className, inset, ...props }, ref) => (
   <DropdownMenuPrimitive.Item
     ref={ref}
@@ -71,6 +88,7 @@ const DropdownMenuItem = React.forwardRef(({ className, inset, ...props }, ref) 
 ))
 DropdownMenuItem.displayName = DropdownMenuPrimitive.Item.displayName
 
+// CheckboxItem: a toggleable item driven by `checked`; shows a Check icon when on.
 const DropdownMenuCheckboxItem = React.forwardRef(({ className, children, checked, ...props }, ref) => (
   <DropdownMenuPrimitive.CheckboxItem
     ref={ref}
@@ -91,6 +109,8 @@ const DropdownMenuCheckboxItem = React.forwardRef(({ className, children, checke
 DropdownMenuCheckboxItem.displayName =
   DropdownMenuPrimitive.CheckboxItem.displayName
 
+// RadioItem: a single-choice item inside DropdownMenuRadioGroup; shows a filled
+// Circle indicator when it is the selected value.
 const DropdownMenuRadioItem = React.forwardRef(({ className, children, ...props }, ref) => (
   <DropdownMenuPrimitive.RadioItem
     ref={ref}
@@ -109,6 +129,7 @@ const DropdownMenuRadioItem = React.forwardRef(({ className, children, ...props 
 ))
 DropdownMenuRadioItem.displayName = DropdownMenuPrimitive.RadioItem.displayName
 
+// Label: a non-interactive heading row for a group of items. `inset` indents it.
 const DropdownMenuLabel = React.forwardRef(({ className, inset, ...props }, ref) => (
   <DropdownMenuPrimitive.Label
     ref={ref}
@@ -117,6 +138,7 @@ const DropdownMenuLabel = React.forwardRef(({ className, inset, ...props }, ref)
 ))
 DropdownMenuLabel.displayName = DropdownMenuPrimitive.Label.displayName
 
+// Separator: a thin horizontal divider line between groups of items.
 const DropdownMenuSeparator = React.forwardRef(({ className, ...props }, ref) => (
   <DropdownMenuPrimitive.Separator
     ref={ref}
@@ -125,6 +147,8 @@ const DropdownMenuSeparator = React.forwardRef(({ className, ...props }, ref) =>
 ))
 DropdownMenuSeparator.displayName = DropdownMenuPrimitive.Separator.displayName
 
+// Shortcut: right-aligned muted text showing a keyboard shortcut hint next to an
+// item (presentational only; not a real key binding).
 const DropdownMenuShortcut = ({
   className,
   ...props

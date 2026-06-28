@@ -1,6 +1,18 @@
 /**
  * Lost Then Found — Item Card
  * List and grid variants with clear typographic hierarchy.
+ *
+ * Renders a single lost/found item as a card in two layouts selected by props:
+ *   - viewMode "list" (or compact=true) => horizontal thumbnail + content row
+ *   - viewMode "grid"                    => image-on-top vertical card
+ *
+ * Shared behavior across both layouts:
+ *   - record_type distinguishes a "lost" report from a "found" item, which
+ *     changes the detail link, labels, chips, and available actions.
+ *   - A multi-photo carousel (prev/next + indicators) when the item has >1 photo.
+ *   - An "owner" badge shown only on the signed-in viewer's own lost report.
+ *   - Lost reports expose an "I Found This" shortcut to the report-found flow.
+ * The card is wrapped in framer-motion for staggered list entrance animations.
  */
 
 import React, { useState } from "react";
@@ -17,10 +29,12 @@ import { formatLocalizedDate, translateCategory, translateLocation } from "@/lib
 export default function ItemCard({ item, viewMode = "list", compact = false }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  // Index of the currently displayed photo in the carousel.
   const [photoIdx, setPhotoIdx] = useState(0);
   const photos = item.photo_urls || [];
   const currentImg = photos[photoIdx] || null;
   const imageUrl = currentImg;
+  // Lost reports vs. found items differ in routing and labels.
   const isLostReport = item.record_type === "lost";
   const detailHref = isLostReport ? `/ItemDetails?type=lost&id=${item.id}` : `/ItemDetails?id=${item.id}`;
   const detailLabel = isLostReport ? t("common.view_report") : t("common.view_item");
@@ -29,9 +43,11 @@ export default function ItemCard({ item, viewMode = "list", compact = false }) {
   // caller owns (backend redacts others); submitted_by_user_email is the reporter.
   // So this matches for the owner only — others never see "your item".
   const { user } = useAuth();
+  // Normalize the report's owner email and compare to the signed-in user's.
   const ownerEmail = String(item.contact_email || item.submitted_by_user_email || "").trim().toLowerCase();
   const isOwnReport = isLostReport && !!user?.email && ownerEmail !== "" && ownerEmail === user.email.trim().toLowerCase();
 
+  // Small "your report" pill, rendered only on the viewer's own lost report.
   const OwnerBadge = () =>
     isOwnReport ? (
       <span className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary">
@@ -40,17 +56,20 @@ export default function ItemCard({ item, viewMode = "list", compact = false }) {
       </span>
     ) : null;
 
+  // Lost/Found type chip with color variant based on record type.
   const TypeChip = () => (
     <span className={`evidence-chip ${isLostReport ? "evidence-chip-lost" : "evidence-chip-found"}`}>
       {isLostReport ? t("common.lost") : t("common.found")}
     </span>
   );
 
+  // Localized category chip, omitted when the item has no category.
   const CategoryChip = () =>
     item.category ? (
       <span className="evidence-chip">{translateCategory(t, item.category)}</span>
     ) : null;
 
+  // Location + date line; each segment renders only if its data exists.
   const MetaLine = ({ className = "" }) => (
     <div className={`flex flex-wrap items-center gap-x-3 gap-y-1 text-[12.5px] text-muted-foreground ${className}`}>
       {item.location_found && (
@@ -68,6 +87,9 @@ export default function ItemCard({ item, viewMode = "list", compact = false }) {
     </div>
   );
 
+  // "I Found This" CTA shown only on lost reports; jumps to the report-found
+  // flow pre-linked to this lost report. Stops propagation so it doesn't also
+  // trigger the surrounding card link.
   const FoundThisButton = () =>
     isLostReport ? (
       <Button
@@ -100,9 +122,11 @@ export default function ItemCard({ item, viewMode = "list", compact = false }) {
                 <Package className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
               </div>
             )}
+            {/* Hover carousel controls + photo counter, only with multiple photos */}
             {photos.length > 1 && (
               <>
                 <div className="absolute inset-y-0 left-0 right-0 flex items-center justify-between px-0.5 opacity-0 group-hover/thumb:opacity-100 transition-opacity">
+                  {/* Previous photo (wraps around via modulo) */}
                   <button
                     type="button"
                     onClick={(e) => { e.preventDefault(); e.stopPropagation(); setPhotoIdx(i => (i - 1 + photos.length) % photos.length); }}
@@ -111,6 +135,7 @@ export default function ItemCard({ item, viewMode = "list", compact = false }) {
                   >
                     <ChevronLeft className="h-3 w-3" aria-hidden="true" />
                   </button>
+                  {/* Next photo (wraps around via modulo) */}
                   <button
                     type="button"
                     onClick={(e) => { e.preventDefault(); e.stopPropagation(); setPhotoIdx(i => (i + 1) % photos.length); }}
@@ -193,9 +218,10 @@ export default function ItemCard({ item, viewMode = "list", compact = false }) {
             <TypeChip />
             <OwnerBadge />
           </div>
-          {/* Arrow navigation */}
+          {/* Arrow navigation (multi-photo only); wraps around via modulo */}
           {photos.length > 1 && (
             <>
+              {/* Previous photo */}
               <button
                 type="button"
                 onClick={(e) => { e.preventDefault(); e.stopPropagation(); setPhotoIdx(i => (i - 1 + photos.length) % photos.length); }}
@@ -204,6 +230,7 @@ export default function ItemCard({ item, viewMode = "list", compact = false }) {
               >
                 <ChevronLeft className="h-4 w-4" aria-hidden="true" />
               </button>
+              {/* Next photo */}
               <button
                 type="button"
                 onClick={(e) => { e.preventDefault(); e.stopPropagation(); setPhotoIdx(i => (i + 1) % photos.length); }}
@@ -251,6 +278,8 @@ export default function ItemCard({ item, viewMode = "list", compact = false }) {
         </div>
       </Link>
 
+      {/* Grid footer action: "I Found This" shortcut, lost reports only.
+          Kept outside the card Link so its click isn't swallowed by it. */}
       {isLostReport && (
         <div className="border-t border-border px-4 pb-4 pt-3">
           <FoundThisButton />

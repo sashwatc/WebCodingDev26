@@ -1,3 +1,11 @@
+/**
+ * Accessibility page
+ *
+ * A static accessibility statement. The user reads: a hero intro, a checklist
+ * of currently-implemented accessibility features, and a "Standards and Intent"
+ * panel describing the WCAG/ARIA goals plus links to cited standards (Sources)
+ * and a support mailto link. No state, effects, or data fetching.
+ */
 import React from "react";
 import { Link } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
@@ -5,6 +13,8 @@ import { Button } from "@/components/ui/button";
 import { CheckCircle2 } from "lucide-react";
 import { BRAND_NAME, SCHOOL_NAME, SUPPORT_EMAIL } from "@/lib/constants";
 
+// Bullet list of accessibility features rendered (with check icons) in the
+// "Current Accessibility Features" card.
 const implementedFeatures = [
   "Semantic landmarks and heading structure across routed pages",
   "Working skip link that moves keyboard users directly to main content",
@@ -20,8 +30,10 @@ const implementedFeatures = [
 ];
 
 export default function Accessibility() {
+  // Pure presentational component — renders static content only.
   return (
     <div className="page-shell max-w-4xl py-16">
+      {/* Hero: badge, title, and intro statement */}
       <div className="text-center mb-10">
         <Badge variant="outline" className="mb-3">Accessibility</Badge>
         <h1 className="text-4xl font-bold text-foreground mb-3">Accessibility Statement</h1>
@@ -31,7 +43,9 @@ export default function Accessibility() {
         </p>
       </div>
 
+      {/* Two-column body: features checklist (left) + standards/intent (right) */}
       <div className="grid lg:grid-cols-[1.1fr_0.9fr] gap-6 mb-8">
+        {/* Features card: renders each implementedFeatures entry with a check icon */}
         <div className="surface-card p-6">
           <h2 className="text-lg font-semibold text-foreground mb-4">Current Accessibility Features</h2>
           <div className="grid sm:grid-cols-2 gap-3">
@@ -44,6 +58,7 @@ export default function Accessibility() {
           </div>
         </div>
 
+        {/* Standards/intent card: WCAG goals, ongoing-review note, action links */}
         <div className="surface-card p-6 space-y-4">
           <div>
             <h2 className="text-lg font-semibold text-foreground mb-2">Standards and Intent</h2>
@@ -59,6 +74,7 @@ export default function Accessibility() {
               The goal is continuous improvement, especially for keyboard flow, motion settings, and content clarity.
             </p>
           </div>
+          {/* Action links: cited standards (Sources page) + support mailto */}
           <div className="flex flex-wrap gap-3">
             <Link to="/Sources">
               <Button variant="outline">View cited standards</Button>

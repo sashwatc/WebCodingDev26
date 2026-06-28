@@ -1,9 +1,14 @@
+// Checkbox: accessible on/off (and indeterminate) control built on
+// @radix-ui/react-checkbox. Supports controlled (`checked`/`onCheckedChange`)
+// or uncontrolled use; renders a check mark via the Indicator when selected.
 import * as React from "react"
 import * as CheckboxPrimitive from "@radix-ui/react-checkbox"
 import { Check } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 
+// Checkbox: the styled Radix Root box; data-[state=checked] selectors fill it.
+// The nested Indicator (shown only when checked) holds the lucide Check icon. forwardRef.
 const Checkbox = React.forwardRef(({ className, ...props }, ref) => (
   <CheckboxPrimitive.Root
     ref={ref}

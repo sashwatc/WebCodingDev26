@@ -2,6 +2,20 @@
  * FindBack AI - Claim Item Page
  * Secure claim form with verification fields, proof upload,
  * and AI risk scoring on submission.
+ *
+ * Flow overview:
+ * - The found item being claimed is identified by `?id=` in the URL and fetched
+ *   from the backend. Until it loads, a spinner shows; if missing, a not-found
+ *   card shows.
+ * - The user fills in their identity (name/email/student id, prefilled from the
+ *   signed-in account), ownership-proof evidence, and confirms a truthfulness
+ *   checkbox. The form auto-saves to localStorage as a draft and warns before
+ *   navigating away with unsaved content.
+ * - On submit, the form is validated, an AI risk score is computed, and a Claim
+ *   entity is created. Success swaps the page to a confirmation screen.
+ *
+ * Layout: left = sticky item summary + "what happens next" steps;
+ *         right = the multi-section claim form.
  */
 
 import React, { useEffect, useState } from "react";
@@ -30,6 +44,7 @@ import {
   CheckCircle2,
 } from "lucide-react";
 
+// Builds the blank form state, prefilling name/email from the signed-in user.
 const createInitialForm = (user) => ({
   claimant_name: user?.full_name || "",
   claimant_email: user?.email || "",
@@ -51,15 +66,21 @@ export default function ClaimItem() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { user } = useAuth();
+  // The found item being claimed is identified by `?id=` in the URL.
   const urlParams = new URLSearchParams(location.search);
   const itemId = urlParams.get("id");
+  // Per-item localStorage key so each item's claim draft is saved separately.
   const DRAFT_KEY = `ltf_claim_draft_${itemId}`;
 
+  // submitted -> show confirmation screen; form -> all field values;
+  // errors -> per-field validation messages; showDraftBanner -> "draft restored".
   const [submitted, setSubmitted] = useState(false);
   const [form, setForm] = useState(() => createInitialForm(user));
   const [errors, setErrors] = useState({});
   const [showDraftBanner, setShowDraftBanner] = useState(false);
 
+  // Load the found item record; `filter` returns an array, so `select` unwraps
+  // the first match. Disabled until an itemId is present in the URL.
   const { data: item, isLoading: itemLoading } = useQuery({
     queryKey: ["claimItem", itemId],
     queryFn: () => appClient.entities.FoundItem.filter({ id: itemId }),
@@ -67,6 +88,7 @@ export default function ClaimItem() {
     select: (data) => data?.[0],
   });
 
+  // When auth resolves (or changes), backfill name/email if still blank.
   useEffect(() => {
     if (!user) return;
     setForm((prev) => ({
@@ -76,6 +98,8 @@ export default function ClaimItem() {
     }));
   }, [user]);
 
+  // On mount: restore any previously saved draft for this item and flag the
+  // restored banner so the user knows their progress was recovered.
   useEffect(() => {
     if (!itemId) return;
     try {
@@ -90,6 +114,8 @@ export default function ClaimItem() {
     }
   }, []);
 
+  // Debounced autosave: persist the form to localStorage 500ms after the last
+  // change. Skipped once submitted so the draft isn't re-saved after success.
   useEffect(() => {
     if (!itemId || submitted) return;
     const timer = setTimeout(() => {
@@ -102,6 +128,8 @@ export default function ClaimItem() {
     return () => clearTimeout(timer);
   }, [form, submitted]);
 
+  // Guard against accidental navigation: if the form has any meaningful content
+  // and hasn't been submitted, attach a beforeunload prompt.
   useEffect(() => {
     const hasContent =
       form.reason.trim() ||
@@ -124,16 +152,20 @@ export default function ClaimItem() {
     return () => window.removeEventListener("beforeunload", handler);
   }, [form, submitted]);
 
+  // Dismiss the draft banner and discard the saved draft for this item.
   const clearDraft = () => {
     setShowDraftBanner(false);
     if (itemId) localStorage.removeItem(DRAFT_KEY);
   };
 
+  // Update one form field and clear any existing validation error for it.
   const updateField = (field, value) => {
     setForm((prev) => ({ ...prev, [field]: value }));
     if (errors[field]) setErrors((prev) => ({ ...prev, [field]: null }));
   };
 
+  // Validate required fields (name, valid email, reason, identifying detail,
+  // truthfulness). Populates `errors` and returns true only if all pass.
   const validate = () => {
     const errs = {};
     if (!form.claimant_name.trim()) errs.claimant_name = t("claim_item.name_required");
@@ -150,6 +182,8 @@ export default function ClaimItem() {
     return Object.keys(errs).length === 0;
   };
 
+  // Submit mutation: score the claim's risk via AI, then create the Claim entity
+  // with the form data plus the resulting risk_score/flags.
   const submitMutation = useMutation({
     mutationFn: async () => {
       const riskResult = await scoreClaimRisk(form, item);
@@ -177,6 +211,8 @@ export default function ClaimItem() {
       return claim;
     },
     onSuccess: () => {
+      // Refresh the user's and admin's claim lists + the item detail, drop the
+      // saved draft, and flip to the confirmation screen.
       queryClient.invalidateQueries({ queryKey: ["userClaims"] });
       queryClient.invalidateQueries({ queryKey: ["adminClaims"] });
       queryClient.invalidateQueries({ queryKey: ["itemDetails"] });
@@ -196,6 +232,8 @@ export default function ClaimItem() {
     },
   });
 
+  // Submit handler: prevent default, guard against double-submits, validate,
+  // then run the mutation. Returns a boolean indicating whether submit started.
   const handleSubmit = async (event) => {
     if (event && event.preventDefault) event.preventDefault();
     if (submitMutation.isPending || submitMutation.isSuccess) return false;
@@ -208,9 +246,11 @@ export default function ClaimItem() {
     }
   };
 
+  // Confirmation screen shown after a successful claim submission.
   if (submitted) {
     return (
       <div className="page-shell max-w-2xl py-20">
+        {/* Success card with links to the user's claims or back to search */}
         <div className="surface-card px-8 py-14 text-center">
           <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-50">
             <FileCheck className="h-8 w-8 text-emerald-700" />
@@ -228,6 +268,7 @@ export default function ClaimItem() {
     );
   }
 
+  // Loading state while the found item is being fetched.
   if (itemLoading) {
     return (
       <div className="page-shell py-20">
@@ -238,6 +279,7 @@ export default function ClaimItem() {
     );
   }
 
+  // Not-found state when the item id is missing or no item matched.
   if (!item) {
     return (
       <div className="page-shell max-w-2xl py-20">
@@ -251,8 +293,10 @@ export default function ClaimItem() {
     );
   }
 
+  // Main render: item summary (left) + claim form (right).
   return (
     <div className="page-shell max-w-6xl py-10">
+      {/* Back button — returns to the previous route */}
       <Button
         variant="ghost"
         size="sm"
@@ -263,6 +307,7 @@ export default function ClaimItem() {
         {t("common.back")}
       </Button>
 
+      {/* Page header (kicker / title / subtitle) */}
       <div className="page-header mb-8">
         <span className="page-kicker">{t("claim_item.kicker")}</span>
         <h1 className="page-title">{t("claim_item.title")}</h1>
@@ -272,6 +317,7 @@ export default function ClaimItem() {
       <div className="grid gap-8 lg:grid-cols-[380px_1fr] items-start">
         {/* Left Side: Sticky Details Card & Review Info */}
         <div className="space-y-6 lg:sticky lg:top-24">
+          {/* Item summary card: photo (or placeholder), status badge, meta, description */}
           <div className="surface-card overflow-hidden">
             <div className="aspect-[4/3] bg-muted relative overflow-hidden">
               {item.photo_urls?.[0] ? (
@@ -310,6 +356,7 @@ export default function ClaimItem() {
             </div>
           </div>
 
+          {/* "What happens next" review-flow steps: compare, pickup, close */}
           <div className="soft-panel p-5">
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">{t("claim_item.review_flow")}</p>
             <div className="mt-4 space-y-3.5 text-sm text-muted-foreground">
@@ -331,6 +378,7 @@ export default function ClaimItem() {
 
         {/* Right Side: The Form */}
         <form onSubmit={handleSubmit} noValidate>
+          {/* Draft-restored banner with a dismiss/clear action */}
           {showDraftBanner && (
             <div className="soft-panel px-4 py-3 text-sm text-foreground flex items-start justify-between gap-3 mb-4">
               <span>Draft restored — continue where you left off.</span>
@@ -338,6 +386,7 @@ export default function ClaimItem() {
             </div>
           )}
           <div className="form-shell">
+            {/* Section 1: claimant identity (name, email, student id) */}
             <section className="space-y-5">
               <div className="space-y-2">
                 <h2 className="text-lg font-semibold text-foreground">{t("claim_item.your_information")}</h2>
@@ -346,6 +395,7 @@ export default function ClaimItem() {
                 </p>
               </div>
 
+              {/* Signed-in confirmation chip showing who the claim is submitted as */}
               {user && (
                 <div className="soft-panel flex flex-wrap items-center gap-2 px-4 py-3 text-sm text-foreground">
                   <Badge variant="secondary" className="bg-muted text-foreground">{t("claim_item.signed_in")}</Badge>
@@ -388,10 +438,12 @@ export default function ClaimItem() {
               </div>
             </section>
 
+            {/* Section 2: ownership-proof evidence (delegated component) */}
             <section className="space-y-5">
               <ClaimOwnershipEvidenceSection form={form} errors={errors} updateField={updateField} />
             </section>
 
+            {/* Section 3: truthfulness consent + submit button */}
             <section className="space-y-5">
               <ConsentCheckboxField
                 id="truthful"

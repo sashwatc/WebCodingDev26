@@ -1,5 +1,14 @@
 /**
  * Photo uploader with crop, validation, progress, and accessible previews.
+ *
+ * --------------------------------------------------------------------------
+ * PhotoUploader manages a list of uploaded image URLs (`photos`) for a form.
+ * Users add images via drag-and-drop or a file picker; each is validated
+ * (type/size), optionally cropped via ImageCropDialog, then uploaded one by
+ * one with a progress indicator. Existing photos render as a reorderable
+ * (drag-and-drop) grid where each can be replaced, removed, or promoted to the
+ * "cover" (first) image. All state changes are communicated upward via
+ * onChange(nextPhotos); this component does not own the canonical list.
  */
 
 import React, { useId, useRef, useState } from "react";
@@ -17,6 +26,14 @@ import {
   validateImageFile,
 } from "@/lib/image-upload";
 
+// Props:
+//   photos      - current array of uploaded image URLs (controlled).
+//   onChange    - called with the next photos array on any add/remove/reorder.
+//   maxPhotos   - maximum number of photos allowed (default 5).
+//   label       - field label; falls back to a translated default.
+//   aspectRatio - preview/crop aspect ratio (default 4:3).
+//   isPrivate   - marks the field as private (badge + alt-text variant).
+//   enableCrop  - if true, route new files through the crop dialog first.
 export default function PhotoUploader({
   photos = [],
   onChange,
@@ -28,19 +45,21 @@ export default function PhotoUploader({
 }) {
   const { t } = useTranslation();
   const { toast } = useToast();
-  const inputId = useId();
-  const [isDragging, setIsDragging] = useState(false);
-  const [uploading, setUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0 });
-  const [cropFile, setCropFile] = useState(null);
-  const [pendingFiles, setPendingFiles] = useState([]);
-  const fileInputRef = useRef(null);
-  const dragDepthRef = useRef(0);
+  const inputId = useId();                              // id linking the field label ↔ file input
+  const [isDragging, setIsDragging] = useState(false);  // is a file being dragged over the dropzone?
+  const [uploading, setUploading] = useState(false);    // upload in progress?
+  const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0 }); // per-batch progress
+  const [cropFile, setCropFile] = useState(null);       // file currently shown in the crop dialog
+  const [pendingFiles, setPendingFiles] = useState([]); // queued files awaiting their turn to crop
+  const fileInputRef = useRef(null);                    // hidden <input type=file> ref
+  const dragDepthRef = useRef(0);                       // nested dragenter/leave counter (see below)
   const displayLabel = label || t("photo_uploader.upload_photos");
 
+  // Derived counts: free slots left and whether the limit is reached.
   const remainingSlots = Math.max(0, maxPhotos - photos.length);
   const isFull = photos.length >= maxPhotos;
 
+  // Show a toast describing why a rejected file failed validation (type or size).
   const notifyInvalidFile = (result) => {
     if (result.code === "type") {
       toast({
@@ -63,11 +82,14 @@ export default function PhotoUploader({
     }
   };
 
+  // Entry point for newly selected/dropped files: validate, clamp to remaining
+  // slots, then either start cropping the first (queuing the rest) or upload all.
   const queueFiles = (files) => {
     if (uploading || isFull) {
-      return;
+      return; // ignore while busy or already at the limit
     }
 
+    // Keep only files that pass validation; toast about the ones that don't.
     const validFiles = [];
     Array.from(files || []).forEach((file) => {
       const result = validateImageFile(file);
@@ -82,6 +104,7 @@ export default function PhotoUploader({
       return;
     }
 
+    // Trim to the number of free slots; warn if some were dropped for the limit.
     const allowed = validFiles.slice(0, remainingSlots);
     if (allowed.length < validFiles.length) {
       toast({
@@ -91,14 +114,18 @@ export default function PhotoUploader({
     }
 
     if (enableCrop) {
+      // Crop flow: open the dialog on the first file, queue the remainder.
       setPendingFiles(allowed.slice(1));
       setCropFile(allowed[0]);
       return;
     }
 
+    // No-crop flow: upload everything directly.
     void uploadFiles(allowed);
   };
 
+  // Upload a batch of files sequentially, tracking progress, then push the
+  // returned URLs into the photos list via onChange. Stops early if the max is hit.
   const uploadFiles = async (files) => {
     if (!files.length) {
       return;
@@ -106,22 +133,23 @@ export default function PhotoUploader({
 
     setUploading(true);
     setUploadProgress({ current: 0, total: files.length });
-    const nextPhotos = [...photos];
+    const nextPhotos = [...photos]; // work on a copy, commit once at the end
 
     try {
       for (let index = 0; index < files.length; index += 1) {
         if (nextPhotos.length >= maxPhotos) {
-          break;
+          break; // respect the limit even mid-batch
         }
 
         setUploadProgress({ current: index + 1, total: files.length });
+        // Upload one file; the API returns the hosted file URL.
         const { file_url: fileUrl } = await appClient.integrations.Core.UploadFile({ file: files[index] });
         if (fileUrl) {
           nextPhotos.push(fileUrl);
         }
       }
 
-      onChange(nextPhotos);
+      onChange(nextPhotos); // commit the new list to the parent
     } catch (error) {
       toast({
         title: t("photo_uploader.upload_failed_title"),
@@ -129,6 +157,7 @@ export default function PhotoUploader({
         variant: "destructive",
       });
     } finally {
+      // Always reset progress UI and clear the input so the same file can be re-picked.
       setUploading(false);
       setUploadProgress({ current: 0, total: 0 });
       if (fileInputRef.current) {
@@ -137,20 +166,25 @@ export default function PhotoUploader({
     }
   };
 
+  // Called when the crop dialog confirms: convert the cropped canvas back to a
+  // File (preserving the original type/extension), upload it, then advance to
+  // the next queued file (if any) to keep cropping.
   const handleCropConfirm = async (canvas) => {
     const sourceFile = cropFile;
     if (!sourceFile) {
       return;
     }
 
+    // Preserve PNG/WEBP; otherwise default to JPEG.
     const extension = sourceFile.type === "image/png" ? "png" : sourceFile.type === "image/webp" ? "webp" : "jpg";
     const mimeType = sourceFile.type === "image/png" ? "image/png" : sourceFile.type === "image/webp" ? "image/webp" : "image/jpeg";
-    const baseName = (sourceFile.name || "photo").replace(/\.[^.]+$/, "");
+    const baseName = (sourceFile.name || "photo").replace(/\.[^.]+$/, ""); // strip original extension
     const croppedFile = await canvasToFile(canvas, `${baseName}-cropped.${extension}`, mimeType);
 
     setCropFile(null);
     await uploadFiles([croppedFile]);
 
+    // Pull the next queued file into the crop dialog to process them one at a time.
     if (pendingFiles.length > 0) {
       const [nextFile, ...rest] = pendingFiles;
       setPendingFiles(rest);
@@ -158,6 +192,7 @@ export default function PhotoUploader({
     }
   };
 
+  // Cancel cropping: discard the current file and any queued files, reset input.
   const handleCropCancel = () => {
     setCropFile(null);
     setPendingFiles([]);
@@ -166,15 +201,18 @@ export default function PhotoUploader({
     }
   };
 
+  // Remove the photo at `index` by emitting a filtered list.
   const removePhoto = (index) => {
     onChange(photos.filter((_, photoIndex) => photoIndex !== index));
   };
 
+  // Replace: drop the photo, then reopen the file picker to choose a new one.
   const replacePhoto = (index) => {
     removePhoto(index);
     fileInputRef.current?.click();
   };
 
+  // Drop handler: reset drag state and feed the dropped files into queueFiles.
   const handleDrop = (event) => {
     event.preventDefault();
     event.stopPropagation();
@@ -185,6 +223,7 @@ export default function PhotoUploader({
 
   return (
     <div className="space-y-3">
+      {/* Field label row + optional "Private" badge */}
       <div className="flex flex-wrap items-center gap-2">
         <label htmlFor={inputId} className="text-sm font-medium text-foreground">
           {displayLabel}
@@ -197,25 +236,28 @@ export default function PhotoUploader({
         )}
       </div>
 
+      {/* Dropzone: drag-and-drop target wrapping the hidden file input.
+          dragDepthRef counts nested enter/leave events (children fire their own)
+          so the "dragging" highlight only clears when the cursor truly leaves. */}
       <div
         onDragEnter={(event) => {
           event.preventDefault();
           event.stopPropagation();
-          dragDepthRef.current += 1;
+          dragDepthRef.current += 1; // entered an element (possibly a child)
           setIsDragging(true);
         }}
         onDragOver={(event) => {
           event.preventDefault();
           event.stopPropagation();
-          event.dataTransfer.dropEffect = "copy";
+          event.dataTransfer.dropEffect = "copy"; // show the copy cursor
           setIsDragging(true);
         }}
         onDragLeave={(event) => {
           event.preventDefault();
           event.stopPropagation();
-          dragDepthRef.current = Math.max(0, dragDepthRef.current - 1);
+          dragDepthRef.current = Math.max(0, dragDepthRef.current - 1); // left an element
           if (dragDepthRef.current === 0) {
-            setIsDragging(false);
+            setIsDragging(false); // only un-highlight once fully out
           }
         }}
         onDrop={handleDrop}
@@ -225,6 +267,7 @@ export default function PhotoUploader({
             : "border-border bg-muted/50 hover:border-primary/60 hover:bg-muted"
         } ${isFull ? "opacity-60" : ""}`}
       >
+        {/* Visually hidden native file input; triggered by the Browse button / drag-drop */}
         <input
           ref={fileInputRef}
           id={inputId}
@@ -236,6 +279,7 @@ export default function PhotoUploader({
           className="sr-only"
         />
 
+        {/* Dropzone body: shows an upload spinner+progress, or the idle prompt */}
         {uploading ? (
           <div className="space-y-3" role="status" aria-live="polite">
             <Loader2 className="mx-auto h-8 w-8 animate-spin text-teal-600" aria-hidden="true" />
@@ -248,6 +292,7 @@ export default function PhotoUploader({
                     total: uploadProgress.total,
                   })}
                 </p>
+                {/* Progress bar; width = current/total as a percentage */}
                 <div className="mx-auto h-2 w-full max-w-xs overflow-hidden rounded-full bg-muted">
                   <div
                     className="h-full rounded-full bg-teal-600 transition-[width]"
@@ -259,6 +304,7 @@ export default function PhotoUploader({
             )}
           </div>
         ) : (
+          // Idle prompt: icon, drag-drop hint, limits, and a Browse button.
           <div className="flex flex-col items-center gap-3">
             <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-card border border-border">
               <ImagePlus className="h-5 w-5 text-primary" aria-hidden="true" />
@@ -282,10 +328,12 @@ export default function PhotoUploader({
         )}
       </div>
 
+      {/* Existing photos: a horizontally reorderable (drag-and-drop) preview grid */}
       {photos.length > 0 && (
         <DragDropContext
           onDragEnd={(result) => {
-            if (!result.destination) return;
+            if (!result.destination) return; // dropped outside / no move
+            // Move the dragged item from its old index to the new one, then commit.
             const reordered = [...photos];
             const [moved] = reordered.splice(result.source.index, 1);
             reordered.splice(result.destination.index, 0, moved);
@@ -308,10 +356,12 @@ export default function PhotoUploader({
                         {...dragProvided.draggableProps}
                         className="space-y-2"
                       >
+                        {/* Thumbnail with a drag handle and a "Cover" badge on the first image */}
                         <div
                           className="relative overflow-hidden rounded-xl border border-border bg-card"
                           style={{ aspectRatio: String(aspectRatio) }}
                         >
+                          {/* Grab handle for reordering */}
                           <div
                             {...dragProvided.dragHandleProps}
                             className="absolute left-1.5 top-1.5 z-10 flex h-7 w-7 cursor-grab items-center justify-center rounded bg-black/40 text-white active:cursor-grabbing"
@@ -319,6 +369,7 @@ export default function PhotoUploader({
                           >
                             <GripVertical className="h-4 w-4" aria-hidden="true" />
                           </div>
+                          {/* First photo is the card cover image */}
                           {index === 0 && (
                             <span className="absolute top-1.5 right-1.5 z-10 rounded-full bg-emerald-500 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
                               Cover
@@ -334,6 +385,7 @@ export default function PhotoUploader({
                             className="h-full w-full object-cover"
                           />
                         </div>
+                        {/* Per-photo actions: Replace, Set as cover (non-first only), Remove */}
                         <div className="flex flex-wrap gap-2">
                           <Button
                             type="button"
@@ -346,6 +398,7 @@ export default function PhotoUploader({
                             <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
                             {t("photo_uploader.replace")}
                           </Button>
+                          {/* Promote this photo to cover by moving it to the front of the list */}
                           {index > 0 && (
                             <Button
                               type="button"
@@ -381,6 +434,7 @@ export default function PhotoUploader({
         </DragDropContext>
       )}
 
+      {/* Crop dialog, mounted when a file is queued for cropping (cropFile set) */}
       <ImageCropDialog
         open={Boolean(cropFile)}
         file={cropFile}

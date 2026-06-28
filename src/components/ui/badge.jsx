@@ -1,8 +1,13 @@
+// Badge: small inline label/pill for statuses, counts, or tags. Plain styled
+// div (no Radix); appearance is driven by cva variants. `badgeVariants` is
+// also exported so other components can reuse the same styles.
 import * as React from "react"
 import { cva } from "class-variance-authority";
 
 import { cn } from "@/lib/utils"
 
+// cva config: `variant` selects the color/treatment — default, secondary,
+// destructive, outline, or "evidence" (muted, lowercase, normal tracking).
 const badgeVariants = cva(
   "inline-flex items-center rounded-md border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
   {
@@ -25,6 +30,7 @@ const badgeVariants = cva(
   }
 )
 
+// Badge: renders the pill div; accepts `variant` plus any div props/children.
 function Badge({
   className,
   variant,

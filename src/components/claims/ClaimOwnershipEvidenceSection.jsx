@@ -1,3 +1,17 @@
+/**
+ * ClaimOwnershipEvidenceSection
+ * --------------------------------------------------------------------------
+ * A presentational form section used inside the "claim an item" flow. It
+ * collects the evidence a claimant provides to prove ownership: free-text
+ * reason and identifying details, optional private/contents details, an
+ * evidence checklist, a single supporting photo, and pickup availability.
+ *
+ * It is fully controlled by its parent: all values come from `form`,
+ * validation messages from `errors`, and every change is pushed up through
+ * `updateField(field, value)`. The component holds no local state of its own.
+ * Copy is localized; several fields are marked as private to the claimant/staff.
+ */
+
 import React from "react";
 import { useTranslation } from "react-i18next";
 import { Label } from "@/components/ui/label";
@@ -6,17 +20,19 @@ import { Input } from "@/components/ui/input";
 import PhotoUploader from "@/components/shared/PhotoUploader";
 import { LockKeyhole, Shield } from "lucide-react";
 
+// Fixed set of evidence-type checkboxes the claimant can tick.
 const EVIDENCE_CHECKLIST_OPTIONS = ["hidden mark", "item contents", "proof photo"];
 
 export default function ClaimOwnershipEvidenceSection({
-  form,
-  errors,
-  updateField,
+  form,        // Current form values (controlled inputs read from here).
+  errors,      // Per-field validation messages (truthy => show error styling).
+  updateField, // (field, value) => void — lifts every change to the parent.
 }) {
   const { t } = useTranslation();
 
   return (
     <section className="space-y-5" aria-labelledby="claim-ownership-heading">
+      {/* Intro: heading, explanation, and a privacy notice about evidence */}
       <div className="space-y-2">
         <div className="flex items-center gap-2">
           <Shield className="h-5 w-5 text-primary" aria-hidden="true" />
@@ -35,6 +51,7 @@ export default function ClaimOwnershipEvidenceSection({
         </div>
       </div>
 
+      {/* Reason field (required/validated) — why this item is theirs */}
       <div>
         <Label htmlFor="c_reason">{t("claim_item.reason")}</Label>
         <Textarea
@@ -49,6 +66,7 @@ export default function ClaimOwnershipEvidenceSection({
         {errors.reason && <p className="mt-1 text-xs text-red-500">{errors.reason}</p>}
       </div>
 
+      {/* Identifying-details field (required/validated) */}
       <div>
         <Label htmlFor="c_details">{t("claim_item.identifying_details")}</Label>
         <Textarea
@@ -63,6 +81,8 @@ export default function ClaimOwnershipEvidenceSection({
         {errors.identifying_details && <p className="mt-1 text-xs text-red-500">{errors.identifying_details}</p>}
       </div>
 
+      {/* Optional private details, side by side: a hidden/private detail and a
+          description of the item's contents (both unvalidated) */}
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
           <Label htmlFor="c_private">{t("claim_item.private_detail_label")}</Label>
@@ -86,6 +106,8 @@ export default function ClaimOwnershipEvidenceSection({
         </div>
       </div>
 
+      {/* Evidence checklist: toggling a box adds/removes its label from the
+          form.evidence_checklist array via updateField */}
       <fieldset className="rounded-lg border border-border bg-muted/40 p-4">
         <legend className="px-1 text-sm font-semibold text-foreground">
           {t("claim_item.evidence_checklist_title")}
@@ -101,18 +123,23 @@ export default function ClaimOwnershipEvidenceSection({
                 className="h-4 w-4 accent-primary"
                 checked={form.evidence_checklist.includes(label)}
                 onChange={(event) => {
+                  // Add the label when checked, filter it out when unchecked.
                   const next = event.target.checked
                     ? [...form.evidence_checklist, label]
                     : form.evidence_checklist.filter((entry) => entry !== label);
                   updateField("evidence_checklist", next);
                 }}
               />
+              {/* Translation key derives from the label (spaces -> underscores),
+                  falling back to the raw label if no translation exists */}
               {t(`claim_item.evidence_option_${label.replace(/\s+/g, "_")}`, label)}
             </label>
           ))}
         </div>
       </fieldset>
 
+      {/* Single supporting proof photo (private). The uploader works with an
+          array, so the one stored URL is wrapped/unwrapped accordingly */}
       <PhotoUploader
         photos={form.proof_photo_url ? [form.proof_photo_url] : []}
         onChange={(urls) => updateField("proof_photo_url", urls[0] || "")}
@@ -123,6 +150,7 @@ export default function ClaimOwnershipEvidenceSection({
       />
       <p className="text-xs text-muted-foreground">{t("claim_item.supporting_photo_private_note")}</p>
 
+      {/* Pickup availability (free text) */}
       <div>
         <Label htmlFor="c_pickup">{t("claim_item.pickup_availability")}</Label>
         <Input

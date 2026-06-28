@@ -1,7 +1,15 @@
+// tailwind.config.js - Tailwind CSS design-system configuration.
+// Defines where Tailwind scans for class names, which dynamic classes to always
+// keep, and extends the default theme with the project's design tokens (colors,
+// radii, shadows, animations). Most color tokens are HSL CSS variables (defined
+// in index.css), so light/dark themes can be switched without recompiling.
 /** @type {import('tailwindcss').Config} */
 module.exports = {
-    darkMode: ["class"],
-    content: ["./index.html", "./src/**/*.{ts,tsx,js,jsx}"],
+    darkMode: ["class"], // Toggle dark mode via a `.dark` class on an ancestor (not the OS setting).
+    content: ["./index.html", "./src/**/*.{ts,tsx,js,jsx}"], // Files scanned for class names; classes not found here are purged from the build.
+  // safelist: classes that are generated dynamically (e.g. via string
+  // concatenation for status badges) and therefore can't be statically detected
+  // in `content`. Listing them prevents the purge step from removing them.
   safelist: [
     "bg-amber-100", "text-amber-800", "border-amber-200",
     "bg-emerald-100", "text-emerald-800", "border-emerald-200",
@@ -20,12 +28,17 @@ module.exports = {
     "bg-red-50", "text-red-600",
   ],
   theme: {
+  	// `extend` ADDS to Tailwind's defaults rather than replacing them.
   	extend: {
+  		// Radius scale derived from a single --radius CSS variable so the whole
+  		// UI's corner rounding can be tuned in one place.
   		borderRadius: {
   			lg: 'var(--radius)',
   			md: 'calc(var(--radius) - 2px)',
   			sm: 'calc(var(--radius) - 4px)'
   		},
+  		// Custom named shadows: button depth states and the "archive" card
+  		// elevation set (sm/md/lift) that also draws a 1px border via box-shadow.
   		boxShadow: {
   			"button-inset": "inset 0 1px 3px rgba(0, 0, 0, 0.1)",
   			"button-inset-dark": "inset 0 1px 3px rgba(0, 0, 0, 0.3)",
@@ -34,6 +47,9 @@ module.exports = {
   			"archive-md": "0 4px 16px hsl(220 40% 12% / 0.07), 0 0 0 1px hsl(var(--border))",
   			"archive-lift": "0 8px 24px hsl(220 40% 12% / 0.1), 0 0 0 1px hsl(var(--border))"
   		},
+  		// Semantic color tokens. Each maps a Tailwind color name to an HSL CSS
+  		// variable, so utilities like `bg-primary` / `text-muted-foreground`
+  		// follow the active theme defined in index.css.
   		colors: {
   			background: 'hsl(var(--background))',
   			foreground: 'hsl(var(--foreground))',
@@ -74,6 +90,7 @@ module.exports = {
   			input: 'hsl(var(--input))',
   			ring: 'hsl(var(--ring))',
   			overlay: 'hsl(var(--overlay))',
+  			// Domain-specific status colors for lost/found/warning UI states.
   			status: {
   				lost: 'hsl(var(--status-lost))',
   				'lost-foreground': 'hsl(var(--status-lost-foreground))',
@@ -82,6 +99,7 @@ module.exports = {
   				warning: 'hsl(var(--status-warning))',
   				'warning-foreground': 'hsl(var(--status-warning-foreground))',
   			},
+  			// Palette slots used by data-visualization / chart components.
   			chart: {
   				'1': 'hsl(var(--chart-1))',
   				'2': 'hsl(var(--chart-2))',
@@ -89,6 +107,7 @@ module.exports = {
   				'4': 'hsl(var(--chart-4))',
   				'5': 'hsl(var(--chart-5))'
   			},
+  			// Dedicated token set for the sidebar surface and its accents.
   			sidebar: {
   				DEFAULT: 'hsl(var(--sidebar-background))',
   				foreground: 'hsl(var(--sidebar-foreground))',
@@ -100,6 +119,8 @@ module.exports = {
   				ring: 'hsl(var(--sidebar-ring))'
   			}
   		},
+  		// Keyframes powering the Radix accordion open/close height transition.
+  		// The target height is supplied at runtime by Radix via a CSS variable.
   		keyframes: {
   			'accordion-down': {
   				from: {
@@ -118,11 +139,12 @@ module.exports = {
   				}
   			}
   		},
+  		// Named animation utilities (`animate-accordion-down`/`-up`) bound to the keyframes above.
   		animation: {
   			'accordion-down': 'accordion-down 0.2s ease-out',
   			'accordion-up': 'accordion-up 0.2s ease-out'
   		}
   	}
   },
-  plugins: [require("tailwindcss-animate")],
+  plugins: [require("tailwindcss-animate")], // Adds enter/exit + transition animation utilities used by shadcn/Radix components.
 }

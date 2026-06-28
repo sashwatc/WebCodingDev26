@@ -1,9 +1,15 @@
+// Pagination: a set of presentational building blocks for page navigation
+// controls. These are plain semantic elements (nav/ul/li/a) styled with the
+// shared buttonVariants recipe; there is no third-party primitive and no paging
+// logic here. Compose: Pagination > PaginationContent > PaginationItem(s) holding
+// PaginationLink / PaginationPrevious / PaginationNext / PaginationEllipsis.
 import * as React from "react"
 import { ChevronLeft, ChevronRight, MoreHorizontal } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { buttonVariants } from "@/components/ui/button";
 
+// Pagination: the outer <nav role="navigation"> landmark wrapping the controls.
 const Pagination = ({
   className,
   ...props
@@ -16,6 +22,7 @@ const Pagination = ({
 )
 Pagination.displayName = "Pagination"
 
+// PaginationContent: the <ul> row that lays out the page items horizontally.
 const PaginationContent = React.forwardRef(({ className, ...props }, ref) => (
   <ul
     ref={ref}
@@ -24,11 +31,14 @@ const PaginationContent = React.forwardRef(({ className, ...props }, ref) => (
 ))
 PaginationContent.displayName = "PaginationContent"
 
+// PaginationItem: a single <li> wrapper around one pagination control.
 const PaginationItem = React.forwardRef(({ className, ...props }, ref) => (
   <li ref={ref} className={cn("", className)} {...props} />
 ))
 PaginationItem.displayName = "PaginationItem"
 
+// PaginationLink: a clickable page-number link. `isActive` styles it as the
+// current page (outline variant + aria-current="page"); `size` defaults to "icon".
 const PaginationLink = ({
   className,
   isActive,
@@ -45,6 +55,7 @@ const PaginationLink = ({
 )
 PaginationLink.displayName = "PaginationLink"
 
+// PaginationPrevious: a PaginationLink preset with a left chevron + "Previous" label.
 const PaginationPrevious = ({
   className,
   ...props
@@ -60,6 +71,7 @@ const PaginationPrevious = ({
 )
 PaginationPrevious.displayName = "PaginationPrevious"
 
+// PaginationNext: a PaginationLink preset with a "Next" label + right chevron.
 const PaginationNext = ({
   className,
   ...props
@@ -75,6 +87,8 @@ const PaginationNext = ({
 )
 PaginationNext.displayName = "PaginationNext"
 
+// PaginationEllipsis: a non-interactive "..." (MoreHorizontal icon) indicating
+// skipped page numbers; aria-hidden with sr-only "More pages" text.
 const PaginationEllipsis = ({
   className,
   ...props

@@ -1,3 +1,21 @@
+/**
+ * ItemDetails.jsx — Single item detail page (found item OR lost report).
+ *
+ * Purpose: shows the full record for one item, selected by URL query params
+ * `?id=<itemId>&type=found|lost`. The user sees a large photo gallery on the
+ * left and a scrollable detail panel on the right (status, metadata, attributes,
+ * tags, and — for staff/admins — privileged sections like storage location,
+ * custody ledger, private verification clues, and asset tags).
+ *
+ * What the user can do here:
+ *  - Browse multiple photos (arrows + dot indicators).
+ *  - For a FOUND item: start a claim ("Claim this item").
+ *  - For a LOST report: open ReportFound prefilled ("I Found This") if still open.
+ *  - Print the page, copy a share link, and save/unsave the item locally.
+ *
+ * Admin/staff viewers additionally see: finder identity, storage location,
+ * the tamper-evident custody ledger, proof-vault private clues, and asset tag.
+ */
 import React, { useState } from "react";
 import { useNavigate, Link, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -20,6 +38,9 @@ import {
   BookmarkPlus, BookmarkCheck, Camera, CheckCircle2, Lock
 } from "lucide-react";
 
+// Maps a raw LostReport entity into the same field shape this page uses for
+// FoundItems, so the rest of the component can render either record uniformly.
+// (e.g. last_seen_location -> location_found, date_lost -> date_found, etc.)
 function normalizeLostReport(report = {}) {
   return {
     id: report.id || "",
@@ -45,6 +66,7 @@ function normalizeLostReport(report = {}) {
   };
 }
 
+// ── Dark-theme palette + reusable inline-style tokens used throughout the page ──
 const BG_MAIN = "#080c13";
 const BG_PANEL = "#0a0e17";
 const BG_CARD = "#0f1620";
@@ -78,16 +100,20 @@ export default function ItemDetails() {
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
-  const { isAdmin, isLoadingAuth } = useAuth();
+  const { isAdmin, isLoadingAuth } = useAuth(); // gate the admin-only sections
+  // Read the target record from the URL: ?id=<id>&type=found|lost
   const urlParams = new URLSearchParams(location.search);
   const itemId = urlParams.get("id");
   const itemTypeParam = urlParams.get("type");
+  // Which photo of the gallery is currently shown.
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
+  // "Saved" items are persisted client-side in localStorage (no backend call).
   const [savedItems, setSavedItems] = useState(() =>
     JSON.parse(localStorage.getItem("ltf_saved_items") || "[]")
   );
   const isSaved = savedItems.includes(itemId);
 
+  // Toggle this item in/out of the local saved list and persist + toast.
   const toggleSave = () => {
     const next = isSaved
       ? savedItems.filter((id) => id !== itemId)
@@ -97,6 +123,9 @@ export default function ItemDetails() {
     toast({ title: isSaved ? "Removed from saved" : "Saved to your collection" });
   };
 
+  // Primary record fetch. If type=lost, load the LostReport and normalize it.
+  // Otherwise try FoundItem first, then fall back to a LostReport with that id
+  // (so a bare ?id= link resolves regardless of which entity it points to).
   const { data: item, isLoading, error } = useQuery({
     queryKey: ["itemDetails", itemTypeParam || "found", itemId],
     queryFn: async () => {
@@ -109,24 +138,27 @@ export default function ItemDetails() {
       const reports = await appClient.entities.LostReport.filter({ id: itemId });
       return reports[0] ? normalizeLostReport(reports[0]) : null;
     },
-    enabled: !!itemId,
+    enabled: !!itemId, // don't fetch until we have an id
   });
 
-  const isAdminView = !isLoadingAuth && isAdmin;
-  const isLostReport = item?.record_type === "lost";
+  const isAdminView = !isLoadingAuth && isAdmin; // staff-only sections flag
+  const isLostReport = item?.record_type === "lost"; // branch found vs lost UI
 
+  // Chain-of-custody timeline events (found items only).
   const { data: custodyEvents = [] } = useQuery({
     queryKey: ["custodyEvents", itemId, isAdminView],
     queryFn: () => appClient.custody.events(itemId),
     enabled: !!itemId && !isLostReport,
   });
 
+  // Integrity check of the custody ledger (drives the verified/attention badge).
   const { data: custodyVerification } = useQuery({
     queryKey: ["custodyVerify", itemId],
     queryFn: () => appClient.custody.verify(itemId),
     enabled: !!itemId && !isLostReport,
   });
 
+  // Proof-vault: admin-only private clues + asset tag (found items, admins only).
   const { data: proofVault } = useQuery({
     queryKey: ["proofVault", itemId],
     queryFn: () => appClient.proofVault.item(itemId),
@@ -134,12 +166,14 @@ export default function ItemDetails() {
     retry: false,
   });
 
+  // Recovery case (lost reports only): likely zones + recovery plan.
   const { data: recoveryCase } = useQuery({
     queryKey: ["lostReportRecoveryCase", itemId],
     queryFn: () => appClient.recoveryCases.byLostReport(itemId),
     enabled: !!itemId && isLostReport,
   });
 
+  // ── Loading state: split skeleton mirroring the photo + detail layout ──
   if (isLoading) {
     return (
       <div style={{ height: "calc(100vh - 64px)", display: "flex", overflow: "hidden", background: BG_MAIN }}>
@@ -154,6 +188,7 @@ export default function ItemDetails() {
     );
   }
 
+  // ── Error / not-found state: message + button back to Search ──
   if (error || !item) {
     return (
       <div style={{
@@ -181,7 +216,9 @@ export default function ItemDetails() {
     );
   }
 
+  // ── Derived display values (computed once the record has loaded) ──
   const photos = item.photo_urls || [];
+  // Lost reports often have no real title — fall back to a generic label.
   const displayTitle =
     isLostReport && (!item.title || item.title === "Lost item report")
       ? t("item_details.lost_item_report")
@@ -192,13 +229,17 @@ export default function ItemDetails() {
     ? t("item_details.privacy_note_lost")
     : t("item_details.privacy_note_found");
 
+  // Blue "LOST" badge vs green "FOUND" badge.
   const statusBadge = isLostReport
     ? { bg: "#0f2d4a", text: "#38bdf8", border: "1px solid #164060", label: "LOST" }
     : { bg: "#14532d", text: "#4ade80", border: "none", label: "FOUND" };
 
+  // Action availability: only found items can be claimed; only still-open lost
+  // reports can be marked "I found this".
   const canClaim = !isLostReport;
   const canMarkFound = isLostReport && !["resolved", "closed"].includes(item.status);
 
+  // The 2×2 grid of core metadata (category, location, date, time).
   const metaFields = [
     { icon: Tag, label: t("common.category"), value: translateCategory(t, item.category) || "—" },
     { icon: MapPin, label: locationLabel, value: translateLocation(t, item.location_found) || t("common.unknown_location") },
@@ -206,6 +247,7 @@ export default function ItemDetails() {
     { icon: Clock, label: t("common.time"), value: item.time_found || t("common.not_available") },
   ];
 
+  // Optional attribute rows — only rendered for fields that are present.
   const attrRows = [
     item.color && { label: t("common.color"), value: translateColor(t, item.color) },
     item.brand && { label: t("common.brand"), value: item.brand },
@@ -213,8 +255,10 @@ export default function ItemDetails() {
     item.distinguishing_features && { label: t("common.features"), value: item.distinguishing_features },
   ].filter(Boolean);
 
+  // Admin-only private verification clues (used to confirm ownership at claim).
   const privateClues = proofVault?.private_verification_clues?.filter(Boolean) || [];
 
+  // ── Main two-column layout: photo panel (left) + detail panel (right) ──
   return (
     <div style={{
       height: "calc(100vh - 64px)", overflow: "hidden", display: "flex",
@@ -332,6 +376,7 @@ export default function ItemDetails() {
       }}>
 
         {/* Status stepper — found-item lifecycle: Found → Claim Pending → Verified → Archived */}
+        {/* IIFE computes the active stage index from the item's canonical status */}
         {!isLostReport && (() => {
           const stages = [
             { key: "FOUND", label: "Found" },
@@ -596,11 +641,12 @@ export default function ItemDetails() {
           <p style={{ font: "400 12px/1.6 Inter,sans-serif", color: TEXT_MUTED }}>{privacyNote}</p>
         </div>
 
-        {/* Action bar */}
+        {/* Action bar — claim / mark-found, print, copy share link, save toggle */}
         <div style={{
           borderTop: `1px solid ${BORDER}`, paddingTop: "20px",
           display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap",
         }}>
+          {/* Found items: link to the claim flow */}
           {canClaim && (
             <Link to={`/ClaimItem?id=${item.id}`} style={{
               flex: 1, minWidth: "140px", background: "#16a34a", border: "none", borderRadius: "8px",
@@ -612,6 +658,7 @@ export default function ItemDetails() {
               {t("item_details.claim_button")}
             </Link>
           )}
+          {/* Open lost reports: jump to ReportFound prefilled with this report */}
           {canMarkFound && (
             <Link to={`/ReportFound?lost_report_id=${item.id}`} style={{
               flex: 1, minWidth: "140px", background: AMBER, border: "none", borderRadius: "8px",

@@ -26,6 +26,8 @@ import { getPrimaryRecordPhoto } from "@/lib/media";
 import { staggerChildVariants, staggerContainerProps } from "@/lib/motion";
 
 /* ─── Data ──────────────────────────────────────────────────────────────── */
+// Formats a date into a short relative label ("Today" / "Yesterday" / "Nd ago")
+// used on the recently-found marquee cards.
 function daysAgoLabel(dateStr) {
   if (!dateStr) return "";
   const parsed = new Date(dateStr);
@@ -36,6 +38,7 @@ function daysAgoLabel(dateStr) {
   return `${days}d ago`;
 }
 
+// Three "how it works" steps rendered as cards in Part 2 of the page.
 const HOW_IT_WORKS = [
   { step: "01", icon: Search,   title: "Search the archive", desc: "Browse logged found items by keyword, brand, color, or location." },
   { step: "02", icon: FileText, title: "File a report",      desc: "Submit a lost or found report in under a minute with photos and details." },
@@ -51,16 +54,18 @@ const STORY_SCENES = [
   { key: "platform", range: [0.80, 1.0 ] },
 ];
 
-const VIDEO_SRC      = "/videos/cinematic.mp4";
-const SCROLL_PX      = `${STORY_SCENES.length * 100}vh`;
-const PARTICLE_COUNT = 46;
-const SCROLL_SMOOTHING = 0.14;
-const PROGRESS_EPSILON = 0.0002;
-const VIDEO_SEEK_EPSILON = 0.045;
+// Tuning constants for the cinematic intro:
+const VIDEO_SRC      = "/videos/cinematic.mp4";      // background video scrubbed by scroll
+const SCROLL_PX      = `${STORY_SCENES.length * 100}vh`; // total scrollable height of the intro
+const PARTICLE_COUNT = 46;                           // ambient depth particles
+const SCROLL_SMOOTHING = 0.14;                       // lerp factor toward target scroll progress
+const PROGRESS_EPSILON = 0.0002;                     // min progress delta worth re-rendering
+const VIDEO_SEEK_EPSILON = 0.045;                    // min video time delta worth re-seeking
 
 /* ─── Framer Motion (functional sections) ───────────────────────────────── */
 const spring = { type: "spring", stiffness: 380, damping: 22 };
 
+// Clamp a value into the 0..1 range (used throughout the scroll math).
 const clamp01 = (value) => Math.max(0, Math.min(1, value));
 
 /* ═══════════════════════════════ Page ══════════════════════════════════ */
@@ -76,9 +81,12 @@ export default function Home() {
     enabled: !!user,
     staleTime: 60_000,
   });
+  // Keep only publicly visible found items (exclude lost reports/non-public statuses).
   const recentFound = recentRaw.filter((it) => it.record_type !== "lost" && isPublicFoundItemStatus(it.status));
 
-  /* refs — cinematic */
+  /* refs — cinematic
+     Imperatively-driven DOM/canvas refs so the scroll animation can mutate
+     styles directly each frame without triggering React re-renders. */
   const containerRef      = useRef(null);
   const canvasRef         = useRef(null);
   const particleCanvasRef = useRef(null);
@@ -99,20 +107,26 @@ export default function Home() {
     Object.fromEntries(STORY_SCENES.map(s => [s.key, React.createRef()]))
   );
 
-  /* state */
+  /* state
+     isLoaded -> first video frame decoded (hides the loading skeleton);
+     homeSearch -> the hero search input value;
+     searchFocused -> drives the search box focus ring animation. */
   const [isLoaded,      setIsLoaded]      = useState(false);
   const [homeSearch,    setHomeSearch]    = useState("");
   const [searchFocused, setSearchFocused] = useState(false);
 
+  // Split the localized title on ". " so it can render across two lines.
   const titleParts = t("home.title").split(". ");
   const hasTwoLines = titleParts.length === 2;
 
+  // Submit the hero search: navigate to /Search with the trimmed query (if any).
   const handleHomeSearch = (e) => {
     e.preventDefault();
     const q = homeSearch.trim();
     navigate(q ? `/Search?q=${encodeURIComponent(q)}` : "/Search");
   };
 
+  // Track the reduced-motion preference in a ref the RAF loop reads each frame.
   useEffect(() => {
     const query = window.matchMedia?.("(prefers-reduced-motion: reduce)");
     const syncMotionPreference = () => {
@@ -706,6 +720,7 @@ export default function Home() {
                     </div>
                   ) : (
                   <div className="marquee-track" style={{ display: "flex", gap: 12, width: "max-content" }}>
+                    {/* Repeat the item list enough times to fill a seamless scrolling marquee */}
                     {Array(Math.max(2, Math.ceil(8 / recentFound.length))).fill(null).flatMap(() => recentFound).map((item, i) => (
                       <Link key={`${item.id}-${i}`} to={`/ItemDetails?id=${encodeURIComponent(item.id)}`} aria-label={`${item.title}${item.location_found ? `, ${item.location_found}` : ""}`}
                         style={{ display: "flex", flexDirection: "column", width: 160, borderRadius: 11, overflow: "hidden", background: "#111e30", border: "1px solid rgba(255,255,255,0.07)", flexShrink: 0, textDecoration: "none", transition: "border-color 0.15s" }}
@@ -843,6 +858,8 @@ export default function Home() {
 }
 
 /* ─── Cinematic scene helper ─────────────────────────────────────────────── */
+// Shared base style for each narrative scene: a full-bleed centered overlay that
+// starts hidden (opacity 0). The scroll loop animates opacity/transform per scene.
 function sceneStyle() {
   return {
     position: "absolute", inset: 0,

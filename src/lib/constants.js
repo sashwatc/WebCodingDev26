@@ -1,8 +1,16 @@
 /**
  * Lost Then Found - Application Constants
+ * -----------------------------------------------------------------------------
  * Centralized configuration for branding, demo access, categories, and statuses.
+ *
+ * Exposes brand/contact strings, the canonical option lists (categories,
+ * locations, colors, conditions, urgency), status->badge style maps for items /
+ * claims / lost reports, demo account definitions, and a few small helpers
+ * (item-code generation, category label + demo-role lookups).
  */
 
+// Per-tone dark-mode Tailwind class fragments, appended to light styles by
+// statusColor() so each status badge has matching light/dark theming.
 const STATUS_DARK = {
   emerald: "dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800",
   blue: "dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800",
@@ -14,10 +22,12 @@ const STATUS_DARK = {
   green: "dark:bg-green-950/40 dark:text-green-300 dark:border-green-800",
 };
 
+// Combine a light-mode class string with the matching dark-mode fragment for a tone.
 function statusColor(light, tone) {
   return `${light} ${STATUS_DARK[tone]}`;
 }
 
+// --- Branding / contact info ---
 export const BRAND_NAME = "Lost Then Found";
 export const BRAND_SHORT_NAME = "Lost Then Found";
 export const SCHOOL_NAME = "PVHS";
@@ -26,6 +36,7 @@ export const SUPPORT_EMAIL = "lostthenfound@pleasval.org";
 export const SUPPORT_PHONE = "563-499-6331";
 export const SUPPORT_LOCATION = "604 Belmont Rd, Riverdale, IA, 52722";
 
+// Item categories: machine `value`, display `label`, and lucide `icon` name.
 export const CATEGORIES = [
   { value: "electronics", label: "Electronics", icon: "Smartphone" },
   { value: "clothing", label: "Clothing & Apparel", icon: "Shirt" },
@@ -39,6 +50,7 @@ export const CATEGORIES = [
   { value: "other", label: "Other", icon: "Package" },
 ];
 
+// Known on-campus locations where items are lost/found.
 export const LOCATIONS = [
   "Gymnasium", "Cafeteria", "Library", "Main Office", "Science Hall",
   "Auditorium", "Parking Lot", "Bus Loop", "Front Desk", "Art Room",
@@ -47,11 +59,14 @@ export const LOCATIONS = [
   "Football Field", "Track & Field", "Student Lounge",
 ];
 
+// Selectable item colors.
 export const COLORS = [
   "Black", "White", "Red", "Blue", "Green", "Yellow", "Orange",
   "Purple", "Pink", "Brown", "Gray", "Silver", "Gold", "Multi-color",
 ];
 
+// Found-item statuses -> { label, color } badge styling. Includes both the
+// canonical uppercase keys and the lowercase backend variants.
 export const ITEM_STATUSES = {
   FOUND: { label: "Available", color: statusColor("bg-emerald-100 text-emerald-800 border-emerald-200", "emerald") },
   CLAIM_PENDING: { label: "Claim Pending", color: statusColor("bg-blue-100 text-blue-800 border-blue-200", "blue") },
@@ -64,6 +79,7 @@ export const ITEM_STATUSES = {
   archived: { label: "Archived", color: statusColor("bg-gray-100 text-gray-800 border-gray-200", "gray") },
 };
 
+// Claim lifecycle statuses -> { label, color } badge styling.
 export const CLAIM_STATUSES = {
   submitted: { label: "Submitted", color: statusColor("bg-blue-100 text-blue-800 border-blue-200", "blue") },
   under_review: { label: "Under Review", color: statusColor("bg-amber-100 text-amber-800 border-amber-200", "amber") },
@@ -75,6 +91,7 @@ export const CLAIM_STATUSES = {
   completed: { label: "Completed", color: statusColor("bg-slate-100 text-slate-700 border-slate-200", "slate") },
 };
 
+// Lost-report statuses -> { label, color } badge styling.
 export const LOST_REPORT_STATUSES = {
   open: { label: "Open", color: statusColor("bg-blue-100 text-blue-800 border-blue-200", "blue") },
   matched: { label: "Matched", color: statusColor("bg-slate-100 text-slate-700 border-slate-200", "slate") },
@@ -83,6 +100,7 @@ export const LOST_REPORT_STATUSES = {
   closed: { label: "Closed", color: statusColor("bg-gray-100 text-gray-800 border-gray-200", "gray") },
 };
 
+// Item condition options (value/label).
 export const CONDITIONS = [
   { value: "excellent", label: "Excellent" },
   { value: "good", label: "Good" },
@@ -90,6 +108,7 @@ export const CONDITIONS = [
   { value: "damaged", label: "Damaged" },
 ];
 
+// Lost-report urgency levels with per-level text color classes.
 export const URGENCY_LEVELS = [
   { value: "low", label: "Low", color: "text-muted-foreground" },
   { value: "medium", label: "Medium", color: "text-amber-600 dark:text-amber-300" },
@@ -97,6 +116,8 @@ export const URGENCY_LEVELS = [
   { value: "critical", label: "Critical", color: "text-destructive" },
 ];
 
+// Predefined demo accounts (one-click sign-in) keyed by an internal id; each
+// has full_name, email, role, and a UI label.
 export const DEMO_ACCOUNTS = {
   student: {
     full_name: "Jordan Kim",
@@ -130,16 +151,22 @@ export const DEMO_ACCOUNTS = {
   },
 };
 
+// Lookup map: demo account email -> role, built from DEMO_ACCOUNTS.
 const DEMO_ROLE_BY_EMAIL = Object.values(DEMO_ACCOUNTS).reduce((roles, account) => {
   roles[account.email] = account.role;
   return roles;
 }, {});
 
+// Resolve the role for a (demo) email, case/space-insensitive; defaults to "student".
 export function getDemoRoleForEmail(email) {
   return DEMO_ROLE_BY_EMAIL[String(email || "").trim().toLowerCase()] || "student";
 }
 
-/** Generate a unique item code like FB-2025-A3K7 */
+/**
+ * Generate a unique item code like FB-2025-A3K7.
+ * Format: FB-<current year>-<4 random chars>. The character set omits easily
+ * confused glyphs (no 0/O/1/I). Not cryptographically unique.
+ */
 export function generateItemCode() {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   let code = "";
@@ -149,6 +176,7 @@ export function generateItemCode() {
   return `FB-${new Date().getFullYear()}-${code}`;
 }
 
+// Map a category `value` to its display label, falling back to the raw value.
 export function getCategoryLabel(value) {
   return CATEGORIES.find(c => c.value === value)?.label || value;
 }

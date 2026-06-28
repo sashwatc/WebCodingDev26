@@ -1,14 +1,23 @@
+// Popover: a click-triggered floating panel built on Radix UI's
+// `@radix-ui/react-popover`. Compose as:
+// <Popover><PopoverTrigger/><PopoverContent>...</PopoverContent></Popover>.
 import * as React from "react"
 import * as PopoverPrimitive from "@radix-ui/react-popover"
 
 import { cn } from "@/lib/utils"
 
+// Root provider holding the popover's open/close state.
 const Popover = PopoverPrimitive.Root
 
+// The element that toggles the popover open.
 const PopoverTrigger = PopoverPrimitive.Trigger
 
+// Optional alternate positioning anchor (position relative to this instead of
+// the trigger).
 const PopoverAnchor = PopoverPrimitive.Anchor
 
+// Content: the floating panel. Self-portals and exposes `align` (default
+// "center") and `sideOffset` (default 4px) for placement relative to the trigger.
 const PopoverContent = React.forwardRef(({ className, align = "center", sideOffset = 4, ...props }, ref) => (
   <PopoverPrimitive.Portal>
     <PopoverPrimitive.Content

@@ -1,3 +1,7 @@
+// Command: a command palette / searchable menu built on the `cmdk` library.
+// cmdk handles filtering and keyboard navigation as the user types. Compose as
+// Command > CommandInput + CommandList > (CommandEmpty, CommandGroup > CommandItem...).
+// CommandDialog wraps the whole thing in a modal Dialog for a "Cmd+K" launcher.
 import * as React from "react"
 import { Command as CommandPrimitive } from "cmdk"
 import { Search } from "lucide-react"
@@ -5,6 +9,7 @@ import { Search } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Dialog, DialogContent } from "@/components/ui/dialog"
 
+// Command: the cmdk root that owns the filtered list and keyboard state. forwardRef.
 const Command = React.forwardRef(({ className, ...props }, ref) => (
   <CommandPrimitive
     ref={ref}
@@ -16,6 +21,9 @@ const Command = React.forwardRef(({ className, ...props }, ref) => (
 ))
 Command.displayName = CommandPrimitive.displayName
 
+// CommandDialog: renders a Command inside a modal Dialog (e.g. a Cmd+K palette);
+// forwards Dialog props like `open`/`onOpenChange`. The long className overrides
+// spacing for cmdk's internal elements inside the dialog.
 const CommandDialog = ({
   children,
   ...props
@@ -32,6 +40,8 @@ const CommandDialog = ({
   );
 }
 
+// CommandInput: the search text field (with a leading magnifier icon) that
+// drives cmdk's live filtering of the list. forwardRef.
 const CommandInput = React.forwardRef(({ className, ...props }, ref) => (
   <div className="flex items-center border-b px-3" cmdk-input-wrapper="">
     <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
@@ -47,6 +57,7 @@ const CommandInput = React.forwardRef(({ className, ...props }, ref) => (
 
 CommandInput.displayName = CommandPrimitive.Input.displayName
 
+// CommandList: scrollable region holding the (filtered) groups/items. forwardRef.
 const CommandList = React.forwardRef(({ className, ...props }, ref) => (
   <CommandPrimitive.List
     ref={ref}
@@ -56,12 +67,14 @@ const CommandList = React.forwardRef(({ className, ...props }, ref) => (
 
 CommandList.displayName = CommandPrimitive.List.displayName
 
+// CommandEmpty: shown automatically by cmdk when no items match the query. forwardRef.
 const CommandEmpty = React.forwardRef((props, ref) => (
   <CommandPrimitive.Empty ref={ref} className="py-6 text-center text-sm" {...props} />
 ))
 
 CommandEmpty.displayName = CommandPrimitive.Empty.displayName
 
+// CommandGroup: a labeled section of related items (pass `heading`). forwardRef.
 const CommandGroup = React.forwardRef(({ className, ...props }, ref) => (
   <CommandPrimitive.Group
     ref={ref}
@@ -74,11 +87,14 @@ const CommandGroup = React.forwardRef(({ className, ...props }, ref) => (
 
 CommandGroup.displayName = CommandPrimitive.Group.displayName
 
+// CommandSeparator: thin divider line between groups/items. forwardRef.
 const CommandSeparator = React.forwardRef(({ className, ...props }, ref) => (
   <CommandPrimitive.Separator ref={ref} className={cn("-mx-1 h-px bg-border", className)} {...props} />
 ))
 CommandSeparator.displayName = CommandPrimitive.Separator.displayName
 
+// CommandItem: a selectable row; highlights via data-[selected] as the user
+// navigates and supports data-[disabled]. Use `onSelect` to handle picking. forwardRef.
 const CommandItem = React.forwardRef(({ className, ...props }, ref) => (
   <CommandPrimitive.Item
     ref={ref}
@@ -91,6 +107,8 @@ const CommandItem = React.forwardRef(({ className, ...props }, ref) => (
 
 CommandItem.displayName = CommandPrimitive.Item.displayName
 
+// CommandShortcut: right-aligned hint text for an item's keyboard shortcut
+// (e.g. "Cmd K"). Presentational span, no ref.
 const CommandShortcut = ({
   className,
   ...props

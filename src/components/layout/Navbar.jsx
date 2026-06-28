@@ -1,3 +1,18 @@
+/**
+ * Navbar.jsx
+ * --------------------------------------------------------------------------
+ * The fixed top navigation bar shown on every page. Responsibilities:
+ *  - Brand link back to /Home.
+ *  - Desktop (xl+) nav: Home link, hover-to-open "Search Items" and "Report"
+ *    dropdowns, a global search box, theme toggle, role-gated Admin/Staff
+ *    panel button, a notification bell with unread count, and a user menu
+ *    (or a Sign in button when logged out).
+ *  - Mobile (< xl) nav: a hamburger that toggles a full drawer with the same
+ *    actions stacked vertically.
+ * State is local UI state (menu open/close, search text, hover timers);
+ * auth/role/theme come from contexts and unread notifications from a query.
+ */
+
 import React, { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -21,26 +36,30 @@ import schoolMark from "@/assets/Spartan_Head.png";
 
 export default function Navbar() {
   const { t } = useTranslation();
-  const [mobileOpen, setMobileOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [searchItemsOpen, setSearchItemsOpen] = useState(false);
-  const [reportOpen, setReportOpen] = useState(false);
-  const searchItemsTimer = useRef(null);
-  const reportTimer = useRef(null);
-  const location = useLocation();
-  const navigate = useNavigate();
-  const searchRef = useRef(null);
-  const { theme, setTheme } = useMode();
-  const { user, isAdmin, isStaff, isLoadingAuth, navigateToLogin, logout } = useAuth();
-  const { toast } = useToast();
+  const [mobileOpen, setMobileOpen] = useState(false);        // mobile drawer open?
+  const [searchQuery, setSearchQuery] = useState("");          // text in the search box
+  const [searchItemsOpen, setSearchItemsOpen] = useState(false); // "Search Items" dropdown open?
+  const [reportOpen, setReportOpen] = useState(false);         // "Report" dropdown open?
+  const searchItemsTimer = useRef(null);                       // close-delay timer for Search dropdown
+  const reportTimer = useRef(null);                            // close-delay timer for Report dropdown
+  const location = useLocation();                              // current route (for active states)
+  const navigate = useNavigate();                              // programmatic navigation
+  const searchRef = useRef(null);                              // ref to the search input (for ⌘K focus / blur)
+  const { theme, setTheme } = useMode();                       // light/dark theme from ModeContext
+  const { user, isAdmin, isStaff, isLoadingAuth, navigateToLogin, logout } = useAuth(); // auth state/actions
+  const { toast } = useToast();                                // toast notifications
 
+  // Close the mobile drawer whenever the route changes (e.g. after navigating).
   useEffect(() => { setMobileOpen(false); }, [location.pathname]);
 
   /* Hover helpers — 120 ms grace period lets the cursor move to the panel */
+  // hoverOpen: cancel any pending close and open the dropdown immediately.
   const hoverOpen = (setter, timer) => () => {
     clearTimeout(timer.current);
     setter(true);
   };
+  // hoverClose: delay closing by 120ms so moving the cursor from the trigger
+  // to the panel (crossing a small gap) doesn't dismiss the dropdown.
   const hoverClose = (setter, timer) => () => {
     timer.current = setTimeout(() => setter(false), 120);
   };
@@ -57,6 +76,8 @@ export default function Navbar() {
     return () => document.removeEventListener("keydown", handler);
   }, []);
 
+  // Fetch the signed-in user's notifications and keep only the unread ones,
+  // which drive the bell badge count. Disabled until we have a user email.
   const { data: notifications = [] } = useQuery({
     queryKey: ["navNotifications", user?.email],
     queryFn: async () => {
@@ -66,24 +87,28 @@ export default function Navbar() {
     enabled: !!user?.email,
   });
 
+  // Derived role flags / labels used to conditionally render admin-only UI.
   const showAdminNav = !isLoadingAuth && user && isAdmin;
   // Staff share the dashboard (scoped) with admins, so they get an entry point too.
   const showStaffPanel = !isLoadingAuth && user && (isAdmin || isStaff);
   const panelLabel = isAdmin ? t("navbar.admin_panel") : t("navbar.staff_panel", "Staff Panel");
 
+  // Active-route helpers: highlight nav items that match the current path.
   const isActive = (path) => location.pathname === path;
-  const isSearchActive = isActive("/Search") || isActive("/LostItems");
-  const isReportActive = isActive("/ReportLost") || isActive("/ReportFound");
+  const isSearchActive = isActive("/Search") || isActive("/LostItems");   // either search page
+  const isReportActive = isActive("/ReportLost") || isActive("/ReportFound"); // either report page
 
+  // Submit handler for both the desktop and mobile search forms.
   const handleSearch = (e) => {
     e.preventDefault();
     const q = searchQuery.trim();
     /* type=all tells Search.jsx to show both found and lost results */
     navigate(q ? `/Search?q=${encodeURIComponent(q)}&type=all` : "/Search?type=all");
-    setSearchQuery("");
-    searchRef.current?.blur();
+    setSearchQuery("");        // clear the box after submitting
+    searchRef.current?.blur(); // drop focus (collapses the expanded desktop input)
   };
 
+  // Kick off the login flow; surface any failure as a destructive toast.
   const handleSignIn = async () => {
     try { await navigateToLogin(); }
     catch (error) {
@@ -91,6 +116,7 @@ export default function Navbar() {
     }
   };
 
+  // Log the user out; surface any failure as a destructive toast.
   const handleSignOut = async () => {
     try { await logout(); }
     catch (error) {
@@ -104,13 +130,16 @@ export default function Navbar() {
       active ? "text-foreground" : "text-muted-foreground hover:text-foreground"
     }`;
 
+  // Small amber underline rendered beneath the active desktop nav item.
   const ActiveBar = () => (
     <span className="absolute bottom-[-1px] left-3 right-3 h-[2px] rounded-full bg-amber-500" aria-hidden="true" />
   );
 
   return (
+    // Fixed, translucent, blurred banner pinned to the top of the viewport.
     <header role="banner" className="fixed inset-x-0 top-0 z-50 border-b border-border bg-background/98 backdrop-blur-sm supports-[backdrop-filter]:bg-background/95">
       <nav className="page-shell" aria-label={t("navbar.main_navigation")}>
+        {/* Single horizontal row holding brand, nav links, spacer, and right actions */}
         <div className="flex h-[4.25rem] items-center gap-0">
 
           {/* ── Brand ──────────────────────────────────────────────────────────── */}
@@ -263,17 +292,19 @@ export default function Navbar() {
               </Link>
             )}
 
-            {/* Notification bell */}
+            {/* Notification bell — links to the dashboard; badge shows unread count */}
             {user && (
               <Link to="/UserDashboard" aria-label={t("navbar.notifications")}>
                 <Button variant="ghost" size="icon" className="relative h-8 w-8">
                   <Bell className="h-[16px] w-[16px]" aria-hidden="true" />
+                  {/* Red count badge, only when there are unread notifications */}
                   {notifications.length > 0 && (
                     <span
                       className="absolute -right-0.5 -top-0.5 flex h-[17px] min-w-[17px] items-center justify-center rounded-full px-1 text-[9px] font-black text-white"
                       style={{ background: "hsl(var(--ring))" }}
                       aria-label={`${notifications.length} unread`}
                     >
+                      {/* Cap the displayed number at "9+" to keep the badge small */}
                       {notifications.length > 9 ? "9+" : notifications.length}
                     </span>
                   )}
@@ -281,17 +312,20 @@ export default function Navbar() {
               </Link>
             )}
 
-            {/* User menu */}
+            {/* User menu — avatar + first name when signed in; otherwise a Sign in button.
+                While auth is still loading (isLoadingAuth) nothing is rendered. */}
             {user ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="sm" className="h-8 gap-1.5 pl-1.5 pr-2">
+                    {/* Circular avatar showing the user's first initial (fallback "U") */}
                     <div
                       className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-bold"
                       style={{ background: "hsl(var(--primary))", color: "hsl(var(--primary-foreground))" }}
                     >
                       {user.full_name?.[0]?.toUpperCase() || "U"}
                     </div>
+                    {/* First word of the full name, truncated to fit */}
                     <span className="max-w-[5rem] truncate text-[13px] font-medium">{user.full_name?.split(" ")[0]}</span>
                     <ChevronDown className="h-3.5 w-3.5 shrink-0 opacity-60" aria-hidden="true" />
                   </Button>

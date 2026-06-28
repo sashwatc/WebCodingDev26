@@ -1,7 +1,17 @@
 "use client";
+
+/**
+ * Toaster (Sonner) — toast notification host built on the `sonner` library
+ * (re-exported here as `Sonner`). Render this once near the app root; trigger
+ * toasts elsewhere via sonner's `toast()` function. Distinct from the Radix
+ * toast in toast.jsx/use-toast.jsx.
+ */
+
 import { useTheme } from "next-themes"
 import { Toaster as Sonner } from "sonner"
 
+// Reads the active theme from next-themes and forwards it to Sonner, then maps
+// the toast/description/action/cancel slots onto the app's Tailwind tokens.
 const Toaster = ({
   ...props
 }) => {

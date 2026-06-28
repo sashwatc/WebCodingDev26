@@ -1,10 +1,15 @@
 "use client"
 
+// Resizable: draggable split-pane layouts built on the `react-resizable-panels`
+// library. Compose as: ResizablePanelGroup (direction="horizontal"|"vertical")
+// wrapping ResizablePanel(s) separated by ResizableHandle(s).
 import { GripVertical } from "lucide-react"
 import * as ResizablePrimitive from "react-resizable-panels"
 
 import { cn } from "@/lib/utils"
 
+// ResizablePanelGroup: the container that arranges panels in a row or column and
+// flips to a column when direction is vertical (via data-panel-group-direction).
 const ResizablePanelGroup = ({
   className,
   ...props
@@ -17,8 +22,12 @@ const ResizablePanelGroup = ({
     {...props} />
 )
 
+// ResizablePanel: one resizable region; accepts the library's size props
+// (defaultSize, minSize, maxSize, etc.).
 const ResizablePanel = ResizablePrimitive.Panel
 
+// ResizableHandle: the draggable divider between two panels. When `withHandle` is
+// true it renders a visible grip (GripVertical) in the center of the divider.
 const ResizableHandle = ({
   withHandle,
   className,

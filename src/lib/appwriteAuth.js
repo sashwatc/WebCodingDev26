@@ -8,15 +8,21 @@
 // All values come from Vite env vars. When they are absent, the app gracefully
 // falls back to the local demo sign-in (see docs/AUTH_INTEGRATION.md).
 
+// Appwrite endpoint base URL (trailing slashes stripped) from Vite env.
 const ENDPOINT = String(import.meta.env.VITE_APPWRITE_ENDPOINT || "").replace(/\/+$/, "");
+// Appwrite project id from Vite env.
 const PROJECT_ID = String(import.meta.env.VITE_APPWRITE_PROJECT_ID || "").trim();
+// localStorage key holding the minted account JWT.
 const JWT_STORAGE_KEY = "findback-appwrite-jwt";
+// Query param appended to OAuth redirect URLs to signal success/failure on return.
 export const OAUTH_RETURN_PARAM = "appwrite_oauth";
 
+// True only when both endpoint and project id are present (i.e. Appwrite is set up).
 export function isAppwriteConfigured() {
   return Boolean(ENDPOINT && PROJECT_ID);
 }
 
+// Safely access localStorage; returns null on the server or when access throws.
 function storage() {
   try {
     return typeof window !== "undefined" ? window.localStorage : null;
@@ -25,10 +31,12 @@ function storage() {
   }
 }
 
+// Read the stored JWT, or null if absent/unavailable.
 export function getStoredAppwriteJwt() {
   return storage()?.getItem(JWT_STORAGE_KEY) || null;
 }
 
+// Persist (or, when falsy, remove) the JWT in localStorage. Side effect only.
 function setStoredAppwriteJwt(jwt) {
   const store = storage();
   if (!store) return;
@@ -39,10 +47,14 @@ function setStoredAppwriteJwt(jwt) {
   }
 }
 
+// Remove the stored JWT (used on logout/session reset).
 export function clearStoredAppwriteJwt() {
   setStoredAppwriteJwt(null);
 }
 
+// Thin fetch wrapper for the Appwrite REST API: adds project headers, JSON
+// content negotiation, and cookie credentials; parses the JSON body; and throws
+// an Error (with `.status`) on non-2xx responses. Throws if Appwrite is unconfigured.
 async function appwriteFetch(path, options = {}) {
   if (!isAppwriteConfigured()) {
     throw new Error("Appwrite is not configured.");
@@ -58,12 +70,14 @@ async function appwriteFetch(path, options = {}) {
     },
   });
 
+  // Read the body as text first so non-JSON error bodies don't crash parsing.
   const text = await response.text();
   let payload = null;
   if (text) {
     try {
       payload = JSON.parse(text);
     } catch {
+      // Non-JSON body: wrap the raw text as a message.
       payload = { message: text };
     }
   }
@@ -93,10 +107,13 @@ async function createJwt() {
   if (!jwt) {
     throw new Error("Appwrite did not return a session token.");
   }
+  // Cache the JWT so subsequent backend calls can attach it.
   setStoredAppwriteJwt(jwt);
   return jwt;
 }
 
+// Email/password sign-in: drop any stale session, create an email session, then
+// mint and store a JWT. Returns the JWT. Side effect: replaces stored session/JWT.
 export async function loginWithEmailPassword(email, password) {
   // Clear any stale session so a fresh one is created cleanly.
   await deleteCurrentSession().catch(() => {});
@@ -107,6 +124,8 @@ export async function loginWithEmailPassword(email, password) {
   return createJwt();
 }
 
+// Create a new Appwrite account, then immediately log in to obtain a JWT.
+// Returns the JWT.
 export async function registerWithEmailPassword(email, password, name) {
   await appwriteFetch("/account", {
     method: "POST",
@@ -115,6 +134,9 @@ export async function registerWithEmailPassword(email, password, name) {
   return loginWithEmailPassword(email, password);
 }
 
+// Begin Google OAuth by redirecting the browser to Appwrite's OAuth2 URL.
+// Builds success/failure return URLs (tagged with OAUTH_RETURN_PARAM) pointing
+// back at this origin. Does not return — it navigates away.
 export function startGoogleOAuth() {
   if (!isAppwriteConfigured()) {
     throw new Error("Google sign-in is not configured.");
@@ -128,10 +150,13 @@ export function startGoogleOAuth() {
 }
 
 // After returning from an OAuth redirect, mint a JWT from the new session.
+// Returns the JWT.
 export async function refreshJwtFromSession() {
   return createJwt();
 }
 
+// Log out: delete the current Appwrite session, and always clear the local JWT
+// (even if the delete request fails).
 export async function deleteCurrentSession() {
   try {
     await appwriteFetch("/account/sessions/current", { method: "DELETE" });

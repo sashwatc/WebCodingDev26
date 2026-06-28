@@ -1,19 +1,28 @@
 "use client"
 
+// Dialog: a modal dialog / centered overlay window built on Radix UI's
+// `@radix-ui/react-dialog`. Re-exports the simple primitives (Root, Trigger,
+// Portal, Close) and wraps the visual parts with shadcn/ui styling. Typical use:
+// <Dialog><DialogTrigger/><DialogContent><DialogHeader><DialogTitle/>...</DialogContent></Dialog>.
 import * as React from "react"
 import * as DialogPrimitive from "@radix-ui/react-dialog"
 import { X } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 
+// Root provider holding the dialog's open/close state.
 const Dialog = DialogPrimitive.Root
 
+// Element that opens the dialog when activated.
 const DialogTrigger = DialogPrimitive.Trigger
 
+// Portals dialog content to the document body, escaping overflow/stacking issues.
 const DialogPortal = DialogPrimitive.Portal
 
+// Any element that closes the dialog when clicked.
 const DialogClose = DialogPrimitive.Close
 
+// Overlay: the dimmed, blurred backdrop rendered behind the dialog content.
 const DialogOverlay = React.forwardRef(({ className, ...props }, ref) => (
   <DialogPrimitive.Overlay
     ref={ref}
@@ -25,6 +34,8 @@ const DialogOverlay = React.forwardRef(({ className, ...props }, ref) => (
 ))
 DialogOverlay.displayName = DialogPrimitive.Overlay.displayName
 
+// Content: the centered modal panel. Bundles its own Portal + Overlay and a
+// built-in top-right close (X) button, so callers only render their children.
 const DialogContent = React.forwardRef(({ className, children, ...props }, ref) => (
   <DialogPortal>
     <DialogOverlay />
@@ -46,6 +57,8 @@ const DialogContent = React.forwardRef(({ className, children, ...props }, ref) 
 ))
 DialogContent.displayName = DialogPrimitive.Content.displayName
 
+// Header: layout container (plain div) for stacking the title and description
+// at the top of the dialog.
 const DialogHeader = ({
   className,
   ...props
@@ -56,6 +69,8 @@ const DialogHeader = ({
 )
 DialogHeader.displayName = "DialogHeader"
 
+// Footer: layout container (plain div) for action buttons; stacks on mobile and
+// right-aligns into a row on larger screens.
 const DialogFooter = ({
   className,
   ...props
@@ -66,6 +81,7 @@ const DialogFooter = ({
 )
 DialogFooter.displayName = "DialogFooter"
 
+// Title: the dialog's accessible heading (wires up aria-labelledby in Radix).
 const DialogTitle = React.forwardRef(({ className, ...props }, ref) => (
   <DialogPrimitive.Title
     ref={ref}
@@ -74,6 +90,7 @@ const DialogTitle = React.forwardRef(({ className, ...props }, ref) => (
 ))
 DialogTitle.displayName = DialogPrimitive.Title.displayName
 
+// Description: the dialog's accessible supporting text (wires up aria-describedby).
 const DialogDescription = React.forwardRef(({ className, ...props }, ref) => (
   <DialogPrimitive.Description
     ref={ref}

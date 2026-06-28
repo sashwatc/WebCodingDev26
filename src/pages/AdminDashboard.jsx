@@ -3,6 +3,20 @@
  * Central admin hub with overview metrics, moderation queue,
  * claims management, lost reports, and audit logs.
  * Access is protected by the admin route guard in the standalone judging build.
+ *
+ * Structure:
+ * - A header with key counts (pending items / claims / open reports) followed
+ *   by a tabbed interface. The active tab is stored in the URL (?tab=) so the
+ *   browser back button navigates between panels.
+ * - Tabs: Overview, Moderation (items + claims queues), Reference Desk (lost
+ *   reports + AI match review), Recovery Center (cases/missions/relays/assets),
+ *   Loss Sentinel (prevention alerts), Support (tickets), and admin-only Users
+ *   and Settings tabs.
+ * - Staff see a reduced set of tabs; Users/Settings/Sentinel are admin-only.
+ *
+ * This file also defines several local helper components:
+ *   SupportTicketCard / SupportTicketsList (support tab),
+ *   LostReportMatches (match review under the reports tab).
  */
 
 import React from "react";
@@ -46,8 +60,10 @@ import {
   Settings as SettingsIcon,
 } from "lucide-react";
 
+// Allowed values for a support ticket's status dropdown.
 const SUPPORT_STATUSES = ["open", "in_progress", "resolved", "closed"];
 
+// Maps a support ticket status to its colored badge classes.
 function supportStatusClass(status) {
   if (status === "open") return "border-amber-200 bg-amber-50 text-amber-800";
   if (status === "in_progress") return "border-blue-200 bg-blue-50 text-blue-800";
@@ -55,36 +71,46 @@ function supportStatusClass(status) {
   return "border-border bg-muted text-muted-foreground";
 }
 
+// One support ticket card: shows the ticket details and lets staff change its
+// status, save internal notes, and send a reply to the submitter. Each action
+// is its own mutation; all re-fetch the tickets list on success.
 function SupportTicketCard({ ticket }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  // Local editable copies of the ticket's staff notes and a new reply draft.
   const [notes, setNotes] = React.useState(ticket.staff_notes || "");
   const [reply, setReply] = React.useState("");
 
+  // Shared helper to refresh the support tickets list after any change.
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ["adminSupportTickets"] });
 
+  // Update the ticket's status (dropdown selection).
   const statusMutation = useMutation({
     mutationFn: (status) => appClient.support.updateTicket(ticket.id, { status }),
     onSuccess: () => { invalidate(); toast({ title: "Status updated" }); },
     onError: () => toast({ title: "Failed to update status", variant: "destructive" }),
   });
 
+  // Save the internal staff notes textarea.
   const notesMutation = useMutation({
     mutationFn: () => appClient.support.updateTicket(ticket.id, { staff_notes: notes }),
     onSuccess: () => { invalidate(); toast({ title: "Notes saved" }); },
     onError: () => toast({ title: "Failed to save notes", variant: "destructive" }),
   });
 
+  // Send a reply to the submitter and clear the reply box on success.
   const replyMutation = useMutation({
     mutationFn: () => appClient.support.replyToTicket(ticket.id, reply),
     onSuccess: () => { setReply(""); invalidate(); toast({ title: "Reply sent" }); },
     onError: () => toast({ title: "Failed to send reply", variant: "destructive" }),
   });
 
+  // Disable controls while any of the three mutations is in flight.
   const busy = statusMutation.isPending || notesMutation.isPending || replyMutation.isPending;
 
   return (
     <div className="archive-card p-4 space-y-3">
+      {/* Top row: ticket category/status/subject/message + status dropdown */}
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2 mb-1 flex-wrap">
@@ -110,6 +136,7 @@ function SupportTicketCard({ ticket }) {
         </Select>
       </div>
 
+      {/* Bottom row: internal staff notes (left) and reply-to-submitter (right) */}
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-2">
           <Textarea
@@ -142,11 +169,14 @@ function SupportTicketCard({ ticket }) {
 // outstanding questions first.
 const SUPPORT_STATUS_ORDER = { open: 0, in_progress: 1, pending: 1, resolved: 2, closed: 3 };
 
+// Returns the sort weight for a ticket's status (lower = higher in the list).
 function supportTicketSortValue(ticket = {}) {
   const status = String(ticket.status || "").toLowerCase();
   return SUPPORT_STATUS_ORDER[status] ?? 1;
 }
 
+// Support tab body: fetches all tickets (polled every 30s), sorts them, and
+// renders a SupportTicketCard for each (with loading/error/empty states).
 function SupportTicketsList() {
   const { data: allTickets = [], isLoading, isError } = useQuery({
     queryKey: ["adminSupportTickets"],
@@ -158,6 +188,7 @@ function SupportTicketsList() {
   // item-related chats alike — not just lost-item ones. Outstanding tickets
   // float to the top.
   const tickets = [...allTickets].sort((a, b) => {
+    // Primary sort by status weight (open first); tie-break by newest created.
     const byStatus = supportTicketSortValue(a) - supportTicketSortValue(b);
     if (byStatus !== 0) return byStatus;
     return String(b.created_at || "").localeCompare(String(a.created_at || ""));
@@ -170,6 +201,8 @@ function SupportTicketsList() {
   return <div className="space-y-3">{tickets.map((t) => <SupportTicketCard key={t.id} ticket={t} />)}</div>;
 }
 
+// Normalizes a match entry (which may be a bare id string or an object) into
+// its found-item id.
 function matchFoundItemId(match) {
   return typeof match === "string" ? match : (match?.found_item_id || match?.foundItemId || "");
 }
@@ -203,6 +236,7 @@ function LostReportMatches({ report, foundItemsById = {} }) {
       toast({ title: "Failed to update match", description: error?.message, variant: "destructive" }),
   });
 
+  // No actionable matches -> short placeholder line.
   if (matches.length === 0) {
     return (
       <p className="mt-4 border-t border-border pt-4 text-xs text-muted-foreground">
@@ -216,12 +250,15 @@ function LostReportMatches({ report, foundItemsById = {} }) {
       <p className="text-xs font-bold uppercase tracking-wider text-foreground">
         Suggested matches ({matches.length})
       </p>
+      {/* One card per suggested match: thumbnail, confidence, reasons, actions */}
       {matches.map((match) => {
+        // Derive display values from the match + its resolved found item.
         const foundItemId = matchFoundItemId(match);
         const foundItem = foundItemsById[foundItemId];
         const title = match?.found_item_title || foundItem?.title || foundItemId;
         const confidence = match?.confidence;
         const reasons = Array.isArray(match?.reasons) ? match.reasons : [];
+        // Any non-"suggested" status means the admin already acted on this match.
         const decision = match?.status && match.status !== "suggested" ? match.status : null;
         const isLinked = decision === "linked" || decision === "confirmed";
         const decisionLabel = isLinked ? "Linked" : decision === "rejected" ? "Not a match" : decision;
@@ -263,6 +300,7 @@ function LostReportMatches({ report, foundItemsById = {} }) {
                     ))}
                   </div>
                 )}
+                {/* Per-match actions: view the item, link the match, or reject it */}
                 <div className="mt-2 flex flex-wrap gap-2">
                   <Button asChild size="sm" variant="outline">
                     <Link to={`/ItemDetails?id=${foundItemId}`}>View item</Link>
@@ -306,12 +344,17 @@ export default function AdminDashboard() {
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = searchParams.get("tab") || "overview";
   const setActiveTab = (tab) => setSearchParams({ tab });
+  // ── Data queries ──────────────────────────────────────────────────────────
+  // Most lists poll every 30s so the dashboard reflects new activity live.
+
+  // All found items (newest first) — feeds the moderation queue + match thumbs.
   const { data: foundItems = [], isLoading: fiLoading } = useQuery({
     queryKey: ["adminFoundItems"],
     queryFn: () => appClient.entities.FoundItem.list("-created_date", 500),
     refetchInterval: 30000,
   });
 
+  // All lost reports (newest first) — feeds the Reference Desk + recovery counts.
   const { data: lostReports = [], isLoading: lrLoading } = useQuery({
     queryKey: ["adminLostReports"],
     queryFn: () => appClient.entities.LostReport.list("-created_date", 500),
@@ -333,12 +376,14 @@ export default function AdminDashboard() {
     [lostReports]
   );
 
+  // All claims (newest first) — feeds the claims verification queue + counts.
   const { data: claims = [], isLoading: clLoading, error: claimsError } = useQuery({
     queryKey: ["adminClaims"],
     queryFn: () => appClient.entities.Claim.list("-created_date", 500),
     refetchInterval: 30000,
   });
 
+  // Recovery Center summary (aggregate counts used for the stat cards).
   const {
     data: recoveryCenter,
     isLoading: recoveryLoading,
@@ -348,22 +393,27 @@ export default function AdminDashboard() {
     queryFn: () => appClient.recoveryCenter.summary(),
   });
 
+  // Recent audit log entries — surfaced inside the Overview tab.
   const { data: auditLogs = [] } = useQuery({
     queryKey: ["adminAuditLogs"],
     queryFn: () => appClient.entities.AuditLog.list("-created_date", 100),
   });
 
+  // Support tickets — drives the Support tab badge count and list.
   const { data: supportTickets = [] } = useQuery({
     queryKey: ["adminSupportTickets"],
     queryFn: () => appClient.support.listTickets(),
     refetchInterval: 30000,
   });
 
+  // Recovery cases — the parent records for the Recovery Center tab.
   const { data: recoveryCases = [] } = useQuery({
     queryKey: ["adminRecoveryCases"],
     queryFn: () => appClient.recoveryCases.list(),
   });
 
+  // Recovery missions: fetched per-case and flattened. Keyed by the joined case
+  // ids so it refetches when the case set changes; only runs once cases exist.
   const { data: recoveryMissions = [] } = useQuery({
     queryKey: ["adminRecoveryMissions", recoveryCases.map((entry) => entry.id).join(",")],
     queryFn: async () => {
@@ -373,26 +423,32 @@ export default function AdminDashboard() {
     enabled: recoveryCases.length > 0,
   });
 
+  // Loss Sentinel prevention alerts (admin-only tab).
   const { data: sentinelAlerts = [] } = useQuery({
     queryKey: ["adminSentinelAlerts"],
     queryFn: () => appClient.sentinel.alerts(),
   });
 
+  // Partner relay simulation records shown in the Recovery Center tab.
   const { data: partnerRelays = [] } = useQuery({
     queryKey: ["adminPartnerRelays"],
     queryFn: () => appClient.partnerRelay.relays(),
   });
 
+  // Demo asset lookup used to show the Asset Rescue Bridge recognizing a tag.
   const { data: assetDemo } = useQuery({
     queryKey: ["adminAssetDemoLookup"],
     queryFn: () => appClient.assets.lookup("PVHS-CB-1042"),
   });
 
+  // Update a recovery mission (assign or change status); refresh missions after.
   const updateMissionMutation = useMutation({
     mutationFn: ({ id, updates }) => appClient.recoveryMissions.update(id, updates),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["adminRecoveryMissions"] }),
   });
 
+  // Update a sentinel alert: route to the right endpoint based on target status
+  // (acknowledge / dismiss / resolve), else a generic update; refresh after.
   const updateAlertMutation = useMutation({
     mutationFn: ({ id, updates }) => {
       if (updates.status === "acknowledged") {
@@ -409,12 +465,17 @@ export default function AdminDashboard() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["adminSentinelAlerts"] }),
   });
 
+  // ── Derived values ────────────────────────────────────────────────────────
+  // Top-level loading flag for the primary tables (gates the skeleton state).
   const isLoading = fiLoading || lrLoading || clLoading || recoveryLoading;
   const recoverySummary = recoveryCenter?.summary;
+  // Header stat counts. Each prefers the backend summary value when present and
+  // otherwise falls back to counting the locally fetched lists.
   const pendingCount = foundItems.filter((item) => ["pending_review", "FOUND"].includes(item.status)).length;
   const pendingClaims = recoverySummary?.claims_awaiting_review ?? claims.filter((claim) => claim.status === "submitted" || claim.status === "under_review").length;
   const openReports = recoverySummary?.active_cases ?? lostReports.filter((report) => report.status === "open").length;
   const supportCount = supportTickets.filter((t) => t.status === "open").length;
+  // Reusable empty-state panel for tabs/sections with no records.
   const EmptyAdminPanel = ({ icon: Icon, title, description }) => (
     <div className="search-state-panel">
       <Icon className="mx-auto mb-3 h-9 w-9 text-muted-foreground/40" />
@@ -426,6 +487,7 @@ export default function AdminDashboard() {
   return (
     <div className="bg-card text-foreground min-h-screen py-10">
       <div className="page-shell max-w-7xl space-y-8">
+        {/* Page header: title/subtitle + shortcut to the Pickup Station */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 pb-4 border-b border-border">
           <div className="page-header">
             <span className="page-kicker">{t("admin_dashboard.kicker")}</span>
@@ -454,12 +516,14 @@ export default function AdminDashboard() {
           ))}
         </div>
 
+        {/* Partial-failure banner: shown when recovery/claims data failed to load */}
         {(recoveryError || claimsError) && (
           <div className="rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
             {t("admin_dashboard.backend_partial_error", "Some admin data could not be loaded from the backend. Counts may be incomplete until the API is available.")}
           </div>
         )}
 
+        {/* While core tables load, show skeletons; otherwise render the tabs */}
         {isLoading ? (
           <div className="space-y-4">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -470,7 +534,9 @@ export default function AdminDashboard() {
             <Skeleton className="h-80 rounded-xl bg-muted" />
           </div>
         ) : (
+          // Tabbed interface; value is bound to the ?tab= URL param.
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            {/* Tab buttons. Some show count badges; admin-only tabs are gated by isAdmin */}
             <TabsList className="flex w-full justify-start gap-1 overflow-x-auto flex-nowrap [&>*]:shrink-0 no-scrollbar bg-muted border border-border p-1 rounded-xl shadow-inner">
               <TabsTrigger
                 value="overview"
@@ -543,10 +609,12 @@ export default function AdminDashboard() {
               )}
             </TabsList>
 
+            {/* Overview tab: aggregate metrics + recent activity */}
             <TabsContent value="overview">
               <AdminOverview foundItems={foundItems} lostReports={lostReports} claims={claims} auditLogs={auditLogs} />
             </TabsContent>
 
+            {/* Moderation tab: side-by-side found-items queue and claims queue */}
             <TabsContent value="moderation" className="space-y-6">
               <div className="grid gap-8 lg:grid-cols-2">
                 {/* Column 1: Items Queue */}
@@ -583,6 +651,7 @@ export default function AdminDashboard() {
               </div>
             </TabsContent>
 
+            {/* Reference Desk tab: active lost reports, each with AI match review */}
             <TabsContent value="reports">
               <div className="space-y-4">
                 <div className="bg-muted border border-border rounded-xl p-5 shadow-sm">
@@ -590,6 +659,7 @@ export default function AdminDashboard() {
                   <p className="mt-2 text-sm text-muted-foreground">{t("admin_dashboard.reports_summary", { count: activeLostReports.length })}</p>
                 </div>
 
+                {/* Empty state vs. list of active lost-report cards */}
                 {activeLostReports.length === 0 ? (
                   <div className="bg-muted border border-border rounded-xl px-6 py-14 text-center">
                     <AlertTriangle className="mx-auto mb-3 h-10 w-10 text-muted-foreground/40" />
@@ -623,6 +693,7 @@ export default function AdminDashboard() {
                           </div>
                           <Badge variant="outline" className="capitalize self-start text-primary border-primary/20">{translateUrgency(t, report.urgency)}</Badge>
                         </div>
+                        {/* AI-suggested matches with link/reject actions */}
                         <LostReportMatches report={report} foundItemsById={foundItemsById} />
                       </div>
                     ))}
@@ -631,8 +702,10 @@ export default function AdminDashboard() {
               </div>
             </TabsContent>
 
+            {/* Recovery Center tab: cases, missions, partner relays, asset bridge */}
             <TabsContent value="recovery" className="space-y-6">
               <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
+                {/* Recovery cases column */}
                 <div className="space-y-3">
                   <h2 className="text-lg font-bold text-foreground">Recovery Cases</h2>
                   {recoveryCases.length === 0 ? (
@@ -656,6 +729,7 @@ export default function AdminDashboard() {
                     ))
                   )}
                 </div>
+                {/* Recovery missions column: assign or advance each mission's status */}
                 <div className="space-y-3">
                   <h2 className="text-lg font-bold text-foreground">Recovery Missions</h2>
                   {recoveryMissions.length === 0 ? (
@@ -700,6 +774,7 @@ export default function AdminDashboard() {
                 </div>
               </div>
 
+              {/* Partner relay simulation: redacted cross-org match summaries */}
               <div className="rounded-xl border border-border bg-card p-5">
                 <h2 className="flex items-center gap-2 text-lg font-bold text-foreground">
                   <Route className="h-5 w-5 text-primary" />
@@ -726,6 +801,7 @@ export default function AdminDashboard() {
                 </div>
               </div>
 
+              {/* Asset Rescue Bridge: recognized school assets routed internally */}
               <div className="rounded-xl border border-border bg-card p-5">
                 <h2 className="text-lg font-bold text-foreground">Asset Rescue Bridge</h2>
                 <p className="mt-1 text-sm text-muted-foreground">Recognized school assets are restricted from public search and routed internally by the backend.</p>
@@ -753,6 +829,7 @@ export default function AdminDashboard() {
               </div>
             </TabsContent>
 
+            {/* Loss Sentinel tab (admin-only): prevention alerts with actions */}
             <TabsContent value="sentinel" className="space-y-4">
               {sentinelAlerts.length === 0 ? (
                 <EmptyAdminPanel
@@ -784,6 +861,7 @@ export default function AdminDashboard() {
                         </ul>
                       </div>
                     </div>
+                    {/* Alert actions: jump to recovery, or set acknowledged/resolved/dismissed */}
                     <div className="mt-4 flex flex-wrap gap-2">
                       <Button
                         size="sm"
@@ -808,16 +886,19 @@ export default function AdminDashboard() {
               )}
             </TabsContent>
 
+            {/* Support tab: ticket queue with status/notes/reply controls */}
             <TabsContent value="support">
               <div className="surface-card p-5">
                 <SupportTicketsList/>
               </div>
             </TabsContent>
 
+            {/* Users tab (admin-only): account/role management */}
             <TabsContent value="users">
               <div className="surface-card p-5"><AdminUserManagement/></div>
             </TabsContent>
 
+            {/* Settings tab (admin-only): system configuration */}
             <TabsContent value="sysconfig">
               <div className="surface-card p-5"><AdminSystemSettings/></div>
             </TabsContent>

@@ -55,6 +55,24 @@ import {
 // Found items carry canonical statuses (FOUND/CLAIM_PENDING/VERIFIED/ARCHIVED).
 const ITEM_STATUS_OPTIONS = ["FOUND", "CLAIM_PENDING", "VERIFIED", "ARCHIVED"];
 
+/**
+ * Admin moderation queue for found-item submissions.
+ *
+ * Renders a searchable/status-filterable list of found items as cards; opening
+ * one shows a review dialog where the admin can change its status, flag/unflag
+ * it, add an audit note, approve/reject pending submissions, or delete it.
+ *
+ * Props:
+ *  - items:        array of found-item records to moderate
+ *  - filterStatus: initial status filter ("all" or a canonical status)
+ *
+ * State:
+ *  - search:       free-text search query
+ *  - statusFilter: active status filter
+ *  - selectedItem: item shown in the review dialog (null = closed)
+ *  - adminNote:    draft note text in the review dialog
+ *  - deleteTarget: item pending delete confirmation (null = closed)
+ */
 export default function AdminItemsQueue({ items = [], filterStatus = "all" }) {
   const { t } = useTranslation();
   const { toast } = useToast();
@@ -65,6 +83,8 @@ export default function AdminItemsQueue({ items = [], filterStatus = "all" }) {
   const [adminNote, setAdminNote] = useState("");
   const [deleteTarget, setDeleteTarget] = useState(null);
 
+  // Mutation: update a found item's fields (status/flag) + write a best-effort
+  // audit-log entry. Invalidates the items query on success.
   const updateMutation = useMutation({
     mutationFn: async ({ id, data, action }) => {
       await appClient.entities.FoundItem.update(id, data);
@@ -95,6 +115,9 @@ export default function AdminItemsQueue({ items = [], filterStatus = "all" }) {
     },
   });
 
+  // Mutation: delete a found item. The backend may instead archive it when the
+  // item has related records (claims/lost-report links); the result flag tells
+  // us which happened so the success toast can be worded accordingly.
   const deleteMutation = useMutation({
     mutationFn: async (id) => {
       const result = await appClient.entities.FoundItem.delete(id);
@@ -129,6 +152,8 @@ export default function AdminItemsQueue({ items = [], filterStatus = "all" }) {
     },
   });
 
+  // Derived list shown in the queue: drop lost-report-linked items, then apply
+  // the status filter, then the free-text search across title/description/finder/code.
   const filtered = items
     // "I found this" items are tied to a specific lost report — they are handled
     // as a suggested match in the Lost Reports view, NOT as standalone found items
@@ -147,6 +172,7 @@ export default function AdminItemsQueue({ items = [], filterStatus = "all" }) {
 
   return (
     <div className="space-y-4">
+      {/* Toolbar: search box + status filter dropdown */}
       <div className="surface-card p-4 sm:p-5">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
           <div className="relative flex-1">
@@ -173,8 +199,10 @@ export default function AdminItemsQueue({ items = [], filterStatus = "all" }) {
         </div>
       </div>
 
+      {/* Result count */}
       <p className="text-sm text-muted-foreground">{t("admin_items_queue.count", { count: filtered.length })}</p>
 
+      {/* Empty state vs. the list of item cards */}
       {filtered.length === 0 ? (
         <div className="search-state-panel">
           <Package className="mx-auto mb-3 h-10 w-10 text-muted-foreground/30" />
@@ -182,6 +210,7 @@ export default function AdminItemsQueue({ items = [], filterStatus = "all" }) {
         </div>
       ) : (
         <div className="space-y-3">
+          {/* One card per item — flagged items get a red-tinted card */}
           {filtered.map((item) => (
             <Card
               key={item.id}
@@ -189,7 +218,9 @@ export default function AdminItemsQueue({ items = [], filterStatus = "all" }) {
             >
               <CardContent className="p-5">
                 <div className="flex flex-col gap-4 xl:flex-row xl:items-start">
+                  {/* Thumbnail + item details */}
                   <div className="flex items-start gap-4 min-w-0 flex-1">
+                    {/* Item photo, or a placeholder icon when none */}
                     <div className="h-16 w-16 overflow-hidden rounded-xl bg-muted flex-shrink-0 border border-border">
                       {item.photo_urls?.[0] ? (
                         <img src={item.photo_urls[0]} alt={item.title} className="h-full w-full object-cover" />
@@ -216,6 +247,7 @@ export default function AdminItemsQueue({ items = [], filterStatus = "all" }) {
                     </div>
                   </div>
 
+                  {/* Row action: open the review dialog for this item */}
                   <div className="flex flex-wrap items-center gap-2 xl:justify-end">
                     <Button
                       size="sm"
@@ -237,6 +269,7 @@ export default function AdminItemsQueue({ items = [], filterStatus = "all" }) {
         </div>
       )}
 
+      {/* Review dialog: full item detail + moderation controls */}
       <Dialog open={!!selectedItem} onOpenChange={() => setSelectedItem(null)}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
@@ -248,6 +281,7 @@ export default function AdminItemsQueue({ items = [], filterStatus = "all" }) {
 
           {selectedItem && (
             <div className="space-y-4 text-sm mt-2">
+              {/* Header summary: photo, title, status/flag/code badges, finder */}
               <div className="flex gap-4 items-start">
                 <div className="h-24 w-24 overflow-hidden rounded-xl bg-muted flex-shrink-0 border border-border">
                   {selectedItem.photo_urls?.[0] ? (
@@ -271,6 +305,7 @@ export default function AdminItemsQueue({ items = [], filterStatus = "all" }) {
                 </div>
               </div>
 
+              {/* Location + date found */}
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="soft-panel p-3">
                   <p className="section-label">{t("common.location")}</p>
@@ -284,6 +319,7 @@ export default function AdminItemsQueue({ items = [], filterStatus = "all" }) {
                 </div>
               </div>
 
+              {/* Description, plus optional AI-generated enhancement text */}
               <div className="soft-panel p-4 space-y-2">
                 <div>
                   <p className="section-label">{t("common.description")}</p>
@@ -304,6 +340,7 @@ export default function AdminItemsQueue({ items = [], filterStatus = "all" }) {
                   <Select
                     value={canonicalFoundItemStatus(selectedItem.status)}
                     onValueChange={(val) => {
+                      // Persist the new status and optimistically reflect it in the open dialog.
                       updateMutation.mutate({
                         id: selectedItem.id,
                         data: { status: val },
@@ -332,6 +369,7 @@ export default function AdminItemsQueue({ items = [], filterStatus = "all" }) {
                         : "border-border bg-muted text-muted-foreground hover:bg-muted/80"
                     }`}
                     onClick={() => {
+                      // Toggle the flag, persist it, and mirror it in the open dialog.
                       const nextFlagged = !selectedItem.is_flagged;
                       updateMutation.mutate({
                         id: selectedItem.id,
@@ -360,7 +398,9 @@ export default function AdminItemsQueue({ items = [], filterStatus = "all" }) {
               </div>
 
               {/* Bottom Quick Actions */}
+              {/* Bottom bar: delete (left) and contextual approve/reject (right) */}
               <div className="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-border">
+                {/* Delete — opens the delete confirmation AlertDialog */}
                 <Button
                   variant="ghost"
                   className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-950/20"
@@ -371,8 +411,10 @@ export default function AdminItemsQueue({ items = [], filterStatus = "all" }) {
                 </Button>
 
                 <div className="flex gap-2">
+                  {/* Approve/Reject pair, only for items still pending review */}
                   {selectedItem.status === "pending_review" && (
                     <>
+                      {/* Reject → archive (confirm dialog) */}
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
                           <Button
@@ -405,6 +447,7 @@ export default function AdminItemsQueue({ items = [], filterStatus = "all" }) {
                         </AlertDialogContent>
                       </AlertDialog>
 
+                      {/* Approve → publish (confirm dialog) */}
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
                           <Button className="bg-emerald-600 hover:bg-emerald-500 text-white">
@@ -439,6 +482,7 @@ export default function AdminItemsQueue({ items = [], filterStatus = "all" }) {
             </div>
           )}
 
+          {/* Dialog footer: close, and save-note-and-close */}
           <DialogFooter className="pt-2 border-t border-border">
             <Button
               variant="outline"
@@ -449,6 +493,7 @@ export default function AdminItemsQueue({ items = [], filterStatus = "all" }) {
             <Button
               variant="default"
               onClick={async () => {
+                // Persist a non-empty admin note as an audit-log entry, then close.
                 if (selectedItem && adminNote.trim()) {
                   await appClient.entities.AuditLog.create({
                     action: "Admin note added",
@@ -468,6 +513,7 @@ export default function AdminItemsQueue({ items = [], filterStatus = "all" }) {
         </DialogContent>
       </Dialog>
 
+      {/* Delete confirmation dialog (may archive instead, see deleteMutation) */}
       <AlertDialog open={Boolean(deleteTarget)} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>

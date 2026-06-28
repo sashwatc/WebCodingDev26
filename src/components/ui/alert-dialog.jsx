@@ -1,15 +1,23 @@
+// AlertDialog: modal confirmation dialog (built on @radix-ui/react-alert-dialog)
+// that interrupts the user and expects an explicit Action/Cancel response.
+// Compose as AlertDialog > AlertDialogTrigger + AlertDialogContent(...).
 import * as React from "react"
 import * as AlertDialogPrimitive from "@radix-ui/react-alert-dialog"
 
 import { cn } from "@/lib/utils"
 import { buttonVariants } from "@/components/ui/button"
 
+// Root that controls open/closed state (can be controlled or uncontrolled).
 const AlertDialog = AlertDialogPrimitive.Root
 
+// Element that opens the dialog when activated (use `asChild` to wrap a Button).
 const AlertDialogTrigger = AlertDialogPrimitive.Trigger
 
+// Portals dialog markup to the document body so it escapes overflow/stacking.
 const AlertDialogPortal = AlertDialogPrimitive.Portal
 
+// AlertDialogOverlay: dimmed/blurred backdrop behind the dialog; fades with
+// Radix's data-state open/closed animation hooks. forwardRef.
 const AlertDialogOverlay = React.forwardRef(({ className, ...props }, ref) => (
   <AlertDialogPrimitive.Overlay
     className={cn(
@@ -21,6 +29,8 @@ const AlertDialogOverlay = React.forwardRef(({ className, ...props }, ref) => (
 ))
 AlertDialogOverlay.displayName = AlertDialogPrimitive.Overlay.displayName
 
+// AlertDialogContent: the centered modal panel; bundles its own Portal +
+// Overlay and animates in/out (zoom + slide). Holds header/footer/body. forwardRef.
 const AlertDialogContent = React.forwardRef(({ className, ...props }, ref) => (
   <AlertDialogPortal>
     <AlertDialogOverlay />
@@ -35,6 +45,7 @@ const AlertDialogContent = React.forwardRef(({ className, ...props }, ref) => (
 ))
 AlertDialogContent.displayName = AlertDialogPrimitive.Content.displayName
 
+// AlertDialogHeader: layout wrapper for title + description (plain div, no ref).
 const AlertDialogHeader = ({
   className,
   ...props
@@ -45,6 +56,7 @@ const AlertDialogHeader = ({
 )
 AlertDialogHeader.displayName = "AlertDialogHeader"
 
+// AlertDialogFooter: action-button row; stacks on mobile, right-aligns on sm+ (no ref).
 const AlertDialogFooter = ({
   className,
   ...props
@@ -55,11 +67,13 @@ const AlertDialogFooter = ({
 )
 AlertDialogFooter.displayName = "AlertDialogFooter"
 
+// AlertDialogTitle: accessible heading wired to the dialog by Radix. forwardRef.
 const AlertDialogTitle = React.forwardRef(({ className, ...props }, ref) => (
   <AlertDialogPrimitive.Title ref={ref} className={cn("text-lg font-semibold", className)} {...props} />
 ))
 AlertDialogTitle.displayName = AlertDialogPrimitive.Title.displayName
 
+// AlertDialogDescription: supporting body text announced with the dialog. forwardRef.
 const AlertDialogDescription = React.forwardRef(({ className, ...props }, ref) => (
   <AlertDialogPrimitive.Description
     ref={ref}
@@ -69,11 +83,15 @@ const AlertDialogDescription = React.forwardRef(({ className, ...props }, ref) =
 AlertDialogDescription.displayName =
   AlertDialogPrimitive.Description.displayName
 
+// AlertDialogAction: confirm button; styled with default buttonVariants and
+// closes the dialog when clicked. forwardRef.
 const AlertDialogAction = React.forwardRef(({ className, ...props }, ref) => (
   <AlertDialogPrimitive.Action ref={ref} className={cn(buttonVariants(), className)} {...props} />
 ))
 AlertDialogAction.displayName = AlertDialogPrimitive.Action.displayName
 
+// AlertDialogCancel: dismiss button; styled as an outline button and closes
+// the dialog without confirming. forwardRef.
 const AlertDialogCancel = React.forwardRef(({ className, ...props }, ref) => (
   <AlertDialogPrimitive.Cancel
     ref={ref}

@@ -1,13 +1,44 @@
+/**
+ * seedAppData.js
+ *
+ * Central seed dataset for the lost-and-found demo backend. It aggregates all
+ * sample records the app needs to run in seeded/demo mode (local fallback when
+ * no live database is provided) into a single exported object keyed by entity
+ * name.
+ *
+ * Exported shape (each key maps to an array of records matching the
+ * correspondingly named Mongoose model):
+ *  - FoundItem:    found items (imported wholesale from ./seedItems).
+ *  - LostReport:   lost-item reports filed by users, some pre-matched to found items.
+ *  - Claim:        ownership claims against found items, in various review states.
+ *  - Notification: user-facing notifications tied to matches/claims/system events.
+ *  - AuditLog:     audit-trail entries recording system/admin actions.
+ *  - User:         demo user accounts (students + one admin).
+ *
+ * The datasets are intentionally cross-linked by id (e.g. a LostReport's
+ * matched_items.found_item_id and a Claim's found_item_id reference ids from
+ * seedItems; notifications/claims reference the same student emails as User)
+ * so the demo presents a coherent end-to-end scenario.
+ */
 const seedItems = require("./seedItems");
 
+// Helper that returns an ISO timestamp `days` ago (offset by `hours` within the
+// day) so seed records carry realistic, relative created/updated dates that
+// remain recent whenever the seed is loaded.
 function daysAgo(days, hours = 10) {
   const now = Date.now();
   return new Date(now - days * 24 * 60 * 60 * 1000 + hours * 60 * 60 * 1000).toISOString();
 }
 
 module.exports = {
+  // Found items — reuse the dedicated seed list as-is.
   FoundItem: seedItems,
+  // Lost-item reports (lost_001..lost_008). Each describes something a user lost
+  // and may include matched_items linking it to candidate found items by id,
+  // with a confidence score and human-readable match reasons. status is
+  // "matched" when a candidate was found, otherwise "open".
   LostReport: [
+    // lost_001 — Mia Rodriguez's AirPods Pro case; matched to found_002 (96% confidence).
     {
       id: "lost_001",
       item_type: "AirPods Pro case",
@@ -34,6 +65,7 @@ module.exports = {
       created_date: daysAgo(3, 8),
       updated_date: daysAgo(3, 8),
     },
+    // lost_002 — Jordan Kim's blue JanSport backpack; matched to found_003 (91% confidence).
     {
       id: "lost_002",
       item_type: "Blue backpack",
@@ -60,6 +92,7 @@ module.exports = {
       created_date: daysAgo(7, 7),
       updated_date: daysAgo(6, 9),
     },
+    // lost_003 — Eli Thompson's PVHS student ID lanyard; matched to found_006 (98% confidence); urgency critical.
     {
       id: "lost_003",
       item_type: "Student ID lanyard",
@@ -86,6 +119,7 @@ module.exports = {
       created_date: daysAgo(2, 9),
       updated_date: daysAgo(2, 10),
     },
+    // lost_004 — Noah Patel's MacBook USB-C charger; status open (no matches yet).
     {
       id: "lost_004",
       item_type: "Laptop charger",
@@ -106,6 +140,7 @@ module.exports = {
       created_date: daysAgo(4, 11),
       updated_date: daysAgo(4, 11),
     },
+    // lost_005 — Ava Martinez's Ray-Ban sunglasses; matched to found_010 (93% confidence).
     {
       id: "lost_005",
       item_type: "Sunglasses",
@@ -132,6 +167,7 @@ module.exports = {
       created_date: daysAgo(2, 14),
       updated_date: daysAgo(2, 15),
     },
+    // lost_006 — Derek Williams's Toyota car keys; matched to found_011 (97% confidence); urgency critical.
     {
       id: "lost_006",
       item_type: "Car keys",
@@ -158,6 +194,7 @@ module.exports = {
       created_date: daysAgo(3, 16),
       updated_date: daysAgo(3, 17),
     },
+    // lost_007 — Sophie Nguyen's pink floral pencil case; matched to found_013 (89% confidence).
     {
       id: "lost_007",
       item_type: "Pencil case",
@@ -184,6 +221,7 @@ module.exports = {
       created_date: daysAgo(4, 15),
       updated_date: daysAgo(3, 10),
     },
+    // lost_008 — Marcus Johnson's silver Casio watch; status open (found_014 exists but not yet matched).
     {
       id: "lost_008",
       item_type: "Digital watch",
@@ -205,7 +243,13 @@ module.exports = {
       updated_date: daysAgo(1, 15),
     },
   ],
+  // Ownership claims (claim_001..claim_007). Each ties a claimant to a found
+  // item (found_item_id) and carries the review workflow: a reason, identifying
+  // details, pickup availability, status (under_review / need_more_info /
+  // approved / completed), admin_notes, a risk_score with risk_flags, and—for
+  // completed returns—rating/review fields.
   Claim: [
+    // claim_001 — Jordan Kim claims found_003 (backpack); status under_review; low risk.
     {
       id: "claim_001",
       found_item_id: "found_003",
@@ -224,6 +268,7 @@ module.exports = {
       created_date: daysAgo(2),
       updated_date: daysAgo(1),
     },
+    // claim_002 — Sarah Chen claims found_005 (Nike hoodie); status completed; includes a 5-star approved review.
     {
       id: "claim_002",
       found_item_id: "found_005",
@@ -248,6 +293,7 @@ module.exports = {
       created_date: daysAgo(9),
       updated_date: daysAgo(1),
     },
+    // claim_003 — Eli Thompson claims found_006 (ID lanyard); status approved; identity verified.
     {
       id: "claim_003",
       found_item_id: "found_006",
@@ -266,6 +312,7 @@ module.exports = {
       created_date: daysAgo(1, 9),
       updated_date: daysAgo(1, 10),
     },
+    // claim_004 — Luca Morales claims found_002 (AirPods); status need_more_info; high risk (vague description).
     {
       id: "claim_004",
       found_item_id: "found_002",
@@ -284,6 +331,7 @@ module.exports = {
       created_date: daysAgo(1, 12),
       updated_date: daysAgo(1, 13),
     },
+    // claim_005 — Ava Martinez claims found_010 (Ray-Bans); status under_review; chip detail matches.
     {
       id: "claim_005",
       found_item_id: "found_010",
@@ -302,6 +350,7 @@ module.exports = {
       created_date: daysAgo(2, 15),
       updated_date: daysAgo(1, 11),
     },
+    // claim_006 — Derek Williams claims found_011 (car keys); status approved; verified via car registration.
     {
       id: "claim_006",
       found_item_id: "found_011",
@@ -320,6 +369,7 @@ module.exports = {
       created_date: daysAgo(3, 17),
       updated_date: daysAgo(3, 18),
     },
+    // claim_007 — Sophie Nguyen claims found_013 (pencil case); status approved; teacher-confirmed.
     {
       id: "claim_007",
       found_item_id: "found_013",
@@ -339,7 +389,11 @@ module.exports = {
       updated_date: daysAgo(2, 10),
     },
   ],
+  // User notifications (notif_001..notif_008). Each is addressed to a user_email
+  // and has a title, message, type (match_found / claim_update / system), an
+  // is_read flag, an in-app link to open, and an optional related_item_id.
   Notification: [
+    // notif_001 — to Mia Rodriguez: AirPods match found (links to found_002); unread.
     {
       id: "notif_001",
       user_email: "mia.rodriguez@pleasantvalley.edu",
@@ -352,6 +406,7 @@ module.exports = {
       created_date: daysAgo(2),
       updated_date: daysAgo(2),
     },
+    // notif_002 — to Jordan Kim: system message about demo mode; unread.
     {
       id: "notif_002",
       user_email: "jordan.kim@pleasantvalley.edu",
@@ -364,6 +419,7 @@ module.exports = {
       created_date: daysAgo(1),
       updated_date: daysAgo(1),
     },
+    // notif_003 — to Jordan Kim: backpack claim under review (related found_003); already read.
     {
       id: "notif_003",
       user_email: "jordan.kim@pleasantvalley.edu",
@@ -376,6 +432,7 @@ module.exports = {
       created_date: daysAgo(1),
       updated_date: daysAgo(1),
     },
+    // notif_004 — to Eli Thompson: ID lanyard match ready (links to found_006); unread.
     {
       id: "notif_004",
       user_email: "eli.thompson@pleasantvalley.edu",
@@ -388,6 +445,7 @@ module.exports = {
       created_date: daysAgo(1, 9),
       updated_date: daysAgo(1, 9),
     },
+    // notif_005 — to Luca Morales: claim needs more info (related found_002); unread.
     {
       id: "notif_005",
       user_email: "luca.morales@pleasantvalley.edu",
@@ -400,6 +458,7 @@ module.exports = {
       created_date: daysAgo(1, 13),
       updated_date: daysAgo(1, 13),
     },
+    // notif_006 — to Ava Martinez: sunglasses match found (links to found_010); unread.
     {
       id: "notif_006",
       user_email: "ava.martinez@pleasantvalley.edu",
@@ -412,6 +471,7 @@ module.exports = {
       created_date: daysAgo(2, 15),
       updated_date: daysAgo(2, 15),
     },
+    // notif_007 — to Derek Williams: car keys claim approved (related found_011); already read.
     {
       id: "notif_007",
       user_email: "derek.williams@pleasantvalley.edu",
@@ -424,6 +484,7 @@ module.exports = {
       created_date: daysAgo(3, 18),
       updated_date: daysAgo(3, 18),
     },
+    // notif_008 — to Sophie Nguyen: pencil case claim approved (related found_013); unread.
     {
       id: "notif_008",
       user_email: "sophie.nguyen@pleasantvalley.edu",
@@ -437,7 +498,12 @@ module.exports = {
       updated_date: daysAgo(2, 10),
     },
   ],
+  // Audit-trail entries (audit_001..audit_007). Each records an action against
+  // an entity (entity_type + entity_id), who performed it (performed_by), a
+  // human-readable details string, and optional previous_value/new_value
+  // capturing a status transition.
   AuditLog: [
+    // audit_001 — system: initial seeding of the local demo workspace.
     {
       id: "audit_001",
       action: "Seeded local demo workspace",
@@ -450,6 +516,7 @@ module.exports = {
       created_date: daysAgo(10),
       updated_date: daysAgo(10),
     },
+    // audit_002 — claim claim_001 submitted by Jordan Kim (backpack).
     {
       id: "audit_002",
       action: "Claim submitted",
@@ -462,6 +529,7 @@ module.exports = {
       created_date: daysAgo(2),
       updated_date: daysAgo(2),
     },
+    // audit_003 — found_item found_006 approved by front-office (pending_review -> approved).
     {
       id: "audit_003",
       action: "Found item approved",
@@ -474,6 +542,7 @@ module.exports = {
       created_date: daysAgo(2, 11),
       updated_date: daysAgo(2, 11),
     },
+    // audit_004 — claim claim_004 moved by front-office (submitted -> need_more_info).
     {
       id: "audit_004",
       action: "Claim moved to need more info",
@@ -486,6 +555,7 @@ module.exports = {
       created_date: daysAgo(1, 13),
       updated_date: daysAgo(1, 13),
     },
+    // audit_005 — claim claim_006 approved by front-office (under_review -> approved).
     {
       id: "audit_005",
       action: "Car keys claim approved",
@@ -498,6 +568,7 @@ module.exports = {
       created_date: daysAgo(3, 18),
       updated_date: daysAgo(3, 18),
     },
+    // audit_006 — claim claim_005 submitted by Ava Martinez (sunglasses).
     {
       id: "audit_006",
       action: "Sunglasses claim submitted",
@@ -510,6 +581,7 @@ module.exports = {
       created_date: daysAgo(2, 15),
       updated_date: daysAgo(2, 15),
     },
+    // audit_007 — new found_item found_014 (Casio watch) reported by custodial ("" -> pending_review).
     {
       id: "audit_007",
       action: "New found item reported",
@@ -523,7 +595,11 @@ module.exports = {
       updated_date: daysAgo(1, 12),
     },
   ],
+  // Demo user accounts. Each has id, full_name, email, role ("student" or
+  // "admin"), and avatar_url. Emails here correspond to the claimants/finders
+  // referenced throughout the LostReport/Claim/Notification datasets above.
   User: [
+    // Primary demo student account (Jordan Kim).
     {
       id: "user_demo_student",
       full_name: "Jordan Kim",
@@ -533,6 +609,7 @@ module.exports = {
       created_date: daysAgo(10),
       updated_date: daysAgo(10),
     },
+    // Primary demo admin account (Avery Patel) — the only role "admin" user.
     {
       id: "user_demo_admin",
       full_name: "Avery Patel",
@@ -542,6 +619,8 @@ module.exports = {
       created_date: daysAgo(10),
       updated_date: daysAgo(10),
     },
+    // Additional student accounts below — each corresponds to a claimant/reporter
+    // referenced in the seed LostReports, Claims, and Notifications.
     {
       id: "user_mia_rodriguez",
       full_name: "Mia Rodriguez",

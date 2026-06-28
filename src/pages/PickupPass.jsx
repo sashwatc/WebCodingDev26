@@ -1,3 +1,20 @@
+/**
+ * PickupPass.jsx — Claimant's "return pass" / pickup ticket page.
+ *
+ * Purpose: after a claim is approved, the claimant is issued a return pass.
+ * This page (reached via ?id=<passId>) displays that pass: the item it's for,
+ * the pickup window/location, instructions, and — while the pass is active —
+ * the one-time pickup code plus a scannable QR code to present at the desk.
+ *
+ * Access is gated: the viewer must be signed in AND be either an admin or the
+ * pass's claimant (matched by email). The component renders a sequence of
+ * guard/early-return states before showing the actual pass:
+ *   loadingAuth → not signed in → missing id → loading → error/not-found →
+ *   access denied → the pass itself.
+ *
+ * Pass states drive what's shown: active (code + QR), redeemed (already picked
+ * up), or inactive/expired/cancelled (warning).
+ */
 import React, { useMemo } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -23,6 +40,8 @@ import {
   Ticket,
 } from "lucide-react";
 
+// Maps a normalized pass status to the Tailwind classes for its status badge:
+// green=active, muted=redeemed/unknown, amber=expired/cancelled.
 function statusBadgeClass(status) {
   if (status === "active") {
     return "border-emerald-200 bg-emerald-50 text-emerald-800";
@@ -40,8 +59,10 @@ export default function PickupPass() {
   const { t } = useTranslation();
   const { user, isAdmin, navigateToLogin, isLoadingAuth } = useAuth();
   const location = useLocation();
+  // The pass to display, from ?id=<passId>.
   const passId = new URLSearchParams(location.search).get("id") || "";
 
+  // Fetch the return pass (only once we have an id and a signed-in user).
   const {
     data: pass,
     isLoading,
@@ -50,6 +71,7 @@ export default function PickupPass() {
     isFetching,
   } = useReturnPass(passId, { enabled: Boolean(passId) && Boolean(user) });
 
+  // Fetch the linked found item so we can show its title (best-effort).
   const { data: foundItem } = useQuery({
     queryKey: ["pickupPassItem", pass?.found_item_id],
     queryFn: () => appClient.entities.FoundItem.get(pass.found_item_id),
@@ -57,14 +79,17 @@ export default function PickupPass() {
     retry: 1,
   });
 
+  // Derived pass state.
   const status = useMemo(() => normalizeReturnPassStatus(pass || {}), [pass]);
-  const isActive = isReturnPassActive(pass || {});
+  const isActive = isReturnPassActive(pass || {}); // active => show code + QR
+  // Authorization: admins, or the claimant whose email matches the pass.
   const canViewPass = Boolean(
     user
     && pass
     && (isAdmin || String(user.email || "").toLowerCase() === String(pass.claimant_email || "").toLowerCase())
   );
 
+  // ── Guard state 1: auth still resolving → skeleton ──
   if (isLoadingAuth) {
     return (
       <div className="page-shell max-w-xl py-16">
@@ -73,6 +98,7 @@ export default function PickupPass() {
     );
   }
 
+  // ── Guard state 2: not signed in → prompt to sign in ──
   if (!user) {
     return (
       <div className="page-shell max-w-xl py-16">
@@ -86,6 +112,7 @@ export default function PickupPass() {
     );
   }
 
+  // ── Guard state 3: no pass id in the URL → "missing id" + back link ──
   if (!passId) {
     return (
       <div className="page-shell max-w-xl py-16">
@@ -101,6 +128,7 @@ export default function PickupPass() {
     );
   }
 
+  // ── Guard state 4: pass query loading → skeleton ──
   if (isLoading) {
     return (
       <div className="page-shell max-w-xl py-16">
@@ -109,6 +137,7 @@ export default function PickupPass() {
     );
   }
 
+  // ── Guard state 5: load failed / no pass → error with retry + back link ──
   if (error || !pass) {
     return (
       <div className="page-shell max-w-xl py-16">
@@ -129,6 +158,7 @@ export default function PickupPass() {
     );
   }
 
+  // ── Guard state 6: signed in but not the claimant/admin → access denied ──
   if (!canViewPass) {
     return (
       <div className="page-shell max-w-xl py-16">
@@ -141,11 +171,14 @@ export default function PickupPass() {
     );
   }
 
+  // Prefer the live found-item title; fall back to the snapshot stored on the pass.
   const itemTitle = foundItem?.title || pass.found_item_title || t("pickup_pass.item_fallback_title");
 
+  // ── Authorized view: the actual pickup pass card ──
   return (
     <div className="page-shell max-w-xl py-12 sm:py-16">
       <article className="surface-card p-6 sm:p-8" aria-labelledby="pickup-pass-title">
+        {/* Header row: status badge + expiry/expired timestamp */}
         <div className="flex flex-wrap items-center justify-between gap-3">
           <Badge variant="outline" className={statusBadgeClass(status)}>
             {t(`pickup_pass.status_${status}`, { defaultValue: status })}
@@ -160,6 +193,7 @@ export default function PickupPass() {
           )}
         </div>
 
+        {/* Title block: ticket icon, page title, item name, pickup window */}
         <div className="mt-5 text-center">
           <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-50 text-emerald-700">
             <Ticket className="h-6 w-6" aria-hidden="true" />
@@ -169,8 +203,10 @@ export default function PickupPass() {
           <p className="mt-1 text-sm text-muted-foreground">{pass.pickup_window}</p>
         </div>
 
+        {/* Code block — active pass shows the one-time code; otherwise a status note */}
         {isActive ? (
           <div className="my-8 rounded-xl border border-emerald-200 bg-emerald-50/40 p-6 text-center">
+            {/* Active: prominent one-time pickup code */}
             <p className="text-xs font-semibold uppercase tracking-wide text-emerald-800">{t("pickup_pass.code_label")}</p>
             <p
               className="mt-3 font-mono text-4xl font-black tracking-[0.35em] text-foreground sm:text-5xl"
@@ -181,6 +217,7 @@ export default function PickupPass() {
             <p className="mt-3 text-xs text-emerald-900">{t("pickup_pass.code_private_note")}</p>
           </div>
         ) : (
+          // Inactive: either already redeemed, or expired/cancelled
           <div className="my-8 rounded-xl border border-border bg-muted/40 p-6 text-center" role="status">
             {status === "redeemed" ? (
               <>
@@ -202,7 +239,9 @@ export default function PickupPass() {
           </div>
         )}
 
+        {/* Details: pickup location, numbered instructions, and (if active) the QR code */}
         <div className="space-y-4">
+          {/* Pickup location */}
           <div className="rounded-lg border border-border bg-card p-4">
             <p className="flex items-start gap-2 text-sm text-foreground">
               <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
@@ -223,6 +262,7 @@ export default function PickupPass() {
             </ol>
           </div>
 
+          {/* Scannable QR encoding "<passId>:<code>" for the pickup station to verify */}
           {isActive && pass.one_time_code && (
             <RecoveryLinkCode
               value={`${pass.id}:${pass.one_time_code}`}
