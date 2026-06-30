@@ -1,6 +1,6 @@
-# Lost Then Found AI Handoff Brief
+# Lost Then Found Website Brief
 
-Use this document as context for another AI that needs to understand the website and generate feature prompts for Codex.
+Use this document as context for understanding the website and planning feature work.
 
 ## One-Sentence Summary
 
@@ -113,7 +113,7 @@ AI_MATCHMAKING_MAX_CANDIDATES=8
 AI_MATCHMAKING_MIN_CONFIDENCE=35
 ```
 
-Never ask Codex to print or expose `.env.local` secrets.
+Never print or expose `.env.local` secrets.
 
 ## Frontend Route Layout
 
@@ -644,9 +644,9 @@ When adding features:
 - keep toasts meaningful and dismissible
 - add tests/checks proportional to behavior risk
 
-## AI Feature Prompt Template
+## Feature Request Template
 
-Use this template when asking another AI to create feature prompts for Codex:
+Use this template when scoping a new feature:
 
 ```text
 You are helping extend Lost Then Found, a React/Vite + Spring Boot school lost-and-found app.
@@ -688,7 +688,7 @@ Expected output:
 - Tests/checks to run.
 ```
 
-## Example Feature Prompts Another AI Could Generate
+## Example Feature Specs
 
 ### Feature: Admin Match Review Queue
 

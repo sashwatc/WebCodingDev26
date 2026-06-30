@@ -34,6 +34,3 @@ playwright-report
 
 .env
 .vite
-
-# Claude Code agent worktrees (temporary, should never be committed)
-.claude/worktrees/
