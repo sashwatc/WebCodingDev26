@@ -19,7 +19,7 @@ test("keyword search narrows to the matching item", async ({ page }) => {
   await expect(page.locator('a[href*="ItemDetails"]').first()).toBeVisible({ timeout: 10_000 });
 
   const search = page.getByRole("searchbox").or(page.getByPlaceholder(/search/i)).first();
-  await search.fill("Hydro Flask");
-  // The seeded "Black Hydro Flask Water Bottle" should surface for this query.
-  await expect(page.getByText(/Hydro Flask/i).first()).toBeVisible({ timeout: 10_000 });
+  await search.fill("Owala");
+  // The seeded "Navy Owala FreeSip Water Bottle" should surface for this query.
+  await expect(page.getByText(/Owala/i).first()).toBeVisible({ timeout: 10_000 });
 });

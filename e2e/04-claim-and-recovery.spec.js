@@ -5,13 +5,13 @@ import { test, expect, loginAs, visit } from "./helpers.js";
 
 test("claim form is gated behind sign-in", async ({ page }) => {
   // Signed out: the claim route should not render the ownership-proof form.
-  await visit(page, "/ClaimItem?id=found_001");
+  await visit(page, "/ClaimItem?id=found_clarinet_mouthpiece");
   await expect(page.getByText(/belongs to you/i)).toHaveCount(0, { timeout: 10_000 });
 });
 
 test("signed-in student can open the claim form", async ({ page }) => {
   await loginAs(page, "student");
-  await visit(page, "/ClaimItem?id=found_001");
+  await visit(page, "/ClaimItem?id=found_clarinet_mouthpiece");
   // Claim page title from the app: "Verify that this item belongs to you."
   await expect(page.getByText(/belongs to you/i)).toBeVisible({ timeout: 10_000 });
 });

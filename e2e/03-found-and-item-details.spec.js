@@ -13,9 +13,9 @@ test("found-item report form renders for a signed-in user", async ({ page }) => 
 
 test("non-admin sees the recovery-safe finder label", async ({ page }) => {
   await loginAs(page, "student");
-  await visit(page, "/ItemDetails?id=found_001");
+  await visit(page, "/ItemDetails?id=found_owala");
   // Seeded item title is visible...
-  await expect(page.getByText(/Hydro Flask/i).first()).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByText(/Owala/i).first()).toBeVisible({ timeout: 10_000 });
   // ...and the finder is redacted to "PVHS Staff" for non-privileged viewers.
   await expect(page.getByText(/Found by/i)).toBeVisible();
   await expect(page.getByText(/PVHS Staff/i).first()).toBeVisible();
@@ -23,8 +23,8 @@ test("non-admin sees the recovery-safe finder label", async ({ page }) => {
 
 test("item page exposes the canonical status stepper", async ({ page }) => {
   await loginAs(page, "student");
-  await visit(page, "/ItemDetails?id=found_001");
-  await expect(page.getByText(/Hydro Flask/i).first()).toBeVisible({ timeout: 10_000 });
+  await visit(page, "/ItemDetails?id=found_owala");
+  await expect(page.getByText(/Owala/i).first()).toBeVisible({ timeout: 10_000 });
   // The lifecycle stepper renders the canonical statuses.
   await expect(page.getByText(/Found|Claim|Verified|Archived/i).first()).toBeVisible();
 });
